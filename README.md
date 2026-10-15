@@ -79,7 +79,9 @@ compile can take several minutes. On affected Linux/Wayland systems, use
 All features are included: cull-before-import sessions, multiple card sources,
 specific card subfolders, configurable panels, video inclusion/playback,
 appearance modes, offline fonts, the optional RapidRAW inspired design,
-larger UI headings, XDG configuration, and remembered/default view modes.
+larger UI headings, XDG configuration, remembered/default view modes, Wisp contrast,
+saved interface scaling, recent session deletion, resizable stack strips,
+experimental native-aspect strips and eased zoom, and optional NVIDIA rendering profiles.
 Optional preferences are selectable in Settings; the RapidRAW design is under
 **Culling → Design theme**, and view/panel controls are under **Layout**.
 Linux settings are created in `$XDG_CONFIG_HOME/opencull/config.json`, normally
@@ -87,6 +89,9 @@ Linux settings are created in `$XDG_CONFIG_HOME/opencull/config.json`, normally
 macOS and Windows use Tauri's native application-config directory instead.
 The Linux video streaming workaround is compiled only on Linux; macOS keeps
 native asset-protocol playback. `dev:desktop` sets no Linux environment flags.
+
+For a Mac tester, use the [macOS trial guide](docs/TRY-ON-MACOS.md).
+NVIDIA rendering profiles are Linux-only; macOS uses its native webview automatically.
 
 Run `npm run check` for automated checks. See the
 [feature and validation map](docs/features/VALIDATION.md) for individual PRs
