@@ -103,7 +103,7 @@ Linux settings are created in `$XDG_CONFIG_HOME/opencull/config.json`, normally
 `~/.config/opencull/config.json`. No personal configuration file is required.
 macOS and Windows use Tauri's native application-config directory instead.
 The Linux video streaming workaround is compiled only on Linux; macOS keeps
-native asset-protocol playback. `desktop` sets no Linux environment flags.
+native asset-protocol playback. `desktop` automatically selects the tested NVIDIA workaround on Linux when NVIDIA drives the primary display and X11 is available. Other platforms retain native defaults.
 
 For a Mac tester, use the [macOS trial guide](docs/TRY-ON-MACOS.md).
 NVIDIA rendering profiles and CUDA AI are Linux-only; macOS uses its native webview

@@ -66,14 +66,14 @@ pub fn run() {
                 webview.inner().set_cors_allowlist(&["opencull://localhost/*"]);
             })?;
             #[cfg(target_os = "linux")]
-            if graphics != graphics::Profile::Auto {
+            if graphics.effective != graphics::Profile::Auto {
                 app.get_webview_window("main").expect("main window").with_webview(move |webview| {
                     use webkit2gtk::{SettingsExt, WebViewExt};
                     use webkit2gtk::glib::prelude::ObjectExt;
                     if let Some(settings) = webview.inner().settings() {
-                        let policy = if graphics == graphics::Profile::Software { webkit2gtk::HardwareAccelerationPolicy::Never } else { webkit2gtk::HardwareAccelerationPolicy::Always };
+                        let policy = if graphics.effective == graphics::Profile::Software { webkit2gtk::HardwareAccelerationPolicy::Never } else { webkit2gtk::HardwareAccelerationPolicy::Always };
                         settings.set_hardware_acceleration_policy(policy);
-                        if graphics == graphics::Profile::Nvidia {
+                        if graphics.effective == graphics::Profile::Nvidia {
                             settings.set_enable_webgl(true);
                             if settings.find_property("enable-2d-canvas-acceleration").is_some() { settings.set_property("enable-2d-canvas-acceleration", true); }
                         }

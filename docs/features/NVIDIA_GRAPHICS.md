@@ -17,3 +17,5 @@ On the tested RTX 3060 Ti / NVIDIA 615.78.08 / WebKitGTK 2.54.1 / Hyprland syste
 Settings → Storage → Check renderer reports whether the fallback was requested. Restart the desktop after changing launch environment variables. No photo files or saved interface preferences need changing.
 
 WebKit describes the new compositor and changes to the software rendering path in its [2.54 release notes](https://webkitgtk.org/2026/09/16/webkitgtk-2.54-highlights.html). Its [2.54 startup implementation](https://github.com/WebKit/WebKit/blob/webkitglib/2.54/Source/WebKit/WebProcess/WebPage/CoordinatedGraphics/DrawingAreaCoordinatedGraphicsGLib.cpp) handles the compositor override.
+
+On Linux, Auto now selects the NVIDIA profile when the primary boot display device is bound to the NVIDIA driver and X11 is available. Secondary/offload-only NVIDIA GPUs do not trigger this choice. Explicit profiles and GDK_BACKEND overrides are preserved. Other GPUs and macOS/Windows retain their defaults. Renderer diagnostics report both the requested and active profiles. This avoids the fatal Wayland protocol error observed with the default desktop command on the tested NVIDIA system.
