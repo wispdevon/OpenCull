@@ -1,6 +1,6 @@
 # Wisp design guidelines
 
-Select Wisp under Settings → Design → Design theme. It works with Dark,
+Select Wisp under Settings → Design → Interface design. It works with Dark,
 Light and 18% grey appearance modes. The photographic surround stays neutral;
 theme colours never alter photo pixels or rating colours.
 

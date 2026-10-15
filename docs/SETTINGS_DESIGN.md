@@ -10,6 +10,10 @@ geometry. All sizes below use rems so the saved interface scale applies.
   1.25rem padding. Leave 1rem between cards. Do not add a second padded card
   inside a card. Nested fieldsets retain their legend and radio-group semantics
   with zero padding, zero border and no separate background.
+- Fieldset headings: use 0.75rem (12px at 100%) top padding before the first
+  content row. A legend adds no bottom margin, and the first child adds no top
+  margin. Do not stack legend spacing, card padding and paragraph margins into
+  a large empty band, as happened in Graphics acceleration.
 - Within a group: use 0.5rem between a group label and its controls, 0.75rem
   between related rows and 0.375rem between a setting title and its explanation.
   Avoid spacer elements, fixed row heights or margins added to both neighbours.

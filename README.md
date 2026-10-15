@@ -81,10 +81,11 @@ larger UI headings, XDG configuration, remembered/default view modes, Wisp contr
 saved interface scaling, recent session deletion, resizable stack strips,
 experimental native-aspect strips and eased zoom, optional NVIDIA rendering profiles,
 and an opt-in Linux CUDA AI trial.
-Optional preferences are selectable in Settings; themes, colour mode, font and interface scale are under
-**Design**; view/panel controls remain under **Layout**.
-The home page's **Layouts** button switches between Spacious and Classic action
-placement. Keyboard shortcuts are edited directly in **Settings → Keyboard**.
+**Settings → Design** selects OpenCull, RapidRAW or Wisp interface
+design and switches between Spacious and Classic action placement.
+Colour mode, font and interface scale are under **Settings → Design**;
+view/panel controls remain under **Settings → Layout**.
+Keyboard shortcuts are edited directly in **Settings → Keyboard**.
 See the [settings layout guidelines](docs/SETTINGS_DESIGN.md) and
 [Wisp design guidelines](docs/WISP_DESIGN.md) for spacing and contrast rules.
 Linux settings are created in `$XDG_CONFIG_HOME/opencull/config.json`, normally

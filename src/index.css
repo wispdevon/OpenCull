@@ -137,6 +137,9 @@
 .settings-panel.settings-panel { font-size: 0.875rem; line-height: 1.5; }
 .settings-panel.settings-panel fieldset,
 .settings-panel.settings-panel .setting-row { padding: 1.25rem; }
+.settings-panel.settings-panel fieldset { padding-top: 0.75rem; }
+.settings-panel.settings-panel fieldset > legend { margin-block-end: 0; }
+.settings-panel.settings-panel fieldset > legend + * { margin-block-start: 0; }
 /* Nested semantic groups aren't additional cards. Never compound their padding. */
 .settings-panel.settings-panel fieldset fieldset {
   margin: 0;

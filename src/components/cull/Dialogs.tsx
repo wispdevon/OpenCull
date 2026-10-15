@@ -1,5 +1,6 @@
 import { ExperimentalFilmstripSettings } from "./ExperimentalFilmstripSettings";
 import { ExperimentalZoomSettings } from "./ExperimentalZoomSettings";
+import { HomeLayoutSettings } from "@/components/HomeLayoutSettings";
 import { InterfaceScaleSettings } from "@/components/InterfaceScaleSettings";
 import { GraphicsSettings } from "@/components/GraphicsSettings";
 import { useEffect, useRef, useState } from "react";
@@ -18,7 +19,6 @@ import {
 import { FontSettings } from "@/components/FontSettings";
 import { ThemeSettings } from "@/components/ThemeSettings";
 import { Button } from "@/components/ui/button";
-import { VisualThemeSettings } from "@/components/VisualThemeSettings";
 import { ViewModeSettings } from "@/components/ViewModeSettings";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
@@ -289,7 +289,7 @@ function SettingsBody({ tab, onTab, ...shortcutProps }: { tab: SettingsTab; onTa
           they are stepped through; a tab with more than fits scrolls. */}
       <div className="h-[min(560px,calc(100dvh-12rem))] min-h-0 overflow-x-hidden overflow-y-auto pr-1">
         <TabsContent value="design" className="flex flex-col gap-4">
-          <VisualThemeSettings />
+          <HomeLayoutSettings />
           <ThemeSettings />
           <FontSettings />
           <InterfaceScaleSettings />

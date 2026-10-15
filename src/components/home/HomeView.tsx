@@ -1,11 +1,10 @@
 import "./home-typography.css";
 import { useEffect, useRef, useState } from "react";
-import { Circle, CircleCheck, FolderPlus, FolderSearch, Images, Keyboard, PanelsTopLeft, Settings, Trash2, X } from "lucide-react";
+import { Circle, CircleCheck, FolderPlus, FolderSearch, Images, Keyboard, Settings, Trash2, X } from "lucide-react";
 
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from "@/components/ui/context-menu";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { load, save } from "@/lib/prefs";
-import { useDesignTheme } from "@/components/VisualThemeSettings";
+import { useHomeLayout } from "@/components/HomeLayoutSettings";
+import { useVisualTheme } from "@/components/VisualThemeSettings";
 import { RecentSessions, ResumeLatestSession } from "./RecentSessions";
 import { CardIcon } from "@/components/ingest/IngestView";
 import { api, type Volume } from "@/lib/api";
@@ -32,8 +31,8 @@ async function chooseFolder() {
 
 /** Where the app opens: the folders worked on lately, and a way to open another. */
 export function HomeView({ dropping }: { dropping: boolean }) {
-  const designTheme = useDesignTheme();
-  const [layout, setLayout] = useState(() => load<string>("homeLayout", "spacious") === "classic" ? "classic" : "spacious");
+  const designTheme = useVisualTheme((s) => s.theme);
+  const layout = useHomeLayout((s) => s.layout);
   const recents = useStore((s) => s.recents);
   const platform = useStore((s) => s.platform);
   const openError = useStore((s) => s.openError);
@@ -119,23 +118,7 @@ export function HomeView({ dropping }: { dropping: boolean }) {
         <button type="button" title="Settings" aria-label="Settings" onClick={() => useStore.getState().set("settingsOpen", true)} className="flex size-10 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
           <Settings className="size-[18px]" />
         </button>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button type="button" className="home-layouts inline-flex min-h-10 items-center gap-2 rounded-lg border border-border px-3 text-sm text-foreground hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-              <PanelsTopLeft className="size-4" /> Layouts
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="min-w-64">
-            <DropdownMenuRadioGroup value={layout} onValueChange={(value) => {
-              if (value !== "spacious" && value !== "classic") return;
-              setLayout(value);
-              save("homeLayout", value);
-            }}>
-              <DropdownMenuRadioItem value="spacious">Spacious · actions below heading</DropdownMenuRadioItem>
-              <DropdownMenuRadioItem value="classic">Classic · actions at upper right</DropdownMenuRadioItem>
-            </DropdownMenuRadioGroup>
-          </DropdownMenuContent>
-        </DropdownMenu>
+
         </div>
         <div role="group" aria-label="Session actions" className="home-actions flex flex-wrap items-center gap-3">
         <button

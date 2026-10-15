@@ -31,7 +31,6 @@
 :root .home-view .home-controls { column-gap: 1.5rem; row-gap: 1rem; }
 :root .home-view .home-actions { gap: 0.75rem; }
 :root .home-view .home-heading > p { margin-top: 0.75rem; }
-:root .home-view .home-header .home-layouts { width: auto; padding-inline: 0.75rem; }
 :root .home-view[data-home-layout="classic"] .home-heading { flex: 1 1 18rem; }
 :root .home-view[data-home-layout="classic"] .home-controls {
   flex: 0 1 auto;
