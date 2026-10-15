@@ -3,7 +3,7 @@ export interface ReviewSession {
   version: 1; id: string; name: string; sources: string[]; items: Scanned[];
   decisions: Record<string, Marks & { framing: Framing }>;
   chosen: string[] | null; stage: "review" | "in-place";
-  completed: Record<string, string>; destination?: string;
+  completed: Record<string, string>; destination?: string; updatedAt?: number;
 }
 export function initialSelection<T extends { path: string; flag: string }>(photos: readonly T[]): string[] {
   return photos.filter((p) => p.flag !== "reject").map((p) => p.path);
