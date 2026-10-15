@@ -35,9 +35,9 @@
 
 ## Run this fork with all features
 
-The `dev` branch combines the approved features in this fork for testing on macOS, Linux and Windows.
+This fork combines the approved features for macOS, Linux and Windows on its default branch.
 No manual merging or cherry-picking is needed. Individual feature branches
-remain available for selective upstream review; approved work is also merged into fork `main`.
+remain available for selective upstream review; ongoing testing is available on `dev`.
 
 Install [Rust stable](https://rustup.rs) and the
 [native Tauri prerequisites](https://v2.tauri.app/start/prerequisites/) first:
@@ -53,7 +53,7 @@ Install [Rust stable](https://rustup.rs) and the
 Then, using nvm (or your platform's Node version manager):
 
 ```sh
-git clone --branch dev --single-branch https://github.com/wispdevon/OpenCull.git
+git clone https://github.com/wispdevon/OpenCull.git
 cd OpenCull
 nvm install
 nvm use
@@ -254,7 +254,7 @@ also need the system packages on
 
 1. Clone the repo
    ```sh
-   git clone --branch dev --single-branch https://github.com/wispdevon/OpenCull.git
+   git clone https://github.com/wispdevon/OpenCull.git
    cd OpenCull
    ```
 2. Install the packages
