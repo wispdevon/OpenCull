@@ -174,12 +174,14 @@ export function HomeView({ dropping }: { dropping: boolean }) {
           <>
             <div className="mb-4 flex items-center gap-3">
               <h2 className="flex-1 text-lg font-semibold text-[var(--ui-text-a6a6a6)]">Recent Folders ({recents.length})</h2>
+              {selected.size > 0 && <>
               <button type="button" disabled={selected.size === recents.length} onClick={() => setSelected(new Set(recents))} className="text-xs font-medium text-[var(--ui-text-8c8c8c)] disabled:text-[var(--ui-text-4d4d4d)]">
                 Select All
               </button>
               <button type="button" disabled={selected.size === 0} onClick={() => setSelected(new Set())} className="text-xs font-medium text-[var(--ui-text-8c8c8c)] disabled:text-[var(--ui-text-4d4d4d)]">
                 Deselect All
               </button>
+              </>}
               {selected.size > 0 && (
                 <button
                   type="button"
