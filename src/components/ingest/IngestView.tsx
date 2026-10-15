@@ -412,21 +412,17 @@ export function IngestView() {
           )}
 
         </section>
-        <span className="w-px bg-white/[0.09]" />
-
-        {/* Where to. */}
-        <aside className="flex w-[280px] shrink-0 flex-col gap-4 bg-[#131318] p-4">
-          <span className="flex-1" />
+      </div>
+      <footer className="flex shrink-0 items-center justify-end border-t border-border bg-[#131318] px-5 py-3">
           <button
             type="button"
             disabled={!canIngest}
             onClick={() => void requestIngest()}
-            className={cn("rounded-lg py-3 text-[13px] font-bold tracking-wide", canIngest ? "bg-[#408cf2] text-white hover:brightness-110" : "bg-[#404040] text-[#8c8c8c]")}
+            className={cn("min-w-48 rounded-lg px-6 py-3 text-[13px] font-bold tracking-wide", canIngest ? "bg-[#408cf2] text-white hover:brightness-110" : "bg-[#404040] text-[#8c8c8c]")}
           >
             START CULLING
           </button>
-        </aside>
-      </div>
+      </footer>
 
       <AlertDialog open={phase.is === "failed"} onOpenChange={(open) => !open && setPhase({ is: "ready" })}>
         <AlertDialogContent>
