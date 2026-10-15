@@ -17,7 +17,11 @@ pub fn initialize() -> Profile {
     #[cfg(target_os="linux")]
     match profile {
         Profile::Nvidia => {
-            for name in ["WEBKIT_DISABLE_DMABUF_RENDERER", "WEBKIT_DISABLE_COMPOSITING_MODE", "LIBGL_ALWAYS_SOFTWARE"] { std::env::remove_var(name); }
+            for name in ["WEBKIT_DISABLE_COMPOSITING_MODE", "LIBGL_ALWAYS_SOFTWARE"] { std::env::remove_var(name); }
+            // Current proprietary drivers can reject WebKit GBM buffers. Keep
+            // hardware compositing, but use the compatible presentation path.
+            std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
+            if std::env::var_os("GDK_BACKEND").is_none() && std::env::var_os("DISPLAY").is_some() { std::env::set_var("GDK_BACKEND", "x11"); }
             std::env::set_var("__GLX_VENDOR_LIBRARY_NAME", "nvidia");
         },
         Profile::Compatibility => { std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1"); },
