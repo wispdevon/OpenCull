@@ -242,3 +242,17 @@
 /* Identity always occupies its own row above the horizontal actions. */
 :root[data-visual-theme="rapidraw"] .home-heading { flex: 1 0 100%; }
 :root[data-visual-theme="rapidraw"] .home-controls { flex: 1 0 100%; }
+
+/* Keep folder contact sheets; session history is denser in this preset. */
+:root[data-visual-theme="rapidraw"] .home-recents .group > div:first-child { display: block; }
+:root[data-visual-theme="rapidraw"] .home-recents .group > div:nth-child(2) { padding: 16px; }
+:root[data-visual-theme="rapidraw"] .home-recents .group > button { display: block; top: 12px; }
+:root[data-visual-theme="rapidraw"] .recent-sessions-grid {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr));
+  gap: 16px;
+}
+:root[data-visual-theme="rapidraw"] .recent-sessions-grid > button { max-width: 320px; }
+:root[data-visual-theme="rapidraw"] .recent-sessions-grid > button > div:first-child { aspect-ratio: 16 / 9; }
+:root[data-visual-theme="rapidraw"] .recent-sessions-grid > button > div:nth-child(2) { padding: 12px; }
+:root[data-visual-theme="rapidraw"] .recent-sessions-grid > button > div:nth-child(2) > div { font-size: 0.875rem; }
+:root[data-visual-theme="rapidraw"] .recent-sessions-grid p { font-size: 0.75rem; line-height: 1.5; }
