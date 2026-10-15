@@ -219,6 +219,7 @@ function Status() {
   const analysed = useStore((s) => s.aiDone);
   const cached = useStore((s) => s.aiCached);
   const pending = useStore((s) => s.aiPending);
+  const motionPending = useStore((s) => s.aiMotionPending);
   const chip = "ml-3 flex shrink-0 items-center gap-1.5 rounded-full bg-black/40 px-2 py-1 text-[11px] font-medium";
 
   if (loading) {
@@ -232,7 +233,7 @@ function Status() {
   if (total === 0) return null;
   if (progress < 1) return <Working label="Reading photo info…" fraction={progress} className={cn(chip, "text-[#66b3ff]")} title="Reading capture times, ratings and camera details" />;
   // Never shown as finished while it is still going.
-  if (analysing) return <Working label={pending === null ? "Checking AI cache…" : pending === 0 ? "Loading cached AI…" : "AI scanning…"} fraction={Math.min(0.99, analysed / total)} className={cn(chip, "text-[#66b3ff]")} title={`${cached.toLocaleString()} cached results reused; ${pending === null ? "checking for" : pending.toLocaleString()} photos need analysis. Stands aside while you move between photos.`} />;
+  if (analysing) return <Working label={pending === null ? "Checking AI cache…" : pending === 0 ? "Loading cached AI…" : motionPending === pending ? "Checking motion blur…" : "AI scanning…"} fraction={Math.min(0.99, analysed / total)} className={cn(chip, "text-[#66b3ff]")} title={`${cached.toLocaleString()} complete cached results; ${pending === null ? "checking for" : (pending - motionPending).toLocaleString()} new face analyses; ${motionPending.toLocaleString()} motion-only checks using cached faces. Stands aside while you move between photos.`} />;
   if (preparing > 0) {
     // Counted from how many there were when this round began. Never shown
     // as finished while any are left.

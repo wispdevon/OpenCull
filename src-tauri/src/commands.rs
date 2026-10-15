@@ -672,7 +672,7 @@ pub struct Analysed {
 #[derive(Serialize, Clone)]
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum AiEvent {
-    Cache { cached: usize, pending: usize },
+    Cache { cached: usize, pending: usize, #[serde(rename = "motionOnly")] motion_only: usize },
     Batch { items: Vec<Analysed> },
     /// The scan has ended. `finished` is false if it was stopped part way.
     Done { finished: bool },
@@ -690,7 +690,8 @@ const AI_SAVE_EVERY: usize = 150;
 /// through on spare time: whenever the photographer is being served, the
 /// scan waits. Asking again, or closing the folder, stops this one.
 #[tauri::command]
-pub async fn ai_scan(app: AppState<'_>, session: u64, order: Vec<usize>, advanced: bool, events: Channel<AiEvent>) -> Result<(), String> {
+pub async fn ai_scan(app: AppState<'_>, session: u64, order: Vec<usize>, advanced: bool, motion_blur: Option<bool>, events: Channel<AiEvent>) -> Result<(), String> {
+    let motion_blur = motion_blur.unwrap_or(false);
     let rules = if advanced { ai::Rules::Advanced } else { ai::Rules::Basic };
     let Some(session) = app.sessions.lock().unwrap().get(&session).cloned() else {
         return Err("that folder is no longer open".into());
@@ -708,16 +709,18 @@ pub async fn ai_scan(app: AppState<'_>, session: u64, order: Vec<usize>, advance
         // What is already known goes out at once.
         let mut todo = Vec::new();
         let mut ready = Vec::new();
+        let mut motion_only = 0;
         for index in order {
             let Some(image) = session.images.get(index) else { continue };
             if scan::is_video(&raw::extension(&image.path)) { continue; }
             match ai::store::remembered(&known.lock().unwrap(), &image.display, &image.version) {
-                Some(record) => ready.push(Analysed { index, record }),
+                Some(record) if !motion_blur || record.motion_version == ai::motion::VERSION => ready.push(Analysed { index, record }),
+                Some(_) => { motion_only += 1; todo.push(index); },
                 None => todo.push(index),
             }
         }
-        eprintln!("[ai-cache] restoring {} cached photos; {} require analysis", ready.len(), todo.len());
-        events.send(AiEvent::Cache { cached: ready.len(), pending: todo.len() }).ok();
+        eprintln!("[ai-cache] restoring {} cached photos; {} new analyses; {} motion-only checks", ready.len(), todo.len() - motion_only, motion_only);
+        events.send(AiEvent::Cache { cached: ready.len(), pending: todo.len(), motion_only }).ok();
         for chunk in ready.chunks(256) {
             if events.send(AiEvent::Batch { items: chunk.to_vec() }).is_err() {
                 return;
@@ -756,7 +759,13 @@ pub async fn ai_scan(app: AppState<'_>, session: u64, order: Vec<usize>, advance
                         let image = &session.images[index];
                         // A photo that cannot be analysed is remembered as
                         // having no faces, so it is not tried on every open.
-                        let record = ai::analyze(&image.display, rules).map(|a| ai::store::Record::from(&a)).unwrap_or_default();
+                        let cached = ai::store::remembered(&known.lock().unwrap(), &image.display, &image.version);
+                        let record = if let Some(mut record) = cached {
+                            ai::motion::annotate_file(&image.display, &mut record);
+                            record
+                        } else {
+                            ai::analyze_record(&image.display, rules, motion_blur).unwrap_or_default()
+                        };
                         known.lock().unwrap().insert(image.display.to_string_lossy().into_owned(), (image.version.clone(), record.clone()));
                         if tx.send(Analysed { index, record }).is_err() {
                             return;

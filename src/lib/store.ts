@@ -1,4 +1,5 @@
 import { isVideo } from "./media";
+import { hasMotionBlur, motionAdjustedScore } from "./motion-blur";
 // The state of the app: which folder is open, what has been decided about
 // each photo in it, and what is on screen.
 
@@ -62,6 +63,7 @@ interface State {
 
   flagFilter: FlagFilter;
   ratingFilter: number | null;
+  motionBlurFilter: boolean;
   colorFilters: Set<Color>;
   sort: SortKey;
   sortAscending: boolean;
@@ -154,10 +156,14 @@ interface State {
   aiRunning: boolean;
   aiCached: number;
   aiPending: number | null;
+  aiMotionPending: number;
   /** Find and judge faces at all. */
   aiEnabled: boolean;
   /** Judge them the newer way, still being worked on, rather than as the last release did. */
   aiAdvanced: boolean;
+  aiMotionBlur: boolean;
+  autoRateMotionBlur: boolean;
+  motionRatingSkipped: Set<number>;
   /** Show faces judged to be background in the face panel, dimmed. */
   showBackgroundFaces: boolean;
   /** Analysis stands aside whenever a photo is being moved to. */
@@ -226,6 +232,8 @@ interface Actions {
 
   setFlagFilter(f: FlagFilter): void;
   setRatingFilter(r: number | null): void;
+  setMotionBlurFilter(on: boolean): void;
+  rateMotionBlur(): void;
   toggleColorFilter(c: Color): void;
   clearFilters(): void;
   setSort(key: SortKey, ascending: boolean): void;
@@ -339,11 +347,12 @@ export const BLINK = 0.6;
  */
 export const blinked = (face: AiFace, share: number | null | undefined) => share != null && share < BLINK && !face.excused;
 
-export type Problem = "eyesClosed" | "blinking" | "lookingAway" | "softFocus";
-export const PROBLEM_LABEL: Record<Problem, string> = { eyesClosed: "Eyes closed", blinking: "Blinking", lookingAway: "Looking away", softFocus: "Soft focus" };
+export type Problem = "motionBlur" | "eyesClosed" | "blinking" | "lookingAway" | "softFocus";
+export const PROBLEM_LABEL: Record<Problem, string> = { motionBlur: "Motion blur", eyesClosed: "Eyes closed", blinking: "Blinking", lookingAway: "Looking away", softFocus: "Soft focus" };
 
 /** The worst thing wrong with a photo's subjects, if anything is. */
-export function problemOf(result: AiResult | undefined, compared?: Compared): Problem | null {
+export function problemOf(result: AiResult | undefined, compared?: Compared, motionBlur = false): Problem | null {
+  if (motionBlur && hasMotionBlur(result)) return "motionBlur";
   const subjects = result?.faces.filter((f) => f.subject) ?? [];
   if (subjects.some((f) => f.eyesShut)) return "eyesClosed";
   if (result?.faces.some((f, i) => f.subject && blinked(f, compared?.eyes[i]))) return "blinking";
@@ -392,6 +401,8 @@ const PERSISTED = [
   "cacheLimitGb",
   "aiEnabled",
   "aiAdvanced",
+  "aiMotionBlur",
+  "autoRateMotionBlur",
   "showBackgroundFaces",
   "aiPause",
   "smartGroups",
@@ -412,8 +423,10 @@ function marksOf(p: Photo): Marks {
   return { rating: p.rating, flag: p.flag, color: p.color };
 }
 
-function hasFilter(s: Pick<State, "flagFilter" | "ratingFilter" | "colorFilters">): boolean {
-  return s.flagFilter !== "all" || s.ratingFilter !== null || s.colorFilters.size > 0;
+type FilterState = Pick<State, "flagFilter" | "ratingFilter" | "colorFilters" | "motionBlurFilter" | "aiMotionBlur" | "aiEnabled" | "ai">;
+
+function hasFilter(s: FilterState): boolean {
+  return s.flagFilter !== "all" || s.ratingFilter !== null || s.colorFilters.size > 0 || s.motionBlurFilter;
 }
 
 export function hasActiveFilter(s: State): boolean {
@@ -421,16 +434,17 @@ export function hasActiveFilter(s: State): boolean {
 }
 
 /** Whether the filters let this photo through. Every active one must agree. */
-function passes(p: Photo, s: Pick<State, "flagFilter" | "ratingFilter" | "colorFilters">): boolean {
+function passes(p: Photo, s: FilterState): boolean {
   if (s.flagFilter === "picks" && p.flag !== "pick") return false;
   if (s.flagFilter === "rejects" && p.flag !== "reject") return false;
   if (s.flagFilter === "unflagged" && p.flag !== "none") return false;
   if (s.ratingFilter !== null && p.rating !== s.ratingFilter) return false;
   if (s.colorFilters.size > 0 && !s.colorFilters.has(p.color)) return false;
+  if (s.motionBlurFilter && (!s.aiEnabled || !s.aiMotionBlur || !hasMotionBlur(s.ai[p.index]))) return false;
   return true;
 }
 
-function filtered(order: number[], photos: Photo[], s: Pick<State, "flagFilter" | "ratingFilter" | "colorFilters">): number[] {
+function filtered(order: number[], photos: Photo[], s: FilterState): number[] {
   return hasFilter(s) ? order.filter((i) => passes(photos[i], s)) : order;
 }
 
@@ -659,8 +673,9 @@ export const useStore = create<Store>((set, get) => {
         const ranks = now.ranks.slice();
         const poses = now.poses.slice();
         ready.forEach((run, r) => {
-          run.forEach((index, at) => (compared[index] = marked[r][at]));
-          rankRun(ranks, run, marked[r]);
+          const adjusted = marked[r].map((frame, at) => ({ ...frame, score: motionAdjustedScore(frame.score, now.ai[run[at]], now.aiEnabled && now.aiMotionBlur) }));
+          run.forEach((index, at) => (compared[index] = adjusted[at]));
+          rankRun(ranks, run, adjusted);
           // A pose is known through the folder by its first frame.
           const first = new Map<number, number>();
           const size = new Map<number, number>();
@@ -702,6 +717,7 @@ export const useStore = create<Store>((set, get) => {
 
     flagFilter: "all",
     ratingFilter: null,
+    motionBlurFilter: false,
     colorFilters: new Set(),
     sort: load<SortKey>("sort", "captureTime"),
     sortAscending: load("sortAscending", true),
@@ -755,9 +771,13 @@ export const useStore = create<Store>((set, get) => {
     aiDone: 0,
     aiCached: 0,
     aiPending: null,
+    aiMotionPending: 0,
     aiRunning: false,
     aiEnabled: load("aiEnabled", true),
     aiAdvanced: load("aiAdvanced", false),
+    aiMotionBlur: load("aiMotionBlur", false),
+    autoRateMotionBlur: load("autoRateMotionBlur", true),
+    motionRatingSkipped: new Set(),
     showBackgroundFaces: load("showBackgroundFaces", false),
     aiPause: load("aiPause", true),
     showFaces: load("showFaces", true),
@@ -890,6 +910,7 @@ export const useStore = create<Store>((set, get) => {
         ranks: [],
         poses: [],
         aiDone: 0,
+        motionBlurFilter: false, motionRatingSkipped: new Set(),
         aiCached: 0, aiPending: null,
         aiRunning: false,
         faceZoom: null,
@@ -1020,6 +1041,7 @@ export const useStore = create<Store>((set, get) => {
 
     setRating(rating, targets) {
       const s = get();
+      set({ motionRatingSkipped: new Set([...s.motionRatingSkipped, ...(targets ?? currentOnly())]) });
       const marked = targets === undefined;
       applyMarks((targets ?? currentOnly()).map((index) => ({ index, after: { ...marksOf(s.photos[index]), rating } })));
       if (marked && speedCulling(s)) get().next();
@@ -1044,6 +1066,7 @@ export const useStore = create<Store>((set, get) => {
     clearRatingAndColor(targets) {
       const s = get();
       const list = targets ?? (s.selected.size > 0 ? [...s.selected] : currentOnly());
+      set({ motionRatingSkipped: new Set([...s.motionRatingSkipped, ...list]) });
       applyMarks(list.map((index) => ({ index, after: { ...marksOf(s.photos[index]), rating: 0, color: "none" as Color } })));
     },
 
@@ -1092,6 +1115,7 @@ export const useStore = create<Store>((set, get) => {
       const s = get();
       const edit = s.undoStack[s.undoStack.length - 1];
       if (!edit) return;
+      set({ motionRatingSkipped: new Set([...s.motionRatingSkipped, ...edit.map((e) => e.index)]) });
       applyMarks(edit.filter((e) => !e.framing).map((e) => ({ index: e.index, after: e.before })), false);
       applyFraming(edit.flatMap((e) => (e.framing ? [{ index: e.index, framing: e.framing.before }] : [])), false);
       set({ undoStack: s.undoStack.slice(0, -1), redoStack: [...s.redoStack, edit], ...backTo(edit) });
@@ -1101,6 +1125,7 @@ export const useStore = create<Store>((set, get) => {
       const s = get();
       const edit = s.redoStack[s.redoStack.length - 1];
       if (!edit) return;
+      set({ motionRatingSkipped: new Set([...s.motionRatingSkipped, ...edit.map((e) => e.index)]) });
       applyMarks(edit.filter((e) => !e.framing).map((e) => ({ index: e.index, after: e.after })), false);
       applyFraming(edit.flatMap((e) => (e.framing ? [{ index: e.index, framing: e.framing.after }] : [])), false);
       set({ redoStack: s.redoStack.slice(0, -1), undoStack: [...s.undoStack, edit], ...backTo(edit) });
@@ -1114,6 +1139,17 @@ export const useStore = create<Store>((set, get) => {
       const s = get();
       refilter({ ratingFilter }, filtered(s.order, s.photos, { ...s, ratingFilter }));
     },
+    setMotionBlurFilter(motionBlurFilter) {
+      const s = get();
+      refilter({ motionBlurFilter }, filtered(s.order, s.photos, { ...s, motionBlurFilter }));
+    },
+    rateMotionBlur() {
+      const s = get();
+      if (!s.aiEnabled || !s.aiMotionBlur || !s.autoRateMotionBlur || s.selfTest || s.metaProgress < 1) return;
+      const changes = s.photos.flatMap((p) => p.rating === 0 && !s.motionRatingSkipped.has(p.index) && hasMotionBlur(s.ai[p.index])
+        ? [{ index: p.index, after: { ...marksOf(p), rating: 1 } }] : []);
+      applyMarks(changes);
+    },
     toggleColorFilter(color) {
       const s = get();
       const colorFilters = new Set(s.colorFilters);
@@ -1123,7 +1159,7 @@ export const useStore = create<Store>((set, get) => {
     },
     clearFilters() {
       const s = get();
-      set({ flagFilter: "all", ratingFilter: null, colorFilters: new Set(), view: s.order });
+      set({ flagFilter: "all", ratingFilter: null, motionBlurFilter: false, colorFilters: new Set(), view: s.order });
     },
 
     setSort(sort, sortAscending) {
@@ -1150,7 +1186,8 @@ export const useStore = create<Store>((set, get) => {
         if (ai[index] === undefined) fresh += 1;
         ai[index] = result;
       }
-      set({ ai, aiDone: s.aiDone + fresh });
+      set({ ai, aiDone: s.aiDone + fresh, view: filtered(s.order, s.photos, { ...s, ai }) });
+      get().rateMotionBlur();
       compareRuns(items.map((item) => item.index));
     },
 
