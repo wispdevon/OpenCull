@@ -49,10 +49,10 @@ export function RecentSessions() {
   const [openError,setOpenError] = useState("");
   if (!sessions.length && !error) return null;
   const open = async (id: string) => { setOpening(id);setOpenError("");try { await resume({kind:"card",id}); } catch(e) { setOpenError(String(e)); } finally { setOpening(null); } };
-  return <section aria-label="Recent Sessions" className="mb-8">
+  return <section aria-label="Recent Sessions" className="recent-sessions mb-8">
     <h2 className="mb-4 text-lg font-semibold text-foreground">Recent Sessions ({sessions.length})</h2>
     {(error || openError) && <p role="alert" className="mb-3 text-sm text-destructive">{error || openError}</p>}
-    <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,420px),1fr))] gap-6">
+    <div className="recent-sessions-grid grid grid-cols-[repeat(auto-fill,minmax(min(100%,420px),1fr))] gap-6">
       {sessions.map((session) => <button key={session.id} type="button" disabled={opening !== null} onClick={() => void open(session.id)}
         className="overflow-hidden rounded-xl border border-border bg-card text-left text-card-foreground hover:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
         <div className="relative aspect-[16/10] bg-muted">
