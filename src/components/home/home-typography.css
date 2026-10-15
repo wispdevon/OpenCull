@@ -13,3 +13,5 @@
   .home-header { padding: 1.5rem; }
   .home-recents { padding: 1.5rem; }
 }
+.home-heading { flex: 1 0 100%; min-width: 0; }
+.home-controls { flex: 1 0 100%; justify-content: flex-start; }
