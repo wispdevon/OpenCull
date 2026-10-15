@@ -147,7 +147,7 @@ cannot be installed where the app lives, it says so and brings you back here.
 
 ### Build From Source
 
-You need [Rust](https://rustup.rs) and [Node](https://nodejs.org), and one
+You need [Rust](https://rustup.rs) and [Node](https://nodejs.org) 22.12+ LTS, 24, or 26+ (Node 22.23.3 and npm 11.21.1 are pinned for CI), and one
 thing for the JPEG library: `brew install jpeg-turbo` on macOS, or CMake
 (plus NASM on Intel and AMD machines) on Windows and Linux. Windows and Linux
 also need the system packages on
@@ -160,7 +160,7 @@ also need the system packages on
    ```
 2. Install the packages
    ```sh
-   npm install
+   npm ci
    ```
 3. Run it
    ```sh
@@ -235,6 +235,10 @@ the repo and open a pull request:
 3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
 4. Push to the Branch (`git push origin feature/AmazingFeature`)
 5. Open a Pull Request
+
+Use `nvm install && nvm use`, then `npm install --global npm@11.21.1` (or another version manager that reads `.node-version`) before installing packages. Node 20 is unsupported by the current test runner. If no version manager is installed, run commands through the pinned runtime, for example `npx --yes --package=node@22.23.3 --package=npm@11.21.1 --call 'npm ci && npm run check'`.
+
+`npm run check` runs frontend tests, the TypeScript/production frontend build, and Rust library tests. `npm test` runs both unit test suites; `npm run test:web` and `npm run test:rust` run them separately. `npm run build` / `npm run build:web` build only the frontend; `npm run build:desktop` builds the desktop app and installers (requiring the native prerequisites above).
 
 `npm test` runs the unit tests. The app can also run itself against a folder
 of your own photos with no window on screen and without touching them; see
