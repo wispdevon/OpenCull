@@ -63,6 +63,7 @@ interface State {
   viewMode: ViewMode;
   gridColumns: number;
   showExif: boolean;
+  showHistogram: boolean;
   /** How wide the EXIF panel is, in pixels. */
   exifPanelWidth: number;
   showFilmstrip: boolean;
@@ -339,6 +340,7 @@ const PERSISTED = [
   "sortAscending",
   "gridColumns",
   "showExif",
+  "showHistogram",
   "exifPanelWidth",
   "showFilmstrip",
   "showInfo",
@@ -674,6 +676,7 @@ export const useStore = create<Store>((set, get) => {
     viewMode: "loupe",
     gridColumns: load("gridColumns", 4),
     showExif: load("showExif", false),
+    showHistogram: load("showHistogram", true),
     exifPanelWidth: load("exifPanelWidth", 250),
     showFilmstrip: load("showFilmstrip", true),
     showInfo: load("showInfo", false),
