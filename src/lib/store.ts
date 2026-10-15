@@ -111,6 +111,8 @@ interface State {
   keepZoom: boolean;
   /** Fetch the full-size picture of a photo rested on, so zooming is immediate. */
   instantZoom: boolean;
+  /** Space's zoom target uses the highest scored face rather than the centre. */
+  spaceZoomToFace: boolean;
   /** Draw the histogram as red, green and blue, not as brightness alone. */
   rgbHistogram: boolean;
   /** How large the preview cache may grow, in gigabytes. */
@@ -377,6 +379,7 @@ const PERSISTED = [
   "speedCullAlways",
   "keepZoom",
   "instantZoom",
+  "spaceZoomToFace",
   "rgbHistogram",
   "cacheLimitGb",
   "aiEnabled",
@@ -726,6 +729,7 @@ export const useStore = create<Store>((set, get) => {
     speedCullAlways: load("speedCullAlways", false),
     keepZoom: load("keepZoom", true),
     instantZoom: load("instantZoom", true),
+    spaceZoomToFace: load("spaceZoomToFace", false),
     rgbHistogram: load("rgbHistogram", true),
     cacheLimitGb: load("cacheLimitGb", 5),
     warmAhead: load("warmAhead", true),
