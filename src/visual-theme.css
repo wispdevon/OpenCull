@@ -191,3 +191,38 @@
   :root[data-visual-theme="rapidraw"] .rapidraw-artwork { display: none; }
   :root[data-visual-theme="rapidraw"] .home-content { border-radius: 6px; padding: 40px 24px 24px; }
 }
+
+/* Compact application header: actions share a row rather than filling columns. */
+:root[data-visual-theme="rapidraw"] .home-content {
+  justify-content: flex-start;
+  padding: 32px clamp(24px, 3vw, 48px) 24px;
+}
+:root[data-visual-theme="rapidraw"] .home-header { flex-wrap: wrap; gap: 16px; }
+:root[data-visual-theme="rapidraw"] .home-heading { flex: 1 1 260px; min-width: 0; }
+:root[data-visual-theme="rapidraw"] .home-heading h1 {
+  margin: 0 0 8px;
+  font-size: clamp(2.25rem, 1.75rem + 2cqi, 3.5rem);
+  line-height: 1.12;
+  letter-spacing: -0.025em;
+}
+:root[data-visual-theme="rapidraw"] .rapidraw-intro {
+  max-width: 34rem;
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+:root[data-visual-theme="rapidraw"] .home-controls {
+  width: auto;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 16px;
+}
+:root[data-visual-theme="rapidraw"] .home-actions { display: flex; flex-wrap: wrap; gap: 12px; }
+:root[data-visual-theme="rapidraw"] .home-header button { flex: 0 0 auto; order: initial; }
+:root[data-visual-theme="rapidraw"] .home-header .home-open,
+:root[data-visual-theme="rapidraw"] .home-header .home-ingest { flex: 0 0 auto; }
+:root[data-visual-theme="rapidraw"] .home-header button[aria-label] { order: initial; padding: 0; width: 40px; height: 40px; }
+:root[data-visual-theme="rapidraw"] .home-recents { flex: 1 1 auto; max-height: none; min-height: 0; }
+:root[data-visual-theme="rapidraw"] .rapidraw-footer { margin-top: 16px; }
