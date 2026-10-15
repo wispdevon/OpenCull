@@ -33,7 +33,7 @@ async function chooseFolder() {
 /** Where the app opens: the folders worked on lately, and a way to open another. */
 export function HomeView({ dropping }: { dropping: boolean }) {
   const designTheme = useDesignTheme();
-  const [layout, setLayout] = useState(() => load("homeLayout", "spacious") === "classic" ? "classic" : "spacious");
+  const [layout, setLayout] = useState(() => load<string>("homeLayout", "spacious") === "classic" ? "classic" : "spacious");
   const recents = useStore((s) => s.recents);
   const platform = useStore((s) => s.platform);
   const openError = useStore((s) => s.openError);
