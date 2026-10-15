@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Circle, CircleCheck, FolderPlus, FolderSearch, Images, Keyboard, Settings, Trash2, X } from "lucide-react";
 
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from "@/components/ui/context-menu";
+import { ResumeCardSession } from "@/components/ingest/ReviewBar";
 import { CardIcon } from "@/components/ingest/IngestView";
 import { api, type Volume } from "@/lib/api";
 import { useStore } from "@/lib/store";
@@ -113,6 +114,7 @@ export function HomeView({ dropping }: { dropping: boolean }) {
         >
           <CardIcon className="size-4 text-white" /> Ingest from Card
         </button>
+        <ResumeCardSession />
         <button
           type="button"
           onClick={() => void chooseFolder()}

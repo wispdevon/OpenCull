@@ -5,7 +5,6 @@ import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Circle, CircleCheck, Fol
 import {
   AlertDialog,
   AlertDialogAction,
-  AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
   AlertDialogFooter,
@@ -14,9 +13,10 @@ import {
 } from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { ThumbImage } from "@/components/cull/Thumb";
-import { api, bucket, THUMB_SIZES, type IngestFolder, type IngestPolicy, type IngestProgress, type Volume } from "@/lib/api";
+import { api, bucket, THUMB_SIZES, type IngestFolder, type Volume } from "@/lib/api";
 import { load, save } from "@/lib/prefs";
 import { isMac } from "@/lib/shortcuts";
+import { newReview } from "@/lib/review";
 import { useStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
 import type { Scanned } from "@/lib/types";
@@ -37,7 +37,7 @@ interface Item extends Scanned {
   rating: number;
 }
 
-type Phase = { is: "idle" | "scanning" | "ready" | "copying" } | { is: "conflict"; count: number; items: Item[] } | { is: "failed"; message: string };
+type Phase = { is: "idle" | "scanning" | "ready" } | { is: "failed"; message: string };
 
 /** Where the source browser is: each folder gone into, outermost first. */
 interface Level {
@@ -67,32 +67,12 @@ function timeLabel(item: Item, long = false): string {
   return new Date(takenAt(item)).toLocaleString(undefined, item.captureMs === null ? options : { ...options, timeZone: "UTC" });
 }
 
-function rateText(bytesPerSecond: number): string {
-  const mb = bytesPerSecond / 1_000_000;
-  if (mb >= 1000) return `${(mb / 1000).toFixed(1)} GB/s`;
-  if (mb >= 100) return `${mb.toFixed(0)} MB/s`;
-  if (mb >= 1) return `${mb.toFixed(1)} MB/s`;
-  return `${(bytesPerSecond / 1000).toFixed(0)} KB/s`;
-}
-
-function timeLeftText(seconds: number): string {
-  if (seconds < 60) return `${Math.round(seconds)}s`;
-  if (seconds < 90) return "about a minute";
-  return `about ${Math.round(seconds / 60)} min`;
-}
-
-/** How long a burst of speed is remembered for, in seconds, and how often the speed is measured. */
-const RATE_MEMORY = 3;
-const RATE_SAMPLE = 0.4;
-
+/**
+ * Choose card files, then review them in the existing culling workspace.
+ * Import selection and destination are decided after culling.
+ */
 const SELECTED_ROW = "bg-[#4073f2]/45";
 
-/**
- * Ingest: choose photos on a card, choose where they go, copy them there.
- *
- * Takes over the window while it is open. When the copy finishes it closes
- * and the destination opens for culling.
- */
 export function IngestView() {
   const startAt = useStore((s) => s.ingestFrom);
   const platform = useStore((s) => s.platform);
@@ -108,20 +88,12 @@ export function IngestView() {
   const [phase, setPhase] = useState<Phase>({ is: "idle" });
   const [sort, setSort] = useState<Sort>(() => load<Sort>("ingestSort", "captureTime"));
   const [ascending, setAscending] = useState(() => load("ingestSortAscending", true));
-  const [destination, setDestination] = useState<string | null>(() => load<string | null>("ingestDestination", null));
-
-  const [progress, setProgress] = useState<IngestProgress | null>(null);
-  const [fraction, setFraction] = useState(0);
-  const [rate, setRate] = useState<number | null>(null);
-  const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
-
   /** Where a shift-click's range starts from, as a place in the sorted list. */
   const anchor = useRef(0);
   /** Which listing of a folder is the wanted one; an older one arriving late is dropped. */
   const listing = useRef(0);
   const browse = useRef(0);
-  const copying = phase.is === "copying";
-  const busy = copying || phase.is === "scanning";
+  const busy = phase.is === "scanning";
 
   const close = useCallback(() => useStore.setState({ ingestOpen: false, ingestFrom: null }), []);
 
@@ -139,16 +111,8 @@ export function IngestView() {
     };
   }, []);
 
-  // A destination remembered from last time may have been moved or deleted.
-  useEffect(() => {
-    if (!destination) return;
-    void api.pathsExist([destination]).then(([there]) => !there && setDestination(null));
-    // Once, as ingest opens.
-  }, []);
-
   useEffect(() => save("ingestSort", sort), [sort]);
   useEffect(() => save("ingestSortAscending", ascending), [ascending]);
-  useEffect(() => save("ingestDestination", destination), [destination]);
 
   /** Lists the photos in a folder and makes it the one being ingested from. */
   const choose = useCallback((path: string) => {
@@ -312,83 +276,15 @@ export function IngestView() {
 
   // ── Copying ───────────────────────────────────────────────────────────────
 
-  const chooseDestination = async () => {
-    const picked = await api.pickFolder("Where should OpenCull copy the selected photos?", destination ?? undefined);
-    if (picked) setDestination(picked);
-  };
-
-  const canIngest = selected.size > 0 && destination !== null && !busy;
-  const sample = useRef({ at: 0, bytes: 0, rate: null as number | null });
+  const canIngest = items.length > 0 && !busy;
 
   const requestIngest = async () => {
-    if (!canIngest || !destination) return;
-    const chosen = order.filter((i) => selected.has(i)).map((i) => items[i]);
-    const taken = await api.ingestConflicts(chosen.map(({ path, display }) => ({ path, display })), destination).catch(() => 0);
-    if (taken > 0) setPhase({ is: "conflict", count: taken, items: chosen });
-    // Nothing is in the way, so the answer to "what if something is" is
-    // never used — but if it were, it must not be to replace it.
-    else void copy(chosen, "uniqueName");
+    if (!canIngest || !source) return;
+    close();
+    const chosen = selected.size ? order.filter((i) => selected.has(i)).map((i) => items[i]) : items;
+    await useStore.getState().openFolder(source, newReview([source], chosen));
+
   };
-
-  const copy = async (chosen: Item[], policy: IngestPolicy) => {
-    if (!destination) return;
-    setPhase({ is: "copying" });
-    setProgress({ done: 0, total: chosen.length, bytesCopied: 0, bytesSettled: 0, bytesTotal: 0 });
-    setFraction(0);
-    setRate(null);
-    setSecondsLeft(null);
-    sample.current = { at: performance.now() / 1000, bytes: 0, rate: null };
-
-    const onProgress = (p: IngestProgress) => {
-      setProgress(p);
-      // By bytes, so a card of large files does not sit still and then
-      // jump. Never backwards: reports from copies running side by side can
-      // arrive a little out of order.
-      const now = p.bytesTotal > 0 ? p.bytesSettled / p.bytesTotal : p.total > 0 ? p.done / p.total : 0;
-      setFraction((was) => Math.min(1, Math.max(was, now)));
-
-      const s = sample.current;
-      const t = performance.now() / 1000;
-      const elapsed = t - s.at;
-      if (elapsed < RATE_SAMPLE) return;
-      const measured = (p.bytesCopied - s.bytes) / elapsed;
-      // Smoothed, so one slow file does not swing the estimate about.
-      const weight = 1 - Math.exp(-elapsed / RATE_MEMORY);
-      const smoothed = s.rate === null ? measured : s.rate + weight * (measured - s.rate);
-      sample.current = { at: t, bytes: p.bytesCopied, rate: smoothed };
-      setRate(smoothed);
-      setSecondsLeft(smoothed > 0 ? Math.max(0, p.bytesTotal - p.bytesSettled) / smoothed : null);
-    };
-
-    let result;
-    try {
-      result = await api.ingestCopy(chosen.map(({ path, display }) => ({ path, display })), destination, policy, onProgress);
-    } catch (e) {
-      result = { status: "failed" as const, message: String(e) };
-    }
-    setProgress(null);
-    if (result.status === "failed") return setPhase({ is: "failed", message: result.message ?? "Something went wrong while copying." });
-    setPhase({ is: "ready" });
-    if (result.status === "success") {
-      // Straight on to culling what was just copied.
-      close();
-      void useStore.getState().openFolder(destination);
-    }
-  };
-
-  const cancelCopy = () => {
-    void api.ingestCancel();
-    setPhase((p) => (p.is === "copying" ? { is: "ready" } : p));
-    setProgress(null);
-  };
-
-  const status = (() => {
-    if (!progress) return "";
-    const parts = [`Copying ${progress.done}/${progress.total}`];
-    if (rate !== null && rate > 0) parts.push(rateText(rate));
-    if (secondsLeft !== null && Number.isFinite(secondsLeft) && secondsLeft >= 1) parts.push(`${timeLeftText(secondsLeft)} left`);
-    return parts.length === 1 ? `${parts[0]}…` : parts.join(" · ");
-  })();
 
   const cards = volumes.filter((v) => v.cameraCard);
   const drives = volumes.filter((v) => !v.cameraCard);
@@ -403,7 +299,6 @@ export function IngestView() {
         <button
           type="button"
           onClick={() => {
-            if (copying) cancelCopy();
             close();
           }}
           className="rounded-md px-3 py-1.5 text-[13px] text-[#b3b3b3] hover:bg-white/[0.07] hover:text-white"
@@ -498,7 +393,7 @@ export function IngestView() {
               <span className="whitespace-nowrap">{ascending ? SORTS[sort].up : SORTS[sort].down}</span>
             </button>
           </div>
-          <div className="shrink-0 px-4 pb-2 text-[11px] text-[#737373]">Files to be copied (ingested) to destination folder</div>
+          <div className="shrink-0 px-4 pb-2 text-[11px] text-[#737373]">Review these files before choosing what to import</div>
 
           {phase.is === "scanning" ? (
             <Centre>
@@ -511,27 +406,13 @@ export function IngestView() {
             <Grid items={items} order={order} selected={selected} onToggle={toggle} />
           )}
 
-          {copying && progress && (
-            <div className="shrink-0 space-y-1.5 border-t border-white/[0.09] px-4 py-3 text-center">
-              <div className="h-1.5 overflow-hidden rounded-full bg-white/10">
-                <div className="h-full rounded-full bg-[#408cf2] transition-[width] duration-100 ease-linear" style={{ width: `${fraction * 100}%` }} />
-              </div>
-              <div className="text-xs tabular-nums text-[#bfbfbf]">{status}</div>
-              <button type="button" onClick={cancelCopy} className="text-[11px] font-medium text-[#f28080] hover:underline">
-                Cancel Copy
-              </button>
-            </div>
-          )}
         </section>
         <span className="w-px bg-white/[0.09]" />
 
         {/* Where to. */}
         <aside className="flex w-[280px] shrink-0 flex-col gap-4 bg-[#131318] p-4">
-          <Label>Destination</Label>
-          <button type="button" onClick={() => void chooseDestination()} className="rounded-lg bg-white/[0.09] px-3 py-2.5 text-[11px] font-bold tracking-wide text-white hover:bg-white/[0.13]">
-            {destination ? "CHANGE DESTINATION" : "CHOOSE DESTINATION FOLDER"}
-          </button>
-          {destination ? <div className="select-text break-all font-mono text-[11px] leading-relaxed text-[#b3b3b3]">{destination}</div> : <div className="text-xs text-[#737373]">Where do you want to copy your images?</div>}
+          <Label>Review first</Label>
+          <p className="text-xs text-muted-foreground">Cull the card in the normal workspace. At the end, choose files to copy or import in place. Nothing is copied or deleted now.</p>
           <span className="flex-1" />
           <button
             type="button"
@@ -539,43 +420,17 @@ export function IngestView() {
             onClick={() => void requestIngest()}
             className={cn("rounded-lg py-3 text-[13px] font-bold tracking-wide", canIngest ? "bg-[#408cf2] text-white hover:brightness-110" : "bg-[#404040] text-[#8c8c8c]")}
           >
-            INGEST
+            START CULLING
           </button>
         </aside>
       </div>
 
-      <AlertDialog open={phase.is === "conflict"} onOpenChange={(open) => !open && setPhase((p) => (p.is === "conflict" ? { is: "ready" } : p))}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Files Already Exist</AlertDialogTitle>
-            <AlertDialogDescription>
-              {phase.is === "conflict" &&
-                `${phase.count} selected file${phase.count === 1 ? "" : "s"} already exist in the destination, or share a name with another selected file. Apply one action to all conflicts.`}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter className="flex-col gap-2 sm:flex-col">
-            {(
-              [
-                ["uniqueName", "Copy with Unique Name"],
-                ["overwrite", "Overwrite"],
-                ["skip", "Skip Existing"],
-              ] as [IngestPolicy, string][]
-            ).map(([policy, label]) => (
-              <AlertDialogAction key={policy} variant={policy === "uniqueName" ? "default" : "outline"} className="w-full" onClick={() => phase.is === "conflict" && void copy(phase.items, policy)}>
-                {label}
-              </AlertDialogAction>
-            ))}
-            <AlertDialogCancel className="w-full">Cancel</AlertDialogCancel>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
       <AlertDialog open={phase.is === "failed"} onOpenChange={(open) => !open && setPhase({ is: "ready" })}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Ingest Failed</AlertDialogTitle>
+            <AlertDialogTitle>Could not open card</AlertDialogTitle>
             <AlertDialogDescription className="whitespace-pre-line">
-              {phase.is === "failed" && `${phase.message}\n\nKeep the card as it is. Photos copied before this one are in the destination; nothing after it was started.`}
+              {phase.is === "failed" && `${phase.message}\n\nKeep the card as it is. No files were copied or deleted.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
