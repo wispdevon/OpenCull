@@ -3,6 +3,7 @@
 //! No part of this comes from the system it runs on: the same two model
 //! files give the same answers on a Mac, on Windows and on Linux.
 
+pub mod acceleration;
 pub mod basic;
 pub mod eyes;
 pub mod finder;

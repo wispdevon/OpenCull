@@ -2670,6 +2670,7 @@ dependencies = [
  "memchr",
  "memmap2",
  "ndarray",
+ "opencull-cuda",
  "ort",
  "percent-encoding",
  "png 0.18.1",
@@ -2687,6 +2688,13 @@ dependencies = [
  "turbojpeg",
  "xxhash-rust",
  "zune-jpeg",
+]
+
+[[package]]
+name = "opencull-cuda"
+version = "0.1.0"
+dependencies = [
+ "ort",
 ]
 
 [[package]]

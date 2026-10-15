@@ -12,7 +12,9 @@
     "tauri": "tauri",
     "test": "npm run test:web && npm run test:rust",
     "test:web": "vitest run",
-    "test:rust": "cd src-tauri && cargo test --lib"
+    "test:rust": "cd src-tauri && cargo test --lib",
+    "dev:desktop:cuda": "node scripts/cuda-desktop.mjs",
+    "test:cuda-launcher": "node --test scripts/cuda-desktop.test.mjs"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.3",
