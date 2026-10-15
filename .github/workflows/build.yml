@@ -81,6 +81,10 @@ jobs:
       - name: Tests
         run: npm test
 
+      - name: macOS desktop development startup
+        if: runner.os == 'macOS'
+        run: node .github/scripts/macos-dev-smoke.mjs
+
       # The app updates itself only from files signed with the project's
       # update key. Where that key is to hand, the build also makes those
       # files and the small `latest.json` that says where they are. Where it
