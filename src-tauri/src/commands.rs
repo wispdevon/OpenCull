@@ -698,6 +698,7 @@ pub async fn ai_scan(app: AppState<'_>, session: u64, order: Vec<usize>, advance
         let mut ready = Vec::new();
         for index in order {
             let Some(image) = session.images.get(index) else { continue };
+            if scan::is_video(&raw::extension(&image.path)) { continue; }
             match ai::store::remembered(&known.lock().unwrap(), &image.display, &image.version) {
                 Some(record) => ready.push(Analysed { index, record }),
                 None => todo.push(index),
