@@ -112,20 +112,6 @@ const WORTH_FULL = 1.15;
 export function Loupe() {
   const photo = useStore((s) => (s.current >= 0 ? s.photos[s.current] : undefined));
   const loading = useStore((s) => s.loading);
-  const smoothZoom = useStore((s) => s.experimentalSmoothZoom);
-  const [reducedMotion, setReducedMotion] = useState(() => window.matchMedia("(prefers-reduced-motion: reduce)").matches);
-  useEffect(() => {
-    const query = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const update = () => setReducedMotion(query.matches);
-    query.addEventListener("change", update);
-    update();
-    return () => query.removeEventListener("change", update);
-  }, []);
-  const GLIDE = smoothZoom
-    ? reducedMotion ? { in: 0, out: 0, box: 0 } : { in: 320, out: 280, box: 340 }
-    : { in: 220, out: 200, box: 250 };
-  const zoomCurve = smoothZoom ? "cubic-bezier(0.22, 1, 0.36, 1)" : "ease-in-out";
-
   const folder = useStore((s) => s.session?.name ?? "folder");
   const showInfo = useStore((s) => s.showInfo);
   const showRatingBar = useStore((s) => s.showRatingBar);
@@ -156,6 +142,21 @@ export function Loupe() {
 }
 
 function Canvas({ photo }: { photo: Photo }) {
+  const smoothZoom = useStore((s) => s.experimentalSmoothZoom);
+  const [reducedMotion, setReducedMotion] = useState(() => window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+  useEffect(() => {
+    const query = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const update = () => setReducedMotion(query.matches);
+    query.addEventListener("change", update);
+    update();
+    return () => query.removeEventListener("change", update);
+  }, []);
+  const GLIDE = smoothZoom
+    ? reducedMotion ? { in: 0, out: 0, box: 0 } : { in: 320, out: 280, box: 340 }
+    : { in: 220, out: 200, box: 250 };
+  const zoomCurve = smoothZoom ? "cubic-bezier(0.22, 1, 0.36, 1)" : "ease-in-out";
+
+
   const frame = useRef<HTMLDivElement>(null);
   const sheet = useRef<HTMLDivElement>(null);
   const [box, setBox] = useState({ w: 0, h: 0 });
