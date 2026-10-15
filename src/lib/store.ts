@@ -34,7 +34,7 @@ interface Session {
  */
 type Edit = { index: number; before: Marks; after: Marks; framing?: { before: Framing; after: Framing } }[];
 
-export type ZoomCommand = { kind: "toggle" | "centre" | "in" | "out"; nonce: number };
+export type ZoomCommand = { kind: "toggle" | "centre" | "face" | "in" | "out"; nonce: number };
 
 interface State {
   platform: string;

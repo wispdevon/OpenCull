@@ -31,3 +31,13 @@ export function highestScoringFace(faces: readonly AiFace[], photo: FramedPhoto)
   const subjects = visible.filter((face) => face.subject);
   return (subjects.length ? subjects : visible).reduce<AiFace | null>((best, face) => !best || face.sharpness! > best.sharpness! ? face : best, null);
 }
+
+/** First visible main subject, including faces without a sharpness score. */
+export function firstVisibleFace(faces: readonly AiFace[], photo: FramedPhoto): AiFace | null {
+  const visible = faces.filter(face => {
+    if (!faceOutline(face, photo)) return false;
+    const at = uprightToShown(photo, { x: face.x + face.w / 2, y: face.y + face.h / 2 });
+    return at.x >= 0 && at.x <= 1 && at.y >= 0 && at.y <= 1;
+  });
+  return visible.find(face => face.subject) ?? visible[0] ?? null;
+}

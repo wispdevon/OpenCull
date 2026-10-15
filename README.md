@@ -335,7 +335,7 @@ through the shoot from the keyboard:
 | `P` `X` `U` | Pick, reject, clear the flag |
 | `1`–`5`, `0` | Star rating, and none |
 | `6` `7` `8` `9` `N` | Red, yellow, green, blue and purple labels |
-| `Space` | Zoom in to the middle of the photo, and back out |
+| `Space` | Zoom to a detected face, and back out (centre if no face) |
 | `Z` | Zoom in to where you last looked, and back out |
 | `G` | Grid view |
 | `.` | Face panel |
