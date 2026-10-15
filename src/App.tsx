@@ -1,3 +1,4 @@
+import { useInterfaceScale } from "@/components/InterfaceScaleSettings";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAppVisualTheme } from "@/components/VisualThemeSettings";
 
@@ -19,6 +20,7 @@ export default function App() {
   useAppFont();
   useAppTheme();
   useAppVisualTheme();
+  useInterfaceScale();
   const open = useStore((s) => s.session !== null);
   const ingesting = useStore((s) => s.ingestOpen);
   const [bindings, setBindings] = useState(loadBindings);

@@ -93,7 +93,7 @@ export function Toolbar() {
   const s = useStore.getState();
 
   return (
-    <div data-tauri-drag-region className={cn("relative z-10 flex h-[50px] shrink-0 items-center border-b border-[var(--ui-line-2e2e2e)] bg-toolbar pr-2.5", platform === "macos" ? "pl-[78px]" : "pl-3")}>
+    <div data-tauri-drag-region className={cn("relative z-10 flex min-h-[50px] flex-wrap shrink-0 items-center gap-y-1 py-1 border-b border-[var(--ui-line-2e2e2e)] bg-toolbar pr-2.5", platform === "macos" ? "pl-[78px]" : "pl-3")}>
       <Tool label="Back to Home" onClick={() => s.closeFolder()} className="w-9">
         <ChevronLeft className="size-[17px]!" strokeWidth={2.5} />
       </Tool>
