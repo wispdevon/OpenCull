@@ -23,7 +23,7 @@ export function GraphicsSettings() {
   };
   return <fieldset className="space-y-3 rounded-lg border border-border p-4">
     <legend className="px-1 text-sm font-semibold">Graphics acceleration</legend>
-    <p className="text-xs leading-relaxed text-muted-foreground">The desktop webview renders the interface and photo transformations. The renderer check identifies the WebGL device; image decoding and AI can still use the CPU.</p>
+    <p className="text-xs leading-relaxed text-muted-foreground">The desktop webview renders the interface and photo transformations. The check reports the WebGL device name, which the browser may mask for privacy. Image decoding and AI can still use the CPU.</p>
     <button type="button" disabled={busy} onClick={() => void check()} className="min-h-10 rounded-md border border-input px-3 text-xs">{busy ? "Checking…" : "Check renderer"}</button>
     {result && <output aria-live="polite" className="block whitespace-pre-wrap break-words text-xs leading-relaxed">{result}</output>}
   </fieldset>;
