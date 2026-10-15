@@ -135,7 +135,22 @@
 /* Settings use reading sizes, rather than the compact photo-overlay type scale.
    Keep native font rasterization: forced grayscale smoothing can thin small type. */
 .settings-panel.settings-panel { font-size: 0.875rem; line-height: 1.5; }
-.settings-panel.settings-panel :is(fieldset, .setting-row) { padding: 1.25rem; }
+.settings-panel.settings-panel fieldset,
+.settings-panel.settings-panel .setting-row { padding: 1.25rem; }
+/* Nested semantic groups aren't additional cards. Never compound their padding. */
+.settings-panel.settings-panel fieldset fieldset {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+  background: transparent;
+}
+.settings-panel.settings-panel fieldset fieldset legend {
+  padding: 0;
+  margin-bottom: 0.5rem;
+  font-size: 0.9375rem;
+  font-weight: 500;
+}
 .settings-panel.settings-panel .setting-row {
   gap: 1.5rem;
   border: 1px solid var(--border);

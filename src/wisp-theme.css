@@ -52,7 +52,7 @@
 }
 :root[data-visual-theme="wisp"] .setting-title { font-size: 0.875rem; line-height: 1.4; font-weight: 600; color: var(--foreground); }
 :root[data-visual-theme="wisp"] .setting-detail { margin-top: 6px; font-size: 0.8125rem; line-height: 1.6; color: var(--muted-foreground); }
-:root[data-visual-theme="wisp"] fieldset { padding: 16px; border-color: var(--border); background: var(--card); color: var(--foreground); }
+:root[data-visual-theme="wisp"] fieldset { border-color: var(--border); background: var(--card); color: var(--foreground); }
 :root[data-visual-theme="wisp"] [data-slot="tabs-list"] { gap: 4px; padding: 6px; background: var(--background); border: 1px solid var(--border); }
 :root[data-visual-theme="wisp"] [role="tab"] { min-height: 40px; border: 1px solid transparent; color: var(--muted-foreground); }
 :root[data-visual-theme="wisp"] [role="tab"][data-state="active"] { background: var(--secondary); color: var(--foreground); border-color: var(--ring); font-weight: 600; }
