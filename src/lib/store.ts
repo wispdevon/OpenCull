@@ -567,7 +567,7 @@ export const useStore = create<Store>((set, get) => {
     try {
       const failed = new Set(await api.moveToTrash(going.map((i) => ({ path: s.photos[i].path, display: s.photos[i].display }))));
       // The folder may have been closed, or another opened, while this ran.
-      if (get().session?.id === session) drop(new Set(going.filter((i) => !failed.has(s.photos[i].path))));
+      if (get().session?.id === session) get().forget(going.filter((i) => !failed.has(s.photos[i].path)).map((i) => s.photos[i].path));
     } finally {
       going.forEach((i) => trashing.delete(i));
     }
