@@ -83,6 +83,10 @@ experimental native-aspect strips and eased zoom, optional NVIDIA rendering prof
 and an opt-in Linux CUDA AI trial.
 Optional preferences are selectable in Settings; themes, colour mode, font and interface scale are under
 **Design**; view/panel controls remain under **Layout**.
+The home page's **Layouts** button switches between Spacious and Classic action
+placement. Keyboard shortcuts are edited directly in **Settings → Keyboard**.
+See the [settings layout guidelines](docs/SETTINGS_DESIGN.md) and
+[Wisp design guidelines](docs/WISP_DESIGN.md) for spacing and contrast rules.
 Linux settings are created in `$XDG_CONFIG_HOME/opencull/config.json`, normally
 `~/.config/opencull/config.json`. No personal configuration file is required.
 macOS and Windows use Tauri's native application-config directory instead.
