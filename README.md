@@ -88,6 +88,10 @@ view/panel controls remain under **Settings → Layout**.
 Keyboard shortcuts are edited directly in **Settings → Keyboard**.
 Back up or transfer preferences through **Settings → Storage → Settings backup**;
 imports can be reviewed before applying and reloading. Photos and history are excluded.
+Wisp applies the included RapidRAW inspired preset: 18% grey photo surround,
+contrasting controls, Space Grotesk, 125% scale, and the saved culling options.
+New profiles receive a quick workflow and keyboard overview; reopen it from
+**Settings → Keyboard → Quick overview**.
 See the [settings layout guidelines](docs/SETTINGS_DESIGN.md) and
 [Wisp design guidelines](docs/WISP_DESIGN.md) for spacing and contrast rules.
 Linux settings are created in `$XDG_CONFIG_HOME/opencull/config.json`, normally
