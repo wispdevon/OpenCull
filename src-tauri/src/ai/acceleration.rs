@@ -26,6 +26,9 @@ pub fn failure() -> Option<String> { FAILURE.lock().unwrap_or_else(|e| e.into_in
 #[cfg(test)] mod tests {
     use super::*;
     #[test] fn cuda_requires_opt_in_supported_target_and_build() {
+        if !cfg!(all(feature = "cuda", target_os = "linux", target_arch = "x86_64")) {
+            assert!(ai_acceleration_info().is_none());
+        }
         assert!(requested_on("linux", "x86_64", true, Some("cuda")));
         for (os, arch, compiled, request) in [
             ("macos", "aarch64", true, Some("cuda")),
@@ -37,4 +40,11 @@ pub fn failure() -> Option<String> { FAILURE.lock().unwrap_or_else(|e| e.into_in
             ("linux", "x86_64", true, Some("cpu")),
         ] { assert!(!requested_on(os, arch, compiled, request)); }
     }
+}
+
+/// The UI receives no CUDA option on macOS, Windows, ARM, or CPU-only builds.
+#[tauri::command]
+pub fn ai_acceleration_info() -> Option<serde_json::Value> {
+    if !cfg!(all(feature = "cuda", target_os = "linux", target_arch = "x86_64")) { return None; }
+    Some(serde_json::json!({ "requested": requested(), "enabled": enabled(), "failure": failure() }))
 }

@@ -34,6 +34,9 @@ use serve::Previews;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    if ai::acceleration::requested() {
+        eprintln!("[ai] CUDA requested; one shared model worker, CPU fallback on failure");
+    }
     let launch = Launch::from_args();
     let mut builder = tauri::Builder::default().plugin(tauri_plugin_opener::init()).plugin(tauri_plugin_dialog::init()).plugin(tauri_plugin_updater::Builder::new().build());
     if !launch.self_test {
@@ -138,6 +141,7 @@ pub fn run() {
             }
         })
         .invoke_handler(tauri::generate_handler![
+            ai::acceleration::ai_acceleration_info,
             commands::app_info,
             commands::report,
             commands::finish_self_test,
