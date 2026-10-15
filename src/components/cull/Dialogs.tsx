@@ -15,6 +15,7 @@ import { FontSettings } from "@/components/FontSettings";
 import { ThemeSettings } from "@/components/ThemeSettings";
 import { Button } from "@/components/ui/button";
 import { VisualThemeSettings } from "@/components/VisualThemeSettings";
+import { ViewModeSettings } from "@/components/ViewModeSettings";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -284,6 +285,7 @@ function SettingsBody({ tab, onTab }: { tab: SettingsTab; onTab: (tab: SettingsT
           they are stepped through; a tab with more than fits scrolls. */}
       <div className="h-[430px] overflow-x-hidden overflow-y-auto pr-1">
         <TabsContent value="layout" className="flex flex-col gap-4">
+          <ViewModeSettings />
           {([
             ["showFilmstrip", "Filmstrip"], ["showFaces", "Face panel"],
             ["showExif", "EXIF panel"], ["showHistogram", "Histogram in EXIF panel"],
