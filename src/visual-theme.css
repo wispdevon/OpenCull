@@ -252,10 +252,10 @@
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr));
   gap: 16px;
 }
-:root[data-visual-theme="rapidraw"] .recent-sessions-grid > button { max-width: 320px; }
-:root[data-visual-theme="rapidraw"] .recent-sessions-grid > button > div:first-child { aspect-ratio: 16 / 9; }
-:root[data-visual-theme="rapidraw"] .recent-sessions-grid > button > div:nth-child(2) { padding: 12px; }
-:root[data-visual-theme="rapidraw"] .recent-sessions-grid > button > div:nth-child(2) > div { font-size: 0.875rem; }
+:root[data-visual-theme="rapidraw"] .recent-sessions-grid > .recent-session-card { max-width: 320px; }
+:root[data-visual-theme="rapidraw"] .recent-sessions-grid .recent-session-open > div:first-child { aspect-ratio: 16 / 9; }
+:root[data-visual-theme="rapidraw"] .recent-sessions-grid .recent-session-open > div:nth-child(2) { padding: 12px; }
+:root[data-visual-theme="rapidraw"] .recent-sessions-grid .recent-session-open > div:nth-child(2) > div { font-size: 0.875rem; }
 :root[data-visual-theme="rapidraw"] .recent-sessions-grid p { font-size: 0.75rem; line-height: 1.5; }
 /* Let the welcome block breathe before the first row of photographs. */
 :root[data-visual-theme="rapidraw"] .home-content { padding-top: 40px; }
