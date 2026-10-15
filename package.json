@@ -7,12 +7,19 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && tsc -p tsconfig.node.json && vite build",
+    "build": "npm run build:web",
     "preview": "vite preview",
     "tauri": "tauri",
     "test": "npm run test:web && npm run test:rust",
     "test:web": "vitest run",
-    "test:rust": "cd src-tauri && cargo test --lib"
+    "test:rust": "cd src-tauri && cargo test --lib",
+    "build:web": "tsc && tsc -p tsconfig.node.json && vite build",
+    "build:desktop": "tauri build",
+    "check:node": "node scripts/check-node.mjs",
+    "pretest:web": "npm run check:node",
+    "prebuild:web": "npm run check:node",
+    "predev": "npm run check:node",
+    "check": "npm run test:web && npm run build:web && npm run test:rust"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.3",
@@ -41,5 +48,10 @@
     "typescript": "~6.0.3",
     "vite": "^8.0.16",
     "vitest": "5.0.2"
-  }
+  },
+  "engines": {
+    "node": "^22.12.0 || ^24.0.0 || >=26.0.0",
+    "npm": ">=11"
+  },
+  "packageManager": "npm@11.21.1"
 }
