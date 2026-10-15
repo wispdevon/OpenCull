@@ -36,7 +36,6 @@ const held = (panel: PanelWidth, width: number) => `clamp(${PANEL_LIMITS[panel].
 /** The main workspace: toolbar, photo, filmstrip. */
 export function CullingView() {
   const viewMode = useStore((s) => s.viewMode);
-  const stackAtBottom = useStore((s) => s.stackFilmstripAtBottom);
   const showExif = useStore((s) => s.showExif);
   const showFilmstrip = useStore((s) => s.showFilmstrip);
   const showFaces = useStore((s) => s.showFaces);
@@ -69,7 +68,7 @@ export function CullingView() {
             )}
             {showExif && <PanelHandle panel="exifPanelWidth" direction={1} />}
             <div className="min-w-0 flex-1 overflow-hidden">
-              {viewMode === "scene" ? <SceneView externalOverview={stackAtBottom} /> : <Loupe />}
+              {viewMode === "scene" ? <SceneView /> : <Loupe />}
             </div>
             {showFaces && <PanelHandle panel="facePanelWidth" direction={-1} />}
             {showFaces && (
@@ -83,7 +82,7 @@ export function CullingView() {
           </>
         )}
       </div>
-      {showFilmstrip && (viewMode === "loupe" || (viewMode === "scene" && stackAtBottom)) && !empty && (
+      {showFilmstrip && (viewMode === "loupe" || viewMode === "scene") && !empty && (
         <div className="border-t border-[var(--ui-line-333333)]">
           {viewMode === "scene" ? <SceneOverview /> : <Filmstrip />}
         </div>

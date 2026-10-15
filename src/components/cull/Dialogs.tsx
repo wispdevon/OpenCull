@@ -1,9 +1,11 @@
 import { ExperimentalFilmstripSettings } from "./ExperimentalFilmstripSettings";
 import { ExperimentalZoomSettings } from "./ExperimentalZoomSettings";
+import { HomeLayoutSettings } from "@/components/HomeLayoutSettings";
+import { SettingsTransfer } from "@/components/SettingsTransfer";
 import { InterfaceScaleSettings } from "@/components/InterfaceScaleSettings";
 import { GraphicsSettings } from "@/components/GraphicsSettings";
 import { useEffect, useRef, useState } from "react";
-import { HardDrive, Palette, PanelsTopLeft, Keyboard, ScanFace, Star, ZoomIn, type LucideIcon } from "lucide-react";
+import { ChartColumn, Funnel, HardDrive, Info, Palette, PanelBottom, PanelLeft, PanelRight, PanelsTopLeft, Keyboard, ScanFace, Star, ZoomIn, type LucideIcon } from "lucide-react";
 
 import {
   AlertDialog,
@@ -18,10 +20,8 @@ import {
 import { FontSettings } from "@/components/FontSettings";
 import { ThemeSettings } from "@/components/ThemeSettings";
 import { Button } from "@/components/ui/button";
-import { VisualThemeSettings } from "@/components/VisualThemeSettings";
 import { ViewModeSettings } from "@/components/ViewModeSettings";
-import { StackLayoutSettings } from "@/components/StackLayoutSettings";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { api, type CacheUsage } from "@/lib/api";
@@ -63,14 +63,19 @@ export function TrashDialog() {
  * Click one and press the keys wanted. If those keys already do something
  * else, that other shortcut is left with nothing rather than both firing.
  */
-export function ShortcutsDialog({ bindings, onChange, onRecording }: { bindings: Record<Action, Combo>; onChange: (b: Record<Action, Combo>) => void; onRecording: (on: boolean) => void }) {
-  const open = useStore((s) => s.shortcutsOpen);
+interface ShortcutEditorProps {
+  bindings: Record<Action, Combo>;
+  onChange: (bindings: Record<Action, Combo>) => void;
+  onRecording: (recording: boolean) => void;
+}
+
+function ShortcutEditor({ bindings, onChange, onRecording }: ShortcutEditorProps) {
   const [recording, setRecording] = useState<Action | null>(null);
 
-  useEffect(() => onRecording(recording !== null), [recording, onRecording]);
   useEffect(() => {
-    if (!open) setRecording(null);
-  }, [open]);
+    onRecording(recording !== null);
+    return () => onRecording(false);
+  }, [recording, onRecording]);
 
   useEffect(() => {
     if (!recording) return;
@@ -105,34 +110,23 @@ export function ShortcutsDialog({ bindings, onChange, onRecording }: { bindings:
   }, [recording, bindings, onChange]);
 
   return (
-    <Dialog open={open} onOpenChange={(o) => useStore.getState().set("shortcutsOpen", o)}>
-      <DialogContent
-        className="max-h-[85vh] overflow-y-auto sm:max-w-[560px]"
-        // Opens with nothing picked out. A window is handed the keyboard
-        // when it opens, and gives it to the first thing in it that can
-        // take it — here the key for "Next photo", which then wore a ring
-        // as though it were about to be changed.
-        onOpenAutoFocus={(e) => {
-          e.preventDefault();
-          (e.currentTarget as HTMLElement).focus();
-        }}
-      >
-        <DialogHeader>
-          <DialogTitle>Keyboard Shortcuts</DialogTitle>
-          <DialogDescription>Click a shortcut, then press the keys you want for it. Escape cancels.</DialogDescription>
-        </DialogHeader>
-        <div className="grid grid-cols-2 gap-x-8 gap-y-5">
+    <div className="space-y-4">
+      <p className="text-sm leading-relaxed text-muted-foreground">Click a shortcut, then press the keys you want for it. Escape cancels. Assigning a key already in use clears its previous shortcut.</p>
+      {recording && <p role="status" className="text-sm text-foreground">Listening for a shortcut. Press Escape to cancel.</p>}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           {SECTIONS.map((section) => (
-            <div key={section.title} className="space-y-1.5">
-              <div className="text-[10px] font-bold uppercase text-[var(--ui-text-737373)]">{section.title}</div>
+            <fieldset key={section.title} className="space-y-3 rounded-md border border-border">
+              <legend className="px-1">{section.title}</legend>
               {section.actions.map(([action, label]) => (
-                <div key={action} className="flex items-center justify-between gap-3 text-[13px] text-[var(--ui-text-d9d9d9)]">
+                <div key={action} className="flex flex-wrap items-center justify-between gap-3 text-sm text-foreground">
                   {label}
                   <button
                     type="button"
+                    aria-label={`Change shortcut for ${label}`}
+                    aria-pressed={recording === action}
                     onClick={() => setRecording(recording === action ? null : action)}
                     className={cn(
-                      "min-w-12 rounded border px-2 py-0.5 font-mono text-[11px]",
+                      "min-h-9 min-w-12 rounded border px-2 py-1 font-mono text-sm",
                       recording === action ? "border-brand bg-brand/15 text-brand" : "border-[var(--ui-line-3a3a44)] bg-white/[0.04] text-[var(--ui-text-bfbfbf)] hover:border-[var(--ui-line-595959)]",
                     )}
                   >
@@ -140,7 +134,7 @@ export function ShortcutsDialog({ bindings, onChange, onRecording }: { bindings:
                   </button>
                 </div>
               ))}
-            </div>
+            </fieldset>
           ))}
         </div>
         <div className="flex justify-end">
@@ -148,8 +142,7 @@ export function ShortcutsDialog({ bindings, onChange, onRecording }: { bindings:
             Reset to Defaults
           </Button>
         </div>
-      </DialogContent>
-    </Dialog>
+    </div>
   );
 }
 
@@ -171,14 +164,20 @@ export function NoticeDialog() {
   );
 }
 
-export function SettingsDialog() {
+export function SettingsDialog(props: ShortcutEditorProps) {
   const open = useStore((s) => s.settingsOpen);
   // Kept here, outside the body, so Settings opens where it was left.
   const [tab, setTab] = useState<SettingsTab>("culling");
+  const keyboardRequested = useStore((s) => s.shortcutsOpen);
+  useEffect(() => {
+    if (!keyboardRequested) return;
+    setTab("keyboard");
+    useStore.setState({ shortcutsOpen: false, settingsOpen: true });
+  }, [keyboardRequested]);
   return (
     <Dialog open={open} onOpenChange={(o) => useStore.getState().set("settingsOpen", o)}>
       <DialogContent
-        className="flex max-h-[calc(100dvh-2rem)] flex-col overflow-hidden sm:max-w-[600px]"
+        className="flex max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] flex-col overflow-hidden sm:max-w-3xl sm:p-6"
         // Opens with nothing picked out: a ring round the first tab reads
         // as something being wrong with it.
         onOpenAutoFocus={(e) => {
@@ -191,7 +190,7 @@ export function SettingsDialog() {
         </DialogHeader>
         {/* Only exists while the window is open, so that reading every
             setting costs nothing while culling. */}
-        <SettingsBody tab={tab} onTab={setTab} />
+        <SettingsBody tab={tab} onTab={setTab} {...props} />
       </DialogContent>
     </Dialog>
   );
@@ -211,7 +210,7 @@ const SETTINGS_TABS: [SettingsTab, string, LucideIcon][] = [
   ["keyboard", "Keyboard", Keyboard],
 ];
 
-function SettingsBody({ tab, onTab }: { tab: SettingsTab; onTab: (tab: SettingsTab) => void }) {
+function SettingsBody({ tab, onTab, ...shortcutProps }: { tab: SettingsTab; onTab: (tab: SettingsTab) => void } & ShortcutEditorProps) {
   const s = useStore();
   const [usage, setUsage] = useState<CacheUsage | null>(null);
   const [clearing, setClearing] = useState(false);
@@ -289,23 +288,22 @@ function SettingsBody({ tab, onTab }: { tab: SettingsTab; onTab: (tab: SettingsT
       </TabsList>
       {/* One height for every tab, so the window does not jump about as
           they are stepped through; a tab with more than fits scrolls. */}
-      <div className="h-[min(430px,calc(100dvh-12rem))] min-h-0 overflow-x-hidden overflow-y-auto pr-1">
+      <div className="h-[min(560px,calc(100dvh-12rem))] min-h-0 overflow-x-hidden overflow-y-auto pr-1">
         <TabsContent value="design" className="flex flex-col gap-4">
-          <VisualThemeSettings />
+          <HomeLayoutSettings />
           <ThemeSettings />
           <FontSettings />
           <InterfaceScaleSettings />
         </TabsContent>
         <TabsContent value="layout" className="flex flex-col gap-4">
           <ViewModeSettings />
-          <StackLayoutSettings />
           {([
-            ["showFilmstrip", "Filmstrip"], ["showFaces", "Face panel"],
-            ["showExif", "EXIF panel"], ["showHistogram", "Histogram in EXIF panel"],
-            ["showInfo", "Information overlay"], ["showRatingBar", "Rating bar"],
-            ["showFilterBar", "Filter bar"],
-          ] as const).map(([key, title]) => (
-            <Setting key={key} title={title} detail="Also follows the existing toolbar and keyboard controls."
+            ["showFilmstrip", "Filmstrip", PanelBottom], ["showFaces", "Face panel", PanelRight],
+            ["showExif", "EXIF panel", PanelLeft], ["showHistogram", "Histogram in EXIF panel", ChartColumn],
+            ["showInfo", "Information overlay", Info], ["showRatingBar", "Rating bar", Star],
+            ["showFilterBar", "Filter bar", Funnel],
+          ] as const).map(([key, title, Icon]) => (
+            <Setting key={key} title={title} icon={<Icon aria-hidden="true" className="size-4 shrink-0 text-foreground" />} detail="Also follows the existing toolbar and keyboard controls."
               control={<Switch aria-label={title} checked={s[key]} onCheckedChange={(on) => set(key, on)} />} />
           ))}
           {([
@@ -469,6 +467,7 @@ function SettingsBody({ tab, onTab }: { tab: SettingsTab; onTab: (tab: SettingsT
           />
         </TabsContent>
         <TabsContent value="storage" className="space-y-4">
+          <SettingsTransfer />
           <GraphicsSettings />
           <Setting
             title="Prepare previews ahead"
@@ -518,33 +517,19 @@ function SettingsBody({ tab, onTab }: { tab: SettingsTab; onTab: (tab: SettingsT
           />
         </TabsContent>
         <TabsContent value="keyboard" className="space-y-4">
-          <Setting
-            title="Keyboard shortcuts"
-            detail="See every shortcut, and change any of them."
-            control={
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  set("settingsOpen", false);
-                  set("shortcutsOpen", true);
-                }}
-              >
-                Edit…
-              </Button>
-            }
-          />
+          <Button variant="outline" onClick={() => useStore.setState({ settingsOpen: false, overviewOpen: true })}>Quick overview</Button>
+          <ShortcutEditor {...shortcutProps} />
         </TabsContent>
       </div>
     </Tabs>
   );
 }
 
-function Setting({ title, detail, control }: { title: string; detail: string; control: React.ReactNode }) {
+function Setting({ title, detail, control, icon }: { title: string; detail: string; control: React.ReactNode; icon?: React.ReactNode }) {
   return (
     <div className="setting-row flex items-start justify-between gap-6">
       <div>
-        <div className="setting-title text-[13px] font-medium text-foreground">{title}</div>
+        <div className="setting-title flex items-center gap-2 text-[13px] font-medium text-foreground">{icon}{title}</div>
         <div className="setting-detail mt-0.5 text-xs leading-relaxed text-[var(--ui-text-8c8c8c)]">{detail}</div>
       </div>
       <div className="shrink-0 pt-0.5">{control}</div>

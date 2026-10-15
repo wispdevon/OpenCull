@@ -8,7 +8,8 @@ import { useCrop } from "./crop";
 import { cropFromShare, isPlain, MIRROR_ACROSS, MIRROR_DOWN, PLAIN, QUARTER_LEFT, QUARTER_RIGHT, sameFraming, shareOf, turned, viewSize, type Share } from "./framing";
 import { sourceWritable, type ReviewSession } from "./review";
 import { saveReview } from "./review-api";
-import { load, save } from "./prefs";
+import { load, save, snapshotPreferences } from "./prefs";
+import { shouldShowOverview } from "./onboarding";
 import { openingView, validViewMode } from "./view-preferences";
 import type { AiFace, AiResult, Color, Compared, FileKinds, Flag, FlagFilter, Framing, Marks, MetaEvent, Photo, Rank, SortKey, ViewMode } from "./types";
 
@@ -68,7 +69,6 @@ interface State {
   viewMode: ViewMode;
   defaultViewMode: ViewMode;
   rememberViewMode: boolean;
-  stackFilmstripAtBottom: boolean;
   gridColumns: number;
   showExif: boolean;
   showHistogram: boolean;
@@ -164,6 +164,7 @@ interface State {
   faceZoom: { x: number; y: number; nonce: number } | null;
 
   shortcutsOpen: boolean;
+  overviewOpen: boolean;
   settingsOpen: boolean;
   shipOpen: boolean;
   /** A photo is being cropped in the big view. */
@@ -351,7 +352,6 @@ const PERSISTED = [
   "viewMode",
   "defaultViewMode",
   "rememberViewMode",
-  "stackFilmstripAtBottom",
   "sort",
   "sortAscending",
   "gridColumns",
@@ -698,7 +698,6 @@ export const useStore = create<Store>((set, get) => {
     defaultViewMode: validViewMode(load("defaultViewMode", "loupe")),
     rememberViewMode: load("rememberViewMode", true) === true,
     viewMode: openingView(load("defaultViewMode", "loupe"), load("rememberViewMode", true), load("viewMode", null)),
-    stackFilmstripAtBottom: load<boolean>("stackFilmstripAtBottom", false) === true,
     gridColumns: load("gridColumns", 4),
     showExif: load("showExif", false),
     showHistogram: load("showHistogram", true),
@@ -750,6 +749,7 @@ export const useStore = create<Store>((set, get) => {
     faceZoom: null,
 
     shortcutsOpen: false,
+    overviewOpen: shouldShowOverview(snapshotPreferences()),
     settingsOpen: false,
     shipOpen: false,
     cropOpen: false,

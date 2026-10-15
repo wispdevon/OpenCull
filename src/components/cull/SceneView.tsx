@@ -27,7 +27,7 @@ interface Scene {
  * working through the shoot one moment at a time, with the middle row for
  * choosing within each.
  */
-export function SceneView({ externalOverview = false }: { externalOverview?: boolean }) {
+export function SceneView() {
   const view = useStore((s) => s.view);
   const photos = useStore((s) => s.photos);
   const current = useStore((s) => s.current);
@@ -46,12 +46,11 @@ export function SceneView({ externalOverview = false }: { externalOverview?: boo
       {showFilmstrip && <div className="border-t border-[var(--ui-line-333333)]">
         <Filmstrip only={frames} height={height} resizable={true} />
       </div>}
-      {showFilmstrip && !externalOverview && <SceneOverview />}
     </div>
   );
 }
 
-/** Group navigation, either below the photo or across the full workspace. */
+/** Group navigation across the full-width bottom row of the workspace. */
 export function SceneOverview() {
   const view = useStore((s) => s.view);
   const photos = useStore((s) => s.photos);

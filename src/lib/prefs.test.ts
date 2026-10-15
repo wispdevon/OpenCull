@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, it } from "vitest";
-import { load } from "./prefs";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { applyPreferences, load } from "./prefs";
 beforeEach(() => localStorage.clear());
 describe("preference validation", () => {
   it("does not hydrate a boolean or dimension from invalid config types", () => {
@@ -11,5 +11,19 @@ describe("preference validation", () => {
   it("recovers from malformed legacy values", () => {
     localStorage.setItem("opencull.theme", "{oops");
     expect(load("theme", "dark")).toBe("dark");
+  });
+  it("rolls back an import if browser storage fails partway through", async () => {
+    localStorage.setItem("opencull.theme", '"dark"');
+    localStorage.setItem("opencull.showExif", "false");
+    const original = localStorage.setItem.bind(localStorage);
+    const write = vi.spyOn(localStorage, "setItem").mockImplementation((key, value) => {
+      if (key === "opencull.showExif" && value === "true") throw new Error("Storage full");
+      original(key, value);
+    });
+    try {
+      await expect(applyPreferences({ theme: "light", showExif: true })).rejects.toThrow("Storage full");
+      expect(load("theme", "dark")).toBe("dark");
+      expect(load("showExif", false)).toBe(false);
+    } finally { write.mockRestore(); }
   });
 });

@@ -68,6 +68,44 @@ pub fn config_set(settings: tauri::State<Settings>, key: String, value: Value) -
     write(&path, &values)
 }
 
+fn merge_values(path: &Path, incoming: Values) -> Result<(), String> {
+    if incoming.len() > 128 || incoming.keys().any(|key| key.is_empty() || key.len() > 256) {
+        return Err("Invalid settings import".into());
+    }
+    if serde_json::to_vec(&incoming).map_err(|e| e.to_string())?.len() > 1024 * 1024 {
+        return Err("Settings import exceeds 1 MB".into());
+    }
+    let mut values = read(path)?;
+    values.extend(incoming);
+    write(path, &values)
+}
+
+#[tauri::command]
+pub fn config_set_many(settings: tauri::State<Settings>, values: Values) -> Result<(), String> {
+    let path = settings.0.lock().map_err(|e| e.to_string())?;
+    merge_values(&path, values)
+}
+
+#[tauri::command]
+pub async fn config_export_file(app: tauri::AppHandle, contents: String) -> Result<bool, String> {
+    use tauri_plugin_dialog::DialogExt;
+    if contents.len() > 1024 * 1024 { return Err("Settings export exceeds 1 MB".into()); }
+    let document: Values = serde_json::from_str(&contents).map_err(|e| e.to_string())?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let Some(file) = app.dialog().file().set_title("Export OpenCull settings")
+            .add_filter("OpenCull settings", &["json"]).set_file_name("opencull-settings.json").blocking_save_file() else { return Ok(false); };
+        let path = file.into_path().map_err(|e| e.to_string())?;
+        if path.extension().and_then(|s| s.to_str()).map(|s| s.eq_ignore_ascii_case("json")) != Some(true) {
+            return Err("Choose a .json filename".into());
+        }
+        let active = location(&app)?;
+        let same_file = path.canonicalize().ok().zip(active.canonicalize().ok()).is_some_and(|(a, b)| a == b);
+        if path == active || same_file { return Err("Export to a separate file, not the active config.json".into()); }
+        write(&path, &document)?;
+        Ok(true)
+    }).await.map_err(|e| e.to_string())?
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -96,6 +134,23 @@ mod tests {
         let dir = root(); fs::create_dir_all(&dir).unwrap(); let path = dir.join("config.json");
         write(&path, &Values::new()).unwrap();
         assert!(write(&path.join("bad"), &Values::new()).is_err()); assert_eq!(read(&path).unwrap(), Values::new());
+        fs::remove_dir_all(dir).unwrap();
+    }
+    #[test] fn bulk_import_merges_preferences_and_preserves_history() {
+        let dir = root(); let path = dir.join("config.json");
+        write(&path, &Values::from([("theme".into(), Value::from("dark")), ("recents".into(), serde_json::json!(["/photos"]))])).unwrap();
+        merge_values(&path, Values::from([("theme".into(), Value::from("light")), ("showExif".into(), Value::from(true))])).unwrap();
+        let values = read(&path).unwrap();
+        assert_eq!(values["theme"], "light"); assert_eq!(values["showExif"], true);
+        assert_eq!(values["recents"], serde_json::json!(["/photos"]));
+        fs::remove_dir_all(dir).unwrap();
+    }
+    #[test] fn invalid_bulk_import_preserves_the_whole_config() {
+        let dir = root(); let path = dir.join("config.json");
+        write(&path, &Values::from([("theme".into(), Value::from("dark"))])).unwrap();
+        let before = fs::read(&path).unwrap();
+        assert!(merge_values(&path, Values::from([("".into(), Value::from(true)), ("theme".into(), Value::from("light"))])).is_err());
+        assert_eq!(fs::read(&path).unwrap(), before);
         fs::remove_dir_all(dir).unwrap();
     }
 }

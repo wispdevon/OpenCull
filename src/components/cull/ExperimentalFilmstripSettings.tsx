@@ -5,9 +5,9 @@ export function ExperimentalFilmstripSettings() {
   const enabled = useStore((s) => s.experimentalNativeFilmstrip);
   return <fieldset className="space-y-3 rounded-lg border border-border p-4">
     <legend className="px-1 text-sm font-semibold">Experimental Features</legend>
-    <label className="flex items-center justify-between gap-4">
-      <span><span className="block text-sm font-medium">Native-aspect filmstrip</span>
-        <span className="block text-xs text-muted-foreground">Keep each photo’s proportions in a single row. Portraits take less width; landscapes take more.</span></span>
+    <label className="setting-toggle-row flex items-start justify-between gap-4">
+      <span className="setting-copy"><span className="setting-label block">Native-aspect filmstrip</span>
+        <span className="setting-hint mt-1.5 block text-muted-foreground">Keep each photo’s proportions in a single row. Portraits take less width; landscapes take more.</span></span>
       <Switch checked={enabled} onCheckedChange={(value) => useStore.getState().set("experimentalNativeFilmstrip", value)} aria-label="Native-aspect filmstrip" />
     </label>
   </fieldset>;

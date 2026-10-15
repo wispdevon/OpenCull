@@ -167,6 +167,7 @@ function Canvas({ photo }: { photo: Photo }) {
   const [screenReady, setScreenReady] = useState<string | null>(null);
   const [fitReady, setFitReady] = useState<string | null>(null);
   const [fullReady, setFullReady] = useState<string | null>(null);
+  const [fullRequested, setFullRequested] = useState<string | null>(null);
   // While a zoom is gliding or being pinched, the size the picture was drawn
   // at when that began. Otherwise null, and it is drawn at the size it is.
   const [drawnAt, setDrawnAt] = useState<number | null>(null);
@@ -584,6 +585,12 @@ function Canvas({ photo }: { photo: Photo }) {
   // than the window-sized rendering was made to go. The full-size picture is
   // the file's own, so drawing from it makes nothing.
   const wantFull = zoomed || (known && magnified(photo) > WORTH_FULL);
+  // Keep this photo's decoded full layer through zoom-out and the next zoom-in.
+  // Unmounting it at fit replaced it with a different preview mid-animation and
+  // made WebKit decode/promote it again on every click. Never retain another photo.
+  useLayoutEffect(() => {
+    if (wantFull) setFullRequested(fullUrl);
+  }, [wantFull, fullUrl]);
 
   // A self-test times these pictures arriving cold, so nothing is held for it.
   const holding = !useStore((s) => s.selfTest);
@@ -697,14 +704,20 @@ function Canvas({ photo }: { photo: Photo }) {
                 onLoad={() => setFitReady(fitUrl)}
               />
             )}
-            {wantFull && (
+            {(wantFull || fullRequested === fullUrl) && (
               <img
                 key={fullUrl}
                 src={fullUrl}
                 alt=""
                 draggable={false}
-                className={cn(layer, "transition-opacity duration-150", fullReady === fullUrl ? "opacity-100" : "opacity-0")}
-                onLoad={() => setFullReady(fullUrl)}
+                decoding="sync"
+                className={cn(layer, fullReady === fullUrl ? "opacity-100" : "opacity-0")}
+                onLoad={(e) => {
+                  const image = e.currentTarget;
+                  void image.decode().then(() => {
+                    if (image.isConnected) setFullReady(fullUrl);
+                  }).catch(() => { /* Keep the already visible preview if decoding fails. */ });
+                }}
               />
             )}
             </div>

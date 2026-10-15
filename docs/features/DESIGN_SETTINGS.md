@@ -1,7 +1,8 @@
 # Design settings
 
-The combined app groups Design theme, Appearance, Interface font and Interface
-scale under Settings → Design. Layout retains view modes, panels and filmstrip
+The combined app groups Appearance, Interface font and Interface scale under
+Settings → Design. Interface design (OpenCull, RapidRAW, Wisp) is selected from
+Settings → Design. Layout retains view modes, panels and filmstrip
 arrangement. Preference keys, defaults and live application are unchanged.
 
 `feature/settings-design-tab` is based on `dev` because these controls originate
@@ -10,7 +11,9 @@ from several independently retained feature branches.
 Settings typography uses a shared reading hierarchy across themes: 1rem section
 headings, 0.9375rem labels, and 0.875rem help text and controls, with unitless 1.5
 line height. Controls have a 2.5rem minimum height; rows wrap on narrow windows.
-The heading and tabs stay visible while the content scrolls. Compact photo
+The dialog grows to 48rem on desktop, while keeping a 1rem viewport margin.
+Options use 1.25rem padding and visible card boundaries. The heading and tabs
+stay visible while the content scrolls. Compact photo
 overlays retain their own type scale.
 
 Leave native font rasterization enabled. Do not force grayscale font smoothing

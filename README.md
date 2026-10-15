@@ -81,8 +81,19 @@ larger UI headings, XDG configuration, remembered/default view modes, Wisp contr
 saved interface scaling, recent session deletion, resizable stack strips,
 experimental native-aspect strips and eased zoom, optional NVIDIA rendering profiles,
 and an opt-in Linux CUDA AI trial.
-Optional preferences are selectable in Settings; themes, colour mode, font and interface scale are under
-**Design**; view/panel controls remain under **Layout**.
+**Settings → Design** selects OpenCull, RapidRAW or Wisp interface
+design and switches between Spacious and Classic action placement.
+Colour mode, font and interface scale are under **Settings → Design**;
+view/panel controls remain under **Settings → Layout**.
+Keyboard shortcuts are edited directly in **Settings → Keyboard**.
+Back up or transfer preferences through **Settings → Storage → Settings backup**;
+imports can be reviewed before applying and reloading. Photos and history are excluded.
+Wisp applies the included RapidRAW inspired preset: 18% grey photo surround,
+contrasting controls, Space Grotesk, 125% scale, and the saved culling options.
+New profiles receive a quick workflow and keyboard overview; reopen it from
+**Settings → Keyboard → Quick overview**.
+See the [settings layout guidelines](docs/SETTINGS_DESIGN.md) and
+[Wisp design guidelines](docs/WISP_DESIGN.md) for spacing and contrast rules.
 Linux settings are created in `$XDG_CONFIG_HOME/opencull/config.json`, normally
 `~/.config/opencull/config.json`. No personal configuration file is required.
 macOS and Windows use Tauri's native application-config directory instead.
