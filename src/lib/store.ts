@@ -70,6 +70,7 @@ interface State {
   showRatingBar: boolean;
   showFilterBar: boolean;
   filmstripHeight: number;
+  sceneStripHeight: number;
   /** The strip's edge is being dragged, and its height is changing every frame. */
   stripResizing: boolean;
   /** A side panel's edge is being dragged, and the photo beside it changes size every frame. */
@@ -345,6 +346,7 @@ const PERSISTED = [
   "showRatingBar",
   "showFilterBar",
   "filmstripHeight",
+  "sceneStripHeight",
   "includeSubfolders",
   "fileKinds",
   "embedInJpeg",
@@ -679,6 +681,7 @@ export const useStore = create<Store>((set, get) => {
     showInfo: load("showInfo", false),
     showRatingBar: load("showRatingBar", true),
     showFilterBar: load("showFilterBar", false),
+    sceneStripHeight: load("sceneStripHeight", 116),
     filmstripHeight: load("filmstripHeight", 120),
     stripResizing: false,
     panelResizing: false,
