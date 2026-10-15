@@ -1,4 +1,5 @@
 import { ExperimentalFilmstripSettings } from "./ExperimentalFilmstripSettings";
+import { FaceOverlaySettings } from "./FaceOverlaySettings";
 import { ExperimentalZoomSettings } from "./ExperimentalZoomSettings";
 import { HomeLayoutSettings } from "@/components/HomeLayoutSettings";
 import { SettingsTransfer } from "@/components/SettingsTransfer";
@@ -271,8 +272,8 @@ function SettingsBody({ tab, onTab, ...shortcutProps }: { tab: SettingsTab; onTa
     }
   };
 
-  const toggle = (key: "speedCullAlways" | "showRatingBar" | "keepZoom" | "instantZoom" | "rgbHistogram" | "warmAhead" | "aiEnabled" | "aiAdvanced" | "showBackgroundFaces" | "aiPause" | "smartGroups" | "embedInJpeg" | "checkForUpdates") => (
-    <Switch checked={s[key]} onCheckedChange={(on) => set(key, on)} />
+  const toggle = (key: "spaceZoomToFace" | "speedCullAlways" | "showRatingBar" | "keepZoom" | "instantZoom" | "rgbHistogram" | "warmAhead" | "aiEnabled" | "aiAdvanced" | "showBackgroundFaces" | "aiPause" | "smartGroups" | "embedInJpeg" | "checkForUpdates", label?: string) => (
+    <Switch aria-label={label} checked={s[key]} onCheckedChange={(on) => set(key, on)} />
   );
   const boxKey = isMac ? "⌘ Command" : "Ctrl";
 
@@ -424,6 +425,11 @@ function SettingsBody({ tab, onTab, ...shortcutProps }: { tab: SettingsTab; onTa
         <TabsContent value="zoom" className="space-y-4">
           <ExperimentalZoomSettings />
           <Setting
+            title="Space zooms to the highest-scoring face"
+            detail="Targets the sharpest scored main subject; uses a background face if no subject is scored. With no available face score, zooms to the centre. Press again to return to fit. Follows the centre-zoom shortcut if you rebind Space."
+            control={toggle("spaceZoomToFace", "Space zooms to the highest-scoring face")}
+          />
+          <Setting
             title="Keep zoom between photos"
             detail="Holds the zoom and the spot you are looking at as you move through a folder, so focus can be checked on the same face across a burst. Turn off to return to the whole frame on every photo."
             control={toggle("keepZoom")}
@@ -440,6 +446,7 @@ function SettingsBody({ tab, onTab, ...shortcutProps }: { tab: SettingsTab; onTa
           />
         </TabsContent>
         <TabsContent value="ai" className="space-y-4">
+          <FaceOverlaySettings />
           <Setting
             title="OpenCull AI"
             detail="Finds the faces in each photo and judges them: eyes shut, looking away, how sharp, and who the photo is about. From that it marks each photo and ranks the frames of a burst, or of the same pose shot again. Runs on this computer; nothing is sent anywhere."

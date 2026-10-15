@@ -3,6 +3,11 @@ import { exportSettings, parseSettingsImport } from "./settings-transfer";
 import wisp from "./presets/wisp.json";
 const document = (values: unknown, version = 1) => JSON.stringify({ format: "opencull-settings", version, values });
 describe("portable settings", () => {
+  it("round-trips face-view options without exporting a hovered face", () => {
+    const values = { spaceZoomToFace: true, experimentalFaceOutlines: true, experimentalFaceSpotlight: false };
+    expect(parseSettingsImport(exportSettings({ ...values, hoveredFace: { display: "/private/photo.raw" } }))).toEqual(values);
+    expect(() => parseSettingsImport(document({ experimentalFaceSpotlight: "yes" }))).toThrow();
+  });
   it("ships the portable Wisp culling preset without source paths", () => {
     const values = parseSettingsImport(JSON.stringify(wisp));
     expect(values).toMatchObject({ visualTheme: "wisp", theme: "grey", font: { choice: "space-grotesk", family: "" }, interfaceScale: 1.25, experimentalNativeFilmstrip: true, experimentalSmoothZoom: true, aiAdvanced: true, speedCullAlways: true });

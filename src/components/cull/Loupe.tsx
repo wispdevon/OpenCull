@@ -6,6 +6,7 @@ import { Flag, Loader2, X } from "lucide-react";
 import { api, bucket, FIT_SIZES } from "@/lib/api";
 import * as fmt from "@/lib/format";
 import { framingKey, magnified, placement, shownSize, uprightToShown } from "@/lib/framing";
+import { highestScoringFace } from "@/lib/face-target";
 import { hold, holdFull, isHeld } from "@/lib/held";
 import { load, save } from "@/lib/prefs";
 import { isMac } from "@/lib/shortcuts";
@@ -15,6 +16,7 @@ import { COLORS, type Photo } from "@/lib/types";
 import { useStripThumbSize } from "./Filmstrip";
 import { CropView } from "./Crop";
 import { PhotoMenu } from "./PhotoMenu";
+import { FaceOverlays } from "./FaceOverlays";
 
 /** Zoom and pan: how many times larger than fit, and how far off centre. */
 interface Zoom {
@@ -403,7 +405,10 @@ function Canvas({ photo }: { photo: Photo }) {
         rememberLevel(z.scale);
         backToFit();
       } else {
-        zoomInOn({ x: 0, y: 0 });
+        const s = useStore.getState();
+        const face = s.spaceZoomToFace && s.aiEnabled ? highestScoringFace(s.ai[photo.index]?.faces ?? [], photo) : null;
+        const at = face ? uprightToShown(photo, { x: face.x + face.w / 2, y: face.y + face.h / 2 }) : { x: 0.5, y: 0.5 };
+        zoomInOn({ x: (at.x - 0.5) * shown.w, y: (at.y - 0.5) * shown.h });
       }
       return;
     }
@@ -721,6 +726,7 @@ function Canvas({ photo }: { photo: Photo }) {
               />
             )}
             </div>
+            <FaceOverlays photo={photo} />
           </div>
         )}
         {marquee && <MarqueeBox marquee={marquee} frame={box} />}

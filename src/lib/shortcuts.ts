@@ -71,7 +71,7 @@ export const SECTIONS: { title: string; actions: [Action, string][] }[] = [
     title: "View",
     actions: [
       ["zoomToggle", "Zoom in and out"],
-      ["zoomCentre", "Zoom into the middle"],
+      ["zoomCentre", "Zoom to centre or highest-scoring face"],
       ["zoomIn", "Zoom in"],
       ["zoomOut", "Zoom out"],
       ["viewGrid", "Grid view"],
