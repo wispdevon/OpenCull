@@ -3,7 +3,7 @@ import { ExperimentalZoomSettings } from "./ExperimentalZoomSettings";
 import { InterfaceScaleSettings } from "@/components/InterfaceScaleSettings";
 import { GraphicsSettings } from "@/components/GraphicsSettings";
 import { useEffect, useRef, useState } from "react";
-import { HardDrive, PanelsTopLeft, Keyboard, ScanFace, Star, ZoomIn, type LucideIcon } from "lucide-react";
+import { HardDrive, Palette, PanelsTopLeft, Keyboard, ScanFace, Star, ZoomIn, type LucideIcon } from "lucide-react";
 
 import {
   AlertDialog,
@@ -178,7 +178,7 @@ export function SettingsDialog() {
   return (
     <Dialog open={open} onOpenChange={(o) => useStore.getState().set("settingsOpen", o)}>
       <DialogContent
-        className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-[600px]"
+        className="flex max-h-[calc(100dvh-2rem)] flex-col overflow-hidden sm:max-w-[600px]"
         // Opens with nothing picked out: a ring round the first tab reads
         // as something being wrong with it.
         onOpenAutoFocus={(e) => {
@@ -186,7 +186,7 @@ export function SettingsDialog() {
           (e.currentTarget as HTMLElement).focus();
         }}
       >
-        <DialogHeader>
+        <DialogHeader className="shrink-0">
           <DialogTitle>Settings</DialogTitle>
         </DialogHeader>
         {/* Only exists while the window is open, so that reading every
@@ -200,9 +200,10 @@ export function SettingsDialog() {
 /** How long the cache limit is left alone before it is acted on. */
 const LIMIT_SETTLE_MS = 800;
 
-type SettingsTab = "layout" | "culling" | "zoom" | "ai" | "storage" | "keyboard";
+type SettingsTab = "design" | "layout" | "culling" | "zoom" | "ai" | "storage" | "keyboard";
 const SETTINGS_TABS: [SettingsTab, string, LucideIcon][] = [
   ["culling", "Culling", Star],
+  ["design", "Design", Palette],
   ["layout", "Layout", PanelsTopLeft],
   ["zoom", "Zoom", ZoomIn],
   ["ai", "AI", ScanFace],
@@ -277,8 +278,8 @@ function SettingsBody({ tab, onTab }: { tab: SettingsTab; onTab: (tab: SettingsT
   const boxKey = isMac ? "⌘ Command" : "Ctrl";
 
   return (
-    <Tabs value={tab} onValueChange={(to) => onTab(to as SettingsTab)}>
-      <TabsList className="flex-wrap">
+    <Tabs className="settings-panel min-h-0" value={tab} onValueChange={(to) => onTab(to as SettingsTab)}>
+      <TabsList className="shrink-0 flex-wrap">
         {SETTINGS_TABS.map(([value, label, Icon]) => (
           <TabsTrigger key={value} value={value}>
             <Icon />
@@ -288,9 +289,14 @@ function SettingsBody({ tab, onTab }: { tab: SettingsTab; onTab: (tab: SettingsT
       </TabsList>
       {/* One height for every tab, so the window does not jump about as
           they are stepped through; a tab with more than fits scrolls. */}
-      <div className="h-[min(430px,calc(100dvh-12rem))] min-h-24 overflow-x-hidden overflow-y-auto pr-1">
-        <TabsContent value="layout" className="flex flex-col gap-4">
+      <div className="h-[min(430px,calc(100dvh-12rem))] min-h-0 overflow-x-hidden overflow-y-auto pr-1">
+        <TabsContent value="design" className="flex flex-col gap-4">
+          <VisualThemeSettings />
+          <ThemeSettings />
+          <FontSettings />
           <InterfaceScaleSettings />
+        </TabsContent>
+        <TabsContent value="layout" className="flex flex-col gap-4">
           <ViewModeSettings />
           <StackLayoutSettings />
           {([
@@ -314,11 +320,8 @@ function SettingsBody({ tab, onTab }: { tab: SettingsTab; onTab: (tab: SettingsT
           ))}
         </TabsContent>
         <TabsContent value="culling" className="space-y-4">
-          <FontSettings />
-          <ThemeSettings />
           <Setting title="Ignore videos" detail="Hide video files when opening folders and ingesting cards. Turn off to include playback where the system supports the codec."
             control={<Switch aria-label="Ignore videos" checked={s.ignoreVideos} onCheckedChange={(on) => { set("ignoreVideos", on); useStore.getState().reloadForSubfolders(); }} />} />
-          <VisualThemeSettings />
           <ExperimentalFilmstripSettings />
           <Setting
             title="Speed cull"
