@@ -1,8 +1,8 @@
 # Try every OpenCull feature on macOS
 
-Share this link: https://github.com/wispdevon/OpenCull/tree/integration/linux-features
+Share this link: https://github.com/wispdevon/OpenCull/tree/dev
 
-The integration branch already combines the feature branches. Do not merge branches by hand or use fork main for the combined preview. Experimental features are available in Settings and remain opt-in. The discarded mountain welcome-page demo is excluded.
+The `dev` branch already combines the approved feature branches across platforms. Do not merge branches by hand or use fork main for the combined preview. Experimental features are available in Settings and remain opt-in. The discarded mountain welcome-page demo is excluded.
 
 ## Prerequisites
 
@@ -10,7 +10,7 @@ Install Xcode Command Line Tools (`xcode-select --install`), Homebrew, Rust stab
 
 ```sh
 brew install jpeg-turbo pkgconf
-git clone --branch integration/linux-features --single-branch https://github.com/wispdevon/OpenCull.git
+git clone --branch dev --single-branch https://github.com/wispdevon/OpenCull.git
 cd OpenCull
 nvm install
 nvm use
@@ -36,4 +36,6 @@ Use a copy of a small shoot for an initial trial. `npm run check` runs frontend 
 
 ## Verification boundaries
 
-The earlier combined snapshot passed the macOS Apple-silicon CI tests and build. The final branch's CI additionally starts `dev:desktop`, checks Vite and the native process, and observes them through startup. This is a startup smoke test, not a visual, card-reader or performance test on the recipient's Mac. Intel macOS is not covered by the Apple-silicon runner. See the latest integration Build workflow for the exact commit and result.
+The combined snapshot before the CUDA addition passed macOS Apple-silicon CI tests, desktop development startup and build. The final branch's CI additionally starts `dev:desktop`, checks Vite and the native process, and observes them through startup. This is a startup smoke test, not a visual, card-reader or performance test on the recipient's Mac. Intel macOS is not covered by the Apple-silicon runner. See the latest integration Build workflow for the exact commit and result.
+
+The opt-in CUDA dependency is target-scoped to Linux x86_64. CI additionally checks the macOS dependency graph and tests a build with the `cuda` feature requested: the NVIDIA dependency must remain absent and inference stays on CPU. The README on fork `main` clones the default branch; this trial guide intentionally selects `dev`.
