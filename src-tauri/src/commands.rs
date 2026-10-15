@@ -1093,3 +1093,9 @@ pub async fn trim_cache(app: AppState<'_>, limit: u64) -> Result<u64, String> {
     let cache = app.previews.cache.clone();
     tauri::async_runtime::spawn_blocking(move || cache.trim(limit)).await.map_err(|e| e.to_string())
 }
+
+/// Selected cards are scanned as one shoot; disconnected sources are reported.
+#[tauri::command]
+pub async fn ingest_sources(sources: Vec<PathBuf>) -> Result<Vec<Scanned>, String> {
+    tauri::async_runtime::spawn_blocking(move || crate::multicard::scan_sources(&sources)).await.map_err(|e| e.to_string())?
+}

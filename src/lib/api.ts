@@ -171,6 +171,7 @@ export interface Backend {
   ingestVolumes(): Promise<Volume[]>;
   ingestBrowse(path: string): Promise<{ folders: IngestFolder[]; imageCount: number }>;
   ingestScan(path: string): Promise<Scanned[]>;
+  ingestSources(sources: string[]): Promise<Scanned[]>;
   /** Reads capture times and in-camera stars, in batches. Asking again stops the last asking. */
   ingestDetails(paths: string[], onFound: (found: IngestDetail[]) => void): Promise<void>;
   ingestConflicts(items: { path: string; display: string }[], destination: string): Promise<number>;
@@ -255,6 +256,7 @@ const tauri: Backend = {
   ingestVolumes: () => invoke("ingest_volumes"),
   ingestBrowse: (path) => invoke("ingest_browse", { path }),
   ingestScan: (path) => invoke("ingest_scan", { path }),
+  ingestSources: (sources) => invoke("ingest_sources", { sources }),
   ingestDetails: (paths, onFound) => {
     const found = new Channel<IngestDetail[]>();
     found.onmessage = onFound;

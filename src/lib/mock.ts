@@ -204,6 +204,7 @@ export const mock: Backend = {
         : { folders: [{ path: `${path}/DCIM`, name: "DCIM", imageCount: 0 }, { path: `${path}/Weddings`, name: "Weddings", imageCount: 0 }], imageCount: 0 },
       200,
     ),
+  ingestSources: (_sources) => later(images.slice(0, 60)),
   ingestScan: () => later(images, 300),
   ingestDetails: async (paths, onFound) => {
     for (let at = 0; at < paths.length; at += 64) {
