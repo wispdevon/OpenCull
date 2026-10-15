@@ -17,6 +17,7 @@ The seven feature branches start independently at upstream release 0.4.1. Each h
 | RapidRAW inspired design | `feature/rapidraw-theme` | [#10](https://github.com/wispdevon/OpenCull/pull/10) |
 | Precise card subfolders | `feature/ingest-subfolders` | [#11](https://github.com/wispdevon/OpenCull/pull/11) |
 | Larger headings and review guidance | `feature/ui-changes` | [#12](https://github.com/wispdevon/OpenCull/pull/12) |
+| Default and remembered views | `feature/view-mode-preferences` | [#13](https://github.com/wispdevon/OpenCull/pull/13) |
 
 The design and subfolder branches also start directly from upstream. The UI
 branch starts from `feature/cull-before-ingest`, because its instruction text
@@ -24,7 +25,7 @@ describes that workflow; its PR targets that branch to isolate the UI diff.
 
 ## Additional welcome, folder, and heading checks
 
-The latest integration passes 48 frontend tests and a Linux debug desktop
+The latest integration passes 52 frontend tests and a Linux debug desktop
 build. Standalone design/subfolder/UI branches pass their frontend tests and
 TypeScript/Vite builds. No Rust logic changed in these additions.
 
@@ -40,6 +41,14 @@ only `DCIM/100CANON` after selecting it, and an explicit parent selection with
 **Use this folder**. Combined multi-source selection retained earlier sources.
 Heading checks verified a 24px ingest heading, 14px instruction immediately
 below it, no duplicate sidebar instruction, and 20px shared dialog titles.
+
+View preferences add a default opening view and an enabled-by-default
+**Remember last view** control under **Settings → Layout**. The standalone
+branch passes 35 frontend tests and a TypeScript/Vite build. Combined browser
+checks verify Filmstrip/Loupe, Stack/Scene, and Grid across folder changes and
+reloads, explicit defaults with remembering disabled, and keyboard changes
+written to preferences. The runtime check follows the UI's nonblocking folder
+opening path and waits for the listing rather than for background metadata.
 
 The updated executable opened successfully in the user's Wayland session with
 `WEBKIT_DISABLE_DMABUF_RENDERER=1`. An unmodified launch previously exited with
