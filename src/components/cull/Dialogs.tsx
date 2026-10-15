@@ -1,3 +1,4 @@
+import { InterfaceMotionSettings } from "./InterfaceMotionSettings";
 import { ExperimentalFilmstripSettings } from "./ExperimentalFilmstripSettings";
 import { FaceOverlaySettings } from "./FaceOverlaySettings";
 import { MotionBlurSettings } from "./MotionBlurSettings";
@@ -292,6 +293,7 @@ function SettingsBody({ tab, onTab, ...shortcutProps }: { tab: SettingsTab; onTa
           they are stepped through; a tab with more than fits scrolls. */}
       <div className="h-[min(560px,calc(100dvh-12rem))] min-h-0 overflow-x-hidden overflow-y-auto pr-1">
         <TabsContent value="design" className="flex flex-col gap-4">
+          <InterfaceMotionSettings />
           <HomeLayoutSettings />
           <ThemeSettings />
           <FontSettings />
@@ -320,9 +322,9 @@ function SettingsBody({ tab, onTab, ...shortcutProps }: { tab: SettingsTab; onTa
           ))}
         </TabsContent>
         <TabsContent value="culling" className="space-y-4">
+          <ExperimentalFilmstripSettings />
           <Setting title="Ignore videos" detail="Hide video files when opening folders and ingesting cards. Turn off to include playback where the system supports the codec."
             control={<Switch aria-label="Ignore videos" checked={s.ignoreVideos} onCheckedChange={(on) => { set("ignoreVideos", on); useStore.getState().reloadForSubfolders(); }} />} />
-          <ExperimentalFilmstripSettings />
           <Setting
             title="Speed cull"
             detail="Moves straight on to the next photo after you pick, reject or rate one. Its key — Caps Lock unless you change it — also turns it on, whatever is set here."

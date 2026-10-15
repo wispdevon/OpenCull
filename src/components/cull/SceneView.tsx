@@ -1,3 +1,4 @@
+import { MotionRegion } from "./InterfaceMotion";
 import { previewAspect, usePreviewAspectRevision } from "@/lib/preview-aspect";
 import { stripPhotoWidth } from "@/lib/strip-aspect";
 import { useMemo } from "react";
@@ -43,9 +44,9 @@ export function SceneView() {
       <div className="min-h-0 flex-1">
         <Loupe />
       </div>
-      {showFilmstrip && <div className="border-t border-[var(--ui-line-333333)]">
+      <MotionRegion open={showFilmstrip}><div className="border-t border-[var(--ui-line-333333)]">
         <Filmstrip only={frames} height={height} resizable={true} />
-      </div>}
+      </div></MotionRegion>
     </div>
   );
 }

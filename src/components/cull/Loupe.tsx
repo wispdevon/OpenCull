@@ -1,3 +1,4 @@
+import { PhotoTransition } from "./InterfaceMotion";
 import { isVideo } from "@/lib/media";
 import { VideoPlayer } from "./VideoPlayer";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
@@ -130,9 +131,9 @@ export function Loupe() {
   return (
     <div className="relative size-full overflow-hidden bg-canvas">
       {photo && isVideo(photo.path) ? <VideoPlayer key={photo.path} path={photo.path} /> : photo && cropping ? (
-        <CropView photo={photo} />
+        <PhotoTransition identity={`${photo.display}:${photo.version}:crop`}><CropView photo={photo} /></PhotoTransition>
       ) : photo ? (
-        <Canvas photo={photo} />
+        <PhotoTransition identity={`${photo.display}:${photo.version}:view`}><Canvas photo={photo} /></PhotoTransition>
       ) : (
         <div className="flex size-full flex-col items-center justify-center gap-2 text-sm text-[var(--ui-text-666666)]">
           {loading && <Loader2 className="size-4 animate-spin" />}
