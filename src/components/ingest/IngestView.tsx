@@ -49,12 +49,6 @@ interface Level {
 /** The way a file browser orders names: `IMG_9` before `IMG_10`. */
 const byName = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
 
-/** The folders a camera makes at the top of its card. Chosen whole, not gone into. */
-function isCameraMedia(name: string): boolean {
-  const lower = name.toLowerCase();
-  return lower.startsWith("dcim") || lower === "m4root" || lower === "private" || lower === "misc";
-}
-
 /**
  * When a photo was taken, for sorting and for showing. The camera's own time
  * once its file has been read; until then, and for a file that does not say,
@@ -181,25 +175,21 @@ export function IngestView() {
 
   const openVolume = useCallback(
     (volume: Volume) => {
-      // A camera's card is listed whole straight away, and can still be
-      // looked through for one folder of it. A drive is only looked through:
-      // listing all of an archive would take minutes nobody asked for.
-      if (volume.cameraCard) choose(volume.path);
+      // Browse first so CARD → DCIM → 100CANON can be chosen precisely.
       goInto(volume.path, volume.name);
     },
-    [choose, goInto],
+    [goInto],
   );
 
   const openFolder = (folder: IngestFolder) => {
-    if (isCameraMedia(folder.name)) return choose(folder.path);
     const mine = ++browse.current;
     setBrowsing(true);
     void api.ingestBrowse(folder.path, ignoreVideos).then(
       (found) => {
         if (browse.current !== mine) return;
         setBrowsing(false);
-        // A folder of folders is gone into; a folder of photos is chosen.
-        if (found.folders.length > 0 && found.imageCount === 0) goInto(folder.path, folder.name, found.folders);
+        // Mixed folders may also contain a more specific source to choose.
+        if (found.folders.length > 0) goInto(folder.path, folder.name, found.folders);
         else choose(folder.path);
       },
       () => browse.current === mine && setBrowsing(false),
@@ -215,7 +205,7 @@ export function IngestView() {
 
   const browseForFolder = async () => {
     const picked = await api.pickFolder("Choose a folder of photos to ingest");
-    if (picked) choose(picked);
+    if (picked) openFolder({ path: picked, name: picked.split(/[\\/]/).filter(Boolean).pop() ?? picked, imageCount: 0 });
   };
 
   // Opened from "card detected": go straight to that card once it is listed.
@@ -332,8 +322,9 @@ export function IngestView() {
               <button type="button" aria-label="Back" onClick={goBack} className="flex size-6 items-center justify-center rounded-md bg-white/[0.07] text-[var(--ui-text-bfbfbf)] hover:text-white">
                 <ChevronLeft className="size-3.5" />
               </button>
-              <button type="button" title="Show all photos in this folder" onClick={() => choose(current.path)} className="min-w-0 truncate text-left text-[13px] font-semibold text-foreground hover:underline">
+              <button type="button" aria-label={`Use ${current.title} as source`} title="Select this folder and its photos" onClick={() => choose(current.path)} className="min-w-0 truncate text-left text-[13px] font-semibold text-foreground hover:underline">
                 {current.title}
+                <span className="block text-[11px] font-normal text-muted-foreground">Use this folder</span>
               </button>
             </div>
           ) : (
@@ -353,7 +344,7 @@ export function IngestView() {
                     <Folder className="size-3.5 shrink-0 fill-[#73a6ff] text-[#73a6ff]" />
                     <span className="min-w-0 flex-1 truncate">{folder.name}</span>
                     {folder.imageCount > 0 && <span className="text-[11px] tabular-nums text-[var(--ui-text-808080)]">{folder.imageCount.toLocaleString()}</span>}
-                    {!isCameraMedia(folder.name) && <ChevronRight className="size-3 shrink-0 text-[var(--ui-text-666666)]" />}
+                    <ChevronRight className="size-3 shrink-0 text-[var(--ui-text-666666)]" />
                   </Row>
                 ))
               )
@@ -494,7 +485,7 @@ function VolumeRow({ volume, selected, onClick }: { volume: Volume; selected: bo
     <Row selected={selected} onClick={onClick}>
       {volume.cameraCard ? <CardIcon /> : <HardDrive className="size-3.5 shrink-0 text-[var(--ui-text-a6a6a6)]" />}
       <span className="min-w-0 flex-1 truncate">{volume.name}</span>
-      {!volume.cameraCard && <ChevronRight className="size-3 shrink-0 text-[var(--ui-text-666666)]" />}
+      <ChevronRight className="size-3 shrink-0 text-[var(--ui-text-666666)]" />
     </Row>
   );
 }

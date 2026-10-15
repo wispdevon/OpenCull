@@ -200,9 +200,11 @@ export const mock: Backend = {
     ]),
   ingestBrowse: (path) =>
     later(
-      path.endsWith("100MSDCF")
-        ? { folders: [], imageCount: images.length }
-        : { folders: [{ path: `${path}/DCIM`, name: "DCIM", imageCount: 0 }, { path: `${path}/Weddings`, name: "Weddings", imageCount: 0 }], imageCount: 0 },
+      path.endsWith("DCIM")
+        ? { folders: [{ path: `${path}/100CANON`, name: "100CANON", imageCount: images.length }], imageCount: 0 }
+        : path.endsWith("100CANON") || path.endsWith("Weddings")
+          ? { folders: [], imageCount: images.length }
+          : { folders: [{ path: `${path}/DCIM`, name: "DCIM", imageCount: 0 }, { path: `${path}/Weddings`, name: "Weddings", imageCount: 0 }], imageCount: 0 },
       200,
     ),
   ingestSources: (_sources) => later(images.slice(0, 60)),
