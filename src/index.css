@@ -135,7 +135,15 @@
 /* Settings use reading sizes, rather than the compact photo-overlay type scale.
    Keep native font rasterization: forced grayscale smoothing can thin small type. */
 .settings-panel.settings-panel { font-size: 0.875rem; line-height: 1.5; }
-.settings-panel.settings-panel fieldset { padding: 1rem; }
+.settings-panel.settings-panel :is(fieldset, .setting-row) { padding: 1.25rem; }
+.settings-panel.settings-panel .setting-row {
+  gap: 1.5rem;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  background: var(--card);
+}
+.settings-panel.settings-panel .setting-row > :first-child { min-width: 0; flex: 1; }
+.settings-panel.settings-panel .setting-detail { margin-top: 0.375rem; }
 .settings-panel.settings-panel legend {
   font-size: 1rem;
   line-height: 1.5;

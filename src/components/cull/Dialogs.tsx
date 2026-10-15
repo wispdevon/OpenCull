@@ -177,7 +177,7 @@ export function SettingsDialog() {
   return (
     <Dialog open={open} onOpenChange={(o) => useStore.getState().set("settingsOpen", o)}>
       <DialogContent
-        className="flex max-h-[calc(100dvh-2rem)] flex-col overflow-hidden sm:max-w-[600px]"
+        className="flex max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] flex-col overflow-hidden sm:max-w-3xl sm:p-6"
         // Opens with nothing picked out: a ring round the first tab reads
         // as something being wrong with it.
         onOpenAutoFocus={(e) => {
@@ -288,7 +288,7 @@ function SettingsBody({ tab, onTab }: { tab: SettingsTab; onTab: (tab: SettingsT
       </TabsList>
       {/* One height for every tab, so the window does not jump about as
           they are stepped through; a tab with more than fits scrolls. */}
-      <div className="h-[min(430px,calc(100dvh-12rem))] min-h-0 overflow-x-hidden overflow-y-auto pr-1">
+      <div className="h-[min(560px,calc(100dvh-12rem))] min-h-0 overflow-x-hidden overflow-y-auto pr-1">
         <TabsContent value="design" className="flex flex-col gap-4">
           <VisualThemeSettings />
           <ThemeSettings />
