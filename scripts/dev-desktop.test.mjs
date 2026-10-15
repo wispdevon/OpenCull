@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { desktopSpec } from "./dev-desktop.mjs";
+import { desktopSpec, reuseFrontend } from "./dev-desktop.mjs";
 
 test("ordinary desktop launch preserves native platform defaults", () => {
   for (const platform of ["darwin", "win32", "linux"]) {
@@ -20,4 +20,21 @@ test("invalid or unsupported profiles fail before spawning Tauri", () => {
   assert.throws(() => desktopSpec("linux", "x64", {}, ["--nvidia", "--software"]), /Choose one/);
   assert.throws(() => desktopSpec("darwin", "arm64", {}, ["--nvidia"]), /Linux-only/);
   assert.throws(() => desktopSpec("win32", "x64", {}, ["--cuda"]), /Linux x86_64/);
+});
+
+test("a free port leaves frontend startup owned by Tauri", async () => {
+  const request = async () => { throw new TypeError("fetch failed", { cause: { code: "ECONNREFUSED" } }); };
+  assert.deepEqual(await reuseFrontend(["dev"], request), { args: ["dev"], reused: false });
+});
+test("an existing OpenCull frontend is reused without consuming app arguments", async () => {
+  const request = async () => new Response('<title>OpenCull</title><script src="/@vite/client"></script>');
+  const original = ["dev", "--no-watch", "--", "--graphics=nvidia"];
+  const result = await reuseFrontend(original, request);
+  assert.equal(result.reused, true);
+  assert.deepEqual(result.args, ["dev", "--no-watch", "--config", '{"build":{"beforeDevCommand":""}}', "--", "--graphics=nvidia"]);
+  assert.equal(original.length, 4);
+});
+test("foreign servers and unreachable occupied ports report a clear error before starting Cargo", async () => {
+  await assert.rejects(reuseFrontend(["dev"], async () => new Response('<title>Other app</title>')), /another server/);
+  await assert.rejects(reuseFrontend(["dev"], async () => { throw new DOMException("Timed out", "TimeoutError"); }), /could not be checked/);
 });

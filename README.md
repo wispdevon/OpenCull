@@ -112,7 +112,7 @@ feature is requested.
 
 ### Desktop commands
 
-Use one checkout and switch branches with Git when needed. Feature branches remain available without separate project folders. Run `npm ci` after switching if dependencies changed. `npm run` lists the compact command set; desktop profiles are flags on one command.
+Use one checkout and switch branches with Git when needed. Feature branches remain available without separate project folders. Run `npm ci` after switching if dependencies changed. `npm run` lists the compact command set; desktop profiles are flags on one command. If `npm run dev` is already serving OpenCull, `npm run desktop` reuses that frontend. A different app on port 1420 produces a clear error before the native build starts.
 
 | Command | Purpose | Platforms |
 |---|---|---|
