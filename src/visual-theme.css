@@ -239,3 +239,6 @@
 :root[data-visual-theme="rapidraw"] .home-controls { gap: 8px; }
 :root[data-visual-theme="rapidraw"] .home-actions { gap: 8px; }
 :root[data-visual-theme="rapidraw"] .home-actions button { padding-inline: 12px; }
+/* Identity always occupies its own row above the horizontal actions. */
+:root[data-visual-theme="rapidraw"] .home-heading { flex: 1 0 100%; }
+:root[data-visual-theme="rapidraw"] .home-controls { flex: 1 0 100%; }
