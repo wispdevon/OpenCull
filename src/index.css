@@ -173,12 +173,16 @@
   font-weight: 500;
 }
 .settings-panel.settings-panel fieldset label { flex-wrap: wrap; }
-.settings-panel.settings-panel :is(fieldset p, .setting-detail, fieldset label > span > span) {
+.settings-panel.settings-panel :is(fieldset p, .setting-detail, .setting-hint) {
   font-size: 0.875rem;
   line-height: 1.5;
   font-weight: 400;
   overflow-wrap: anywhere;
 }
+.settings-panel.settings-panel .setting-label { font-size: 0.9375rem; line-height: 1.5; font-weight: 500; }
+.settings-panel.settings-panel .setting-toggle-row { flex-wrap: nowrap; align-items: flex-start; gap: 1.5rem; }
+.settings-panel.settings-panel .setting-copy { flex: 1; min-width: 0; }
+.settings-panel.settings-panel .setting-toggle-row [role="switch"] { flex-shrink: 0; margin-top: 0.1875rem; }
 .settings-panel.settings-panel :is(select, input[type="text"], input:not([type]), button) {
   font-size: 0.875rem;
   line-height: 1.5;

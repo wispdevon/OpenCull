@@ -20,6 +20,11 @@ geometry. All sizes below use rems so the saved interface scale applies.
 - Typography: section headings 1rem semibold, labels 0.9375rem medium,
   descriptions and controls 0.875rem with 1.5 line height. Use the shared
   foreground and muted-foreground tokens rather than opacity.
+  Experimental options follow exactly this hierarchy. Use explicit label and
+  hint classes: a generic nested-span rule must never turn a title into body
+  text. Align the switch with the first title line, keep its width fixed, and
+  wrap the description in the remaining column. Section headings stay on the
+  card boundary with the same inset as every other section.
 - Controls: align switches with the setting title and reserve their width.
   Panel titles reuse their toolbar icon (left panel, bottom filmstrip, right
   face panel and info). Icons supplement the label and are hidden from screen readers.
