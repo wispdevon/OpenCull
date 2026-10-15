@@ -69,6 +69,7 @@ interface State {
   showInfo: boolean;
   showRatingBar: boolean;
   showFilterBar: boolean;
+  experimentalSmoothZoom: boolean;
   filmstripHeight: number;
   /** The strip's edge is being dragged, and its height is changing every frame. */
   stripResizing: boolean;
@@ -344,6 +345,7 @@ const PERSISTED = [
   "showInfo",
   "showRatingBar",
   "showFilterBar",
+  "experimentalSmoothZoom",
   "filmstripHeight",
   "includeSubfolders",
   "fileKinds",
@@ -679,6 +681,7 @@ export const useStore = create<Store>((set, get) => {
     showInfo: load("showInfo", false),
     showRatingBar: load("showRatingBar", true),
     showFilterBar: load("showFilterBar", false),
+    experimentalSmoothZoom: load<boolean>("experimentalSmoothZoom", false) === true,
     filmstripHeight: load("filmstripHeight", 120),
     stripResizing: false,
     panelResizing: false,

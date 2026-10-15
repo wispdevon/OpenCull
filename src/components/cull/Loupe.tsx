@@ -42,7 +42,7 @@ const MAX_ZOOM = 20;
 const SHARPEN_MS = 120;
 
 /** How long each zoom takes to glide into place, in milliseconds. */
-const GLIDE = { in: 220, out: 200, box: 250 };
+
 
 /** A press that travels no further than this is a click, not a drag. */
 const CLICK_SLOP = 3;
@@ -112,6 +112,20 @@ const WORTH_FULL = 1.15;
 export function Loupe() {
   const photo = useStore((s) => (s.current >= 0 ? s.photos[s.current] : undefined));
   const loading = useStore((s) => s.loading);
+  const smoothZoom = useStore((s) => s.experimentalSmoothZoom);
+  const [reducedMotion, setReducedMotion] = useState(() => window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+  useEffect(() => {
+    const query = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const update = () => setReducedMotion(query.matches);
+    query.addEventListener("change", update);
+    update();
+    return () => query.removeEventListener("change", update);
+  }, []);
+  const GLIDE = smoothZoom
+    ? reducedMotion ? { in: 0, out: 0, box: 0 } : { in: 320, out: 280, box: 340 }
+    : { in: 220, out: 200, box: 250 };
+  const zoomCurve = smoothZoom ? "cubic-bezier(0.22, 1, 0.36, 1)" : "ease-in-out";
+
   const folder = useStore((s) => s.session?.name ?? "folder");
   const showInfo = useStore((s) => s.showInfo);
   const showRatingBar = useStore((s) => s.showRatingBar);
@@ -639,7 +653,7 @@ function Canvas({ photo }: { photo: Photo }) {
               marginLeft: -laid.w / 2,
               marginTop: -laid.h / 2,
               transform,
-              transition: glide > 0 ? `transform ${glide}ms ease-in-out` : undefined,
+              transition: glide > 0 ? `transform ${glide}ms ${zoomCurve}` : undefined,
             }}
           >
             {/* The pictures, in one box that is always here: for a photo with
