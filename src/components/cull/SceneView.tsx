@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { Check } from "lucide-react";
 
 import { groupOf, useStore } from "@/lib/store";
+import { sceneFrames } from "@/lib/scene-frames";
 import { cn } from "@/lib/utils";
 import { Filmstrip, FilmstripResizeHandle } from "./Filmstrip";
 import { Loupe } from "./Loupe";
@@ -26,12 +27,35 @@ interface Scene {
  * working through the shoot one moment at a time, with the middle row for
  * choosing within each.
  */
-export function SceneView({ externalFilmstrip = false }: { externalFilmstrip?: boolean }) {
+export function SceneView({ externalOverview = false }: { externalOverview?: boolean }) {
   const view = useStore((s) => s.view);
   const photos = useStore((s) => s.photos);
   const current = useStore((s) => s.current);
   const height = useStore((s) => s.filmstripHeight);
   const showFilmstrip = useStore((s) => s.showFilmstrip);
+  const poses = useStore((s) => s.poses);
+
+  const frames = useMemo(() => sceneFrames(view, current, (i) => groupOf({ photos, poses }, i)),
+    [view, current, photos, poses]);
+
+  return (
+    <div className="flex size-full flex-col">
+      <div className="min-h-0 flex-1">
+        <Loupe />
+      </div>
+      {showFilmstrip && <div className="border-t border-[var(--ui-line-333333)]">
+        <Filmstrip only={frames} height={height} resizable={true} />
+      </div>}
+      {showFilmstrip && !externalOverview && <SceneOverview />}
+    </div>
+  );
+}
+
+/** Group navigation, either below the photo or across the full workspace. */
+export function SceneOverview() {
+  const view = useStore((s) => s.view);
+  const photos = useStore((s) => s.photos);
+  const current = useStore((s) => s.current);
   const poses = useStore((s) => s.poses);
 
   const scenes = useMemo(() => {
@@ -47,17 +71,7 @@ export function SceneView({ externalFilmstrip = false }: { externalFilmstrip?: b
 
   const active = useMemo(() => scenes.find((s) => s.frames.includes(current)), [scenes, current]);
 
-  return (
-    <div className="flex size-full flex-col">
-      <div className="min-h-0 flex-1">
-        <Loupe />
-      </div>
-      {showFilmstrip && !externalFilmstrip && <div className="border-t border-[var(--ui-line-333333)]">
-        <Filmstrip only={active?.frames ?? []} height={height} resizable={true} />
-      </div>}
-      {showFilmstrip && <SceneStrip scenes={scenes} active={active} />}
-    </div>
-  );
+  return <SceneStrip scenes={scenes} active={active} />;
 }
 
 const CARD_GAP = 8;
