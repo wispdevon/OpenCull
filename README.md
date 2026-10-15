@@ -33,6 +33,53 @@
   </p>
 </div>
 
+## Run this fork with all features
+
+The `integration/linux-features` branch combines every feature in this fork.
+No manual merging or cherry-picking is needed. Individual feature branches
+remain available for selective upstream review; fork `main` contains general
+tooling fixes rather than the combined application.
+
+Install [Rust stable](https://rustup.rs), the
+[native Tauri prerequisites](https://v2.tauri.app/start/prerequisites/), and
+CMake/NASM for the JPEG library first. Then, using nvm:
+
+```sh
+git clone --branch integration/linux-features --single-branch https://github.com/wispdevon/OpenCull.git
+cd OpenCull
+nvm install
+nvm use
+npm install --global npm@11.21.1
+npm ci
+npm run dev:desktop
+```
+
+Without nvm, install Node 22.23.3 and npm 11.21.1 using your preferred version
+manager, or run the last two commands through the pinned runtime:
+
+```sh
+npx --yes --package=node@22.23.3 --package=npm@11.21.1 --call 'npm ci && npm run dev:desktop'
+```
+
+The desktop development command starts the frontend and native backend
+together, with live frontend reloads and incremental Rust recompilation.
+It does not create a production bundle or installers. The initial native
+compile can take several minutes. On affected Linux/Wayland systems, use
+`WEBKIT_DISABLE_DMABUF_RENDERER=1 npm run dev:desktop`.
+
+All features are included: cull-before-import sessions, multiple card sources,
+specific card subfolders, configurable panels, video inclusion/playback,
+appearance modes, offline fonts, the optional RapidRAW inspired design,
+larger UI headings, XDG configuration, and remembered/default view modes.
+Optional preferences are selectable in Settings; the RapidRAW design is under
+**Culling → Design theme**, and view/panel controls are under **Layout**.
+Linux settings are created in `$XDG_CONFIG_HOME/opencull/config.json`, normally
+`~/.config/opencull/config.json`. No personal configuration file is required.
+
+Run `npm run check` for automated checks. See the
+[feature and validation map](docs/features/VALIDATION.md) for individual PRs
+and platform limitations.
+
 <!-- TABLE OF CONTENTS -->
 <details>
   <summary>Table of Contents</summary>
@@ -155,7 +202,7 @@ also need the system packages on
 
 1. Clone the repo
    ```sh
-   git clone https://github.com/NatePhotos/OpenCull.git
+   git clone --branch integration/linux-features --single-branch https://github.com/wispdevon/OpenCull.git
    cd OpenCull
    ```
 2. Install the packages
