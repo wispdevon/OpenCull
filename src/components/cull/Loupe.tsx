@@ -6,7 +6,7 @@ import { Flag, Loader2, X } from "lucide-react";
 import { api, bucket, FIT_SIZES } from "@/lib/api";
 import * as fmt from "@/lib/format";
 import { framingKey, magnified, placement, shownSize, uprightToShown } from "@/lib/framing";
-import { highestScoringFace } from "@/lib/face-target";
+import { faceZoomTarget, highestScoringFace } from "@/lib/face-target";
 import { hold, holdFull, isHeld } from "@/lib/held";
 import { load, save } from "@/lib/prefs";
 import { isMac } from "@/lib/shortcuts";
@@ -366,9 +366,9 @@ function Canvas({ photo }: { photo: Photo }) {
    * `point` to the middle of the frame. Brought to the middle, not held under
    * the pointer: held there, what was aimed at ends up off in a corner.
    */
-  const zoomInOn = (point: { x: number; y: number }) => {
+  const zoomInOn = (point: { x: number; y: number }, face = false) => {
     const scale = lastLevel > 1.01 ? level(lastLevel) : actual;
-    glideTo(tight({ scale, x: -point.x * scale, y: -point.y * scale }), GLIDE.in);
+    glideTo(tight(face ? faceZoomTarget(point, scale, box.h) : { scale, x: -point.x * scale, y: -point.y * scale }), GLIDE.in);
   };
   const backToFit = () => shrinkTo(FIT, GLIDE.out);
 
@@ -408,7 +408,7 @@ function Canvas({ photo }: { photo: Photo }) {
         const s = useStore.getState();
         const face = s.spaceZoomToFace && s.aiEnabled ? highestScoringFace(s.ai[photo.index]?.faces ?? [], photo) : null;
         const at = face ? uprightToShown(photo, { x: face.x + face.w / 2, y: face.y + face.h / 2 }) : { x: 0.5, y: 0.5 };
-        zoomInOn({ x: (at.x - 0.5) * shown.w, y: (at.y - 0.5) * shown.h });
+        zoomInOn({ x: (at.x - 0.5) * shown.w, y: (at.y - 0.5) * shown.h }, face !== null);
       }
       return;
     }
@@ -442,8 +442,8 @@ function Canvas({ photo }: { photo: Photo }) {
     const at = uprightToShown(photo, faceZoom);
     const point = { x: (Math.min(1, Math.max(0, at.x)) - 0.5) * shown.w, y: (Math.min(1, Math.max(0, at.y)) - 0.5) * shown.h };
     const z = now.current;
-    if (z.scale > 1.001) glideTo(tight({ scale: z.scale, x: -point.x * z.scale, y: -point.y * z.scale }), GLIDE.in);
-    else zoomInOn(point);
+    if (z.scale > 1.001) glideTo(tight(faceZoomTarget(point, z.scale, box.h)), GLIDE.in);
+    else zoomInOn(point, true);
   }, [faceZoom]);
 
   const zoomed = zoom.scale > 1.001;
