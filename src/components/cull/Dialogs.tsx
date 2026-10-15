@@ -12,6 +12,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { FontSettings } from "@/components/FontSettings";
+import { ThemeSettings } from "@/components/ThemeSettings";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
@@ -116,16 +117,16 @@ export function ShortcutsDialog({ bindings, onChange, onRecording }: { bindings:
         <div className="grid grid-cols-2 gap-x-8 gap-y-5">
           {SECTIONS.map((section) => (
             <div key={section.title} className="space-y-1.5">
-              <div className="text-[10px] font-bold uppercase text-[#737373]">{section.title}</div>
+              <div className="text-[10px] font-bold uppercase text-[var(--ui-text-737373)]">{section.title}</div>
               {section.actions.map(([action, label]) => (
-                <div key={action} className="flex items-center justify-between gap-3 text-[13px] text-[#d9d9d9]">
+                <div key={action} className="flex items-center justify-between gap-3 text-[13px] text-[var(--ui-text-d9d9d9)]">
                   {label}
                   <button
                     type="button"
                     onClick={() => setRecording(recording === action ? null : action)}
                     className={cn(
                       "min-w-12 rounded border px-2 py-0.5 font-mono text-[11px]",
-                      recording === action ? "border-brand bg-brand/15 text-brand" : "border-[#3a3a44] bg-white/[0.04] text-[#bfbfbf] hover:border-[#595959]",
+                      recording === action ? "border-brand bg-brand/15 text-brand" : "border-[var(--ui-line-3a3a44)] bg-white/[0.04] text-[var(--ui-text-bfbfbf)] hover:border-[var(--ui-line-595959)]",
                     )}
                   >
                     {recording === action ? "press…" : bindings[action].code ? comboLabel(bindings[action]) : "—"}
@@ -304,6 +305,7 @@ function SettingsBody({ tab, onTab }: { tab: SettingsTab; onTab: (tab: SettingsT
         </TabsContent>
         <TabsContent value="culling" className="space-y-4">
           <FontSettings />
+          <ThemeSettings />
           <Setting
             title="Speed cull"
             detail="Moves straight on to the next photo after you pick, reject or rate one. Its key — Caps Lock unless you change it — also turns it on, whatever is set here."
@@ -340,7 +342,7 @@ function SettingsBody({ tab, onTab }: { tab: SettingsTab; onTab: (tab: SettingsT
                       // The folder on screen was listed under the old setting.
                       useStore.getState().reloadForSubfolders();
                     }}
-                    className={cn("whitespace-nowrap rounded px-2.5 py-1 text-xs font-medium", s.fileKinds === kinds ? "bg-white/[0.14] text-white" : "text-[#8c8c8c] hover:text-white")}
+                    className={cn("whitespace-nowrap rounded px-2.5 py-1 text-xs font-medium", s.fileKinds === kinds ? "bg-white/[0.14] text-white" : "text-[var(--ui-text-8c8c8c)] hover:text-white")}
                   >
                     {label}
                   </button>
@@ -418,7 +420,7 @@ function SettingsBody({ tab, onTab }: { tab: SettingsTab; onTab: (tab: SettingsT
           <Setting
             title="Zoom to a box"
             detail={`Hold ${boxKey} and drag a box over the photo to zoom into just that part.`}
-            control={<span className="text-xs text-[#808080]">{isMac ? "⌘ drag" : "Ctrl + drag"}</span>}
+            control={<span className="text-xs text-[var(--ui-text-808080)]">{isMac ? "⌘ drag" : "Ctrl + drag"}</span>}
           />
         </TabsContent>
         <TabsContent value="ai" className="space-y-4">
@@ -462,7 +464,7 @@ function SettingsBody({ tab, onTab }: { tab: SettingsTab; onTab: (tab: SettingsT
                 <Button variant="outline" size="sm" className="w-7 px-0" disabled={s.cacheLimitGb <= 1} onClick={() => setLimit(s.cacheLimitGb - (s.cacheLimitGb > 10 ? 5 : 1))}>
                   −
                 </Button>
-                <span className="w-12 text-center text-xs tabular-nums text-[#d9d9d9]">{s.cacheLimitGb} GB</span>
+                <span className="w-12 text-center text-xs tabular-nums text-[var(--ui-text-d9d9d9)]">{s.cacheLimitGb} GB</span>
                 <Button variant="outline" size="sm" className="w-7 px-0" disabled={s.cacheLimitGb >= 200} onClick={() => setLimit(s.cacheLimitGb + (s.cacheLimitGb >= 10 ? 5 : 1))}>
                   +
                 </Button>
@@ -523,8 +525,8 @@ function Setting({ title, detail, control }: { title: string; detail: string; co
   return (
     <div className="flex items-start justify-between gap-6">
       <div>
-        <div className="text-[13px] font-medium text-white">{title}</div>
-        <div className="mt-0.5 text-xs leading-relaxed text-[#8c8c8c]">{detail}</div>
+        <div className="text-[13px] font-medium text-foreground">{title}</div>
+        <div className="mt-0.5 text-xs leading-relaxed text-[var(--ui-text-8c8c8c)]">{detail}</div>
       </div>
       <div className="shrink-0 pt-0.5">{control}</div>
     </div>

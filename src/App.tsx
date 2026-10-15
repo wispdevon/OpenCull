@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { useAppFont } from "@/components/FontSettings";
+import { useAppTheme } from "@/components/ThemeSettings";
 
 import { CullingView } from "@/components/cull/CullingView";
 import { NoticeDialog, SettingsDialog, ShortcutsDialog, TrashDialog } from "@/components/cull/Dialogs";
@@ -15,6 +16,7 @@ import { useStore } from "@/lib/store";
 
 export default function App() {
   useAppFont();
+  useAppTheme();
   const open = useStore((s) => s.session !== null);
   const ingesting = useStore((s) => s.ingestOpen);
   const [bindings, setBindings] = useState(loadBindings);

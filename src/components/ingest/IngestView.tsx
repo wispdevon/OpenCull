@@ -298,8 +298,8 @@ export function IngestView() {
   const current = levels[levels.length - 1];
 
   return (
-    <div className="fixed inset-0 z-40 flex flex-col bg-[#17171c] text-white">
-      <header data-tauri-drag-region className={cn("flex h-[52px] shrink-0 items-center bg-[#14141a] px-5", platform === "macos" && "pl-[84px]")}>
+    <div className="fixed inset-0 z-40 flex flex-col bg-[var(--ui-surface-17171c)] text-foreground">
+      <header data-tauri-drag-region className={cn("flex h-[52px] shrink-0 items-center bg-[var(--ui-surface-14141a)] px-5", platform === "macos" && "pl-[84px]")}>
         <span data-tauri-drag-region className="flex-1 text-[15px] font-semibold">
           Ingest from Card · {sources.length} source{sources.length === 1 ? "" : "s"}
         </span>
@@ -308,7 +308,7 @@ export function IngestView() {
           onClick={() => {
             close();
           }}
-          className="rounded-md px-3 py-1.5 text-[13px] text-[#b3b3b3] hover:bg-white/[0.07] hover:text-white"
+          className="rounded-md px-3 py-1.5 text-[13px] text-[var(--ui-text-b3b3b3)] hover:bg-white/[0.07] hover:text-white"
         >
           Cancel
         </button>
@@ -317,7 +317,7 @@ export function IngestView() {
 
       <div className="flex min-h-0 flex-1">
         {/* Each selected source contributes to the same session. */}
-        <aside className="flex w-[260px] shrink-0 flex-col bg-[#131318]">
+        <aside className="flex w-[260px] shrink-0 flex-col bg-[var(--ui-surface-131318)]">
           <div className="flex shrink-0 flex-col gap-1 border-b border-border p-3 text-xs">
             <p className="text-muted-foreground">Choose cards or folders to add them to this shoot.</p>
             {sources.map((path) => <div key={path} className="flex items-center gap-1"><span className="min-w-0 flex-1 truncate" title={path}>{path}</span>
@@ -326,10 +326,10 @@ export function IngestView() {
           </div>
           {current ? (
             <div className="flex items-center gap-2 px-3 pb-2 pt-3.5">
-              <button type="button" aria-label="Back" onClick={goBack} className="flex size-6 items-center justify-center rounded-md bg-white/[0.07] text-[#bfbfbf] hover:text-white">
+              <button type="button" aria-label="Back" onClick={goBack} className="flex size-6 items-center justify-center rounded-md bg-white/[0.07] text-[var(--ui-text-bfbfbf)] hover:text-white">
                 <ChevronLeft className="size-3.5" />
               </button>
-              <button type="button" title="Show all photos in this folder" onClick={() => choose(current.path)} className="min-w-0 truncate text-left text-[13px] font-semibold text-white hover:underline">
+              <button type="button" title="Show all photos in this folder" onClick={() => choose(current.path)} className="min-w-0 truncate text-left text-[13px] font-semibold text-foreground hover:underline">
                 {current.title}
               </button>
             </div>
@@ -340,7 +340,7 @@ export function IngestView() {
             {current ? (
               browsing ? (
                 <div className="flex justify-center py-6">
-                  <Loader2 className="size-4 animate-spin text-[#808080]" />
+                  <Loader2 className="size-4 animate-spin text-[var(--ui-text-808080)]" />
                 </div>
               ) : children.length === 0 ? (
                 <Hint>No photo folders here</Hint>
@@ -349,8 +349,8 @@ export function IngestView() {
                   <Row key={folder.path} selected={source === folder.path} onClick={() => openFolder(folder)}>
                     <Folder className="size-3.5 shrink-0 fill-[#73a6ff] text-[#73a6ff]" />
                     <span className="min-w-0 flex-1 truncate">{folder.name}</span>
-                    {folder.imageCount > 0 && <span className="text-[11px] tabular-nums text-[#808080]">{folder.imageCount.toLocaleString()}</span>}
-                    {!isCameraMedia(folder.name) && <ChevronRight className="size-3 shrink-0 text-[#666]" />}
+                    {folder.imageCount > 0 && <span className="text-[11px] tabular-nums text-[var(--ui-text-808080)]">{folder.imageCount.toLocaleString()}</span>}
+                    {!isCameraMedia(folder.name) && <ChevronRight className="size-3 shrink-0 text-[var(--ui-text-666666)]" />}
                   </Row>
                 ))
               )
@@ -381,13 +381,13 @@ export function IngestView() {
             <TextButton disabled={selected.size === 0} onClick={deselectAll}>
               Deselect All
             </TextButton>
-            <span className="font-mono text-[11px] text-[#8c8c8c]">
+            <span className="font-mono text-[11px] text-[var(--ui-text-8c8c8c)]">
               {selected.size}/{items.length}
             </span>
             <span className="flex-1" />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button type="button" className="rounded-md bg-white/[0.07] px-2.5 py-1 text-[11px] text-[#d9d9d9] hover:bg-white/[0.11]">
+                <button type="button" className="rounded-md bg-white/[0.07] px-2.5 py-1 text-[11px] text-[var(--ui-text-d9d9d9)] hover:bg-white/[0.11]">
                   {SORTS[sort].title}
                 </button>
               </DropdownMenuTrigger>
@@ -401,12 +401,12 @@ export function IngestView() {
                 </DropdownMenuRadioGroup>
               </DropdownMenuContent>
             </DropdownMenu>
-            <button type="button" title="Reverse the sort order" onClick={() => setAscending((a) => !a)} className="flex items-center gap-1 rounded-md bg-white/[0.07] px-2.5 py-1 text-[11px] text-[#d9d9d9] hover:bg-white/[0.11]">
+            <button type="button" title="Reverse the sort order" onClick={() => setAscending((a) => !a)} className="flex items-center gap-1 rounded-md bg-white/[0.07] px-2.5 py-1 text-[11px] text-[var(--ui-text-d9d9d9)] hover:bg-white/[0.11]">
               {ascending ? <ArrowUp className="size-3" /> : <ArrowDown className="size-3" />}
               <span className="whitespace-nowrap">{ascending ? SORTS[sort].up : SORTS[sort].down}</span>
             </button>
           </div>
-          <div className="shrink-0 px-4 pb-2 text-[11px] text-[#737373]">Review these files before choosing what to import</div>
+          <div className="shrink-0 px-4 pb-2 text-[11px] text-[var(--ui-text-737373)]">Review these files before choosing what to import</div>
 
           {phase.is === "scanning" ? (
             <Centre>
@@ -423,7 +423,7 @@ export function IngestView() {
         <span className="w-px bg-white/[0.09]" />
 
         {/* Where to. */}
-        <aside className="flex w-[280px] shrink-0 flex-col gap-4 bg-[#131318] p-4">
+        <aside className="flex w-[280px] shrink-0 flex-col gap-4 bg-[var(--ui-surface-131318)] p-4">
           <Label>Review first</Label>
           <p className="text-xs text-muted-foreground">Cull the card in the normal workspace. At the end, choose files to copy or import in place. Nothing is copied or deleted now.</p>
           <span className="flex-1" />
@@ -431,7 +431,7 @@ export function IngestView() {
             type="button"
             disabled={!canIngest}
             onClick={() => void requestIngest()}
-            className={cn("rounded-lg py-3 text-[13px] font-bold tracking-wide", canIngest ? "bg-[#408cf2] text-white hover:brightness-110" : "bg-[#404040] text-[#8c8c8c]")}
+            className={cn("rounded-lg py-3 text-[13px] font-bold tracking-wide", canIngest ? "bg-[#408cf2] text-white hover:brightness-110" : "bg-[var(--ui-surface-404040)] text-[var(--ui-text-8c8c8c)]")}
           >
             START CULLING
           </button>
@@ -458,20 +458,20 @@ export function IngestView() {
 const Rule = () => <div className="h-px shrink-0 bg-white/[0.09]" />;
 
 function Label({ className, children }: { className?: string; children: ReactNode }) {
-  return <div className={cn("text-[11px] font-bold uppercase tracking-wider text-[#737373]", className)}>{children}</div>;
+  return <div className={cn("text-[11px] font-bold uppercase tracking-wider text-[var(--ui-text-737373)]", className)}>{children}</div>;
 }
 
 function Hint({ children }: { children: ReactNode }) {
-  return <div className="px-2 py-1.5 text-xs text-[#666]">{children}</div>;
+  return <div className="px-2 py-1.5 text-xs text-[var(--ui-text-666666)]">{children}</div>;
 }
 
 function Centre({ children }: { children: ReactNode }) {
-  return <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 text-sm text-[#737373]">{children}</div>;
+  return <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 text-sm text-[var(--ui-text-737373)]">{children}</div>;
 }
 
 function TextButton({ disabled, onClick, children }: { disabled: boolean; onClick: () => void; children: ReactNode }) {
   return (
-    <button type="button" disabled={disabled} onClick={onClick} className={cn("text-[11px] font-bold uppercase tracking-wide", disabled ? "text-[#4d4d4d]" : "text-[#8cb8ff] hover:text-white")}>
+    <button type="button" disabled={disabled} onClick={onClick} className={cn("text-[11px] font-bold uppercase tracking-wide", disabled ? "text-[var(--ui-text-4d4d4d)]" : "text-[#8cb8ff] hover:text-white")}>
       {children}
     </button>
   );
@@ -479,7 +479,7 @@ function TextButton({ disabled, onClick, children }: { disabled: boolean; onClic
 
 function Row({ selected, onClick, className, children }: { selected?: boolean; onClick: () => void; className?: string; children: ReactNode }) {
   return (
-    <button type="button" onClick={onClick} className={cn("flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] text-[#d9d9d9]", selected ? SELECTED_ROW : "hover:bg-white/[0.05]", className)}>
+    <button type="button" onClick={onClick} className={cn("flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] text-[var(--ui-text-d9d9d9)]", selected ? SELECTED_ROW : "hover:bg-white/[0.05]", className)}>
       {children}
     </button>
   );
@@ -488,9 +488,9 @@ function Row({ selected, onClick, className, children }: { selected?: boolean; o
 function VolumeRow({ volume, selected, onClick }: { volume: Volume; selected: boolean; onClick: () => void }) {
   return (
     <Row selected={selected} onClick={onClick}>
-      {volume.cameraCard ? <CardIcon /> : <HardDrive className="size-3.5 shrink-0 text-[#a6a6a6]" />}
+      {volume.cameraCard ? <CardIcon /> : <HardDrive className="size-3.5 shrink-0 text-[var(--ui-text-a6a6a6)]" />}
       <span className="min-w-0 flex-1 truncate">{volume.name}</span>
-      {!volume.cameraCard && <ChevronRight className="size-3 shrink-0 text-[#666]" />}
+      {!volume.cameraCard && <ChevronRight className="size-3 shrink-0 text-[var(--ui-text-666666)]" />}
     </Row>
   );
 }
@@ -590,15 +590,15 @@ const Cell = memo(function Cell({
 }) {
   return (
     <button type="button" title={timeLabel(item, true)} onClick={(e) => onToggle(index, { add: isMac ? e.metaKey : e.ctrlKey, range: e.shiftKey })} className="block text-left" style={{ width }}>
-      <span className={cn("relative block overflow-hidden rounded-md bg-[#1f1f1f] outline-[2.5px] -outline-offset-[2.5px]", selected ? "outline outline-[#4d99ff]" : "outline-none")} style={{ height }}>
+      <span className={cn("relative block overflow-hidden rounded-md bg-[var(--ui-surface-1f1f1f)] outline-[2.5px] -outline-offset-[2.5px]", selected ? "outline outline-[#4d99ff]" : "outline-none")} style={{ height }}>
         <ThumbImage photo={item} size={size} className="size-full object-contain" />
         <span className="absolute left-1.5 top-1.5 drop-shadow-[0_1px_2px_rgba(0,0,0,.7)]">
-          {selected ? <CircleCheck className="size-[18px] fill-[#4d99ff] text-white" /> : <Circle className="size-[18px] text-white/75" />}
+          {selected ? <CircleCheck className="size-[18px] fill-[#4d99ff] text-foreground" /> : <Circle className="size-[18px] text-foreground/75" />}
         </span>
         {item.rating > 0 && <span className="absolute bottom-1.5 left-1.5 rounded bg-black/60 px-1 py-0.5 text-[9px] leading-none text-[#ffcc1a]">{"★".repeat(item.rating)}</span>}
-        <span className="absolute bottom-1.5 right-1.5 rounded bg-black/60 px-1 py-0.5 font-mono text-[9px] leading-none text-[#d9d9d9]">{timeLabel(item)}</span>
+        <span className="absolute bottom-1.5 right-1.5 rounded bg-black/60 px-1 py-0.5 font-mono text-[9px] leading-none text-[var(--ui-text-d9d9d9)]">{timeLabel(item)}</span>
       </span>
-      <span className="mt-1.5 block truncate text-center font-mono text-[10px] text-[#a6a6a6]">{item.name}</span>
+      <span className="mt-1.5 block truncate text-center font-mono text-[10px] text-[var(--ui-text-a6a6a6)]">{item.name}</span>
     </button>
   );
 });
