@@ -196,7 +196,7 @@ export function FilmstripResizeHandle({ setting = "filmstripHeight", label = "Re
   const onKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
     const next = e.key === "ArrowUp" ? height + 12 : e.key === "ArrowDown" ? height - 12 : e.key === "Home" ? MIN_HEIGHT : e.key === "End" ? MAX_HEIGHT : null;
     if (next === null) return;
-    e.preventDefault(); useStore.getState().set(setting, Math.max(MIN_HEIGHT, Math.min(MAX_HEIGHT, next)));
+    e.preventDefault(); e.stopPropagation(); useStore.getState().set(setting, Math.max(MIN_HEIGHT, Math.min(MAX_HEIGHT, next)));
   };
   const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     const startY = e.clientY;
