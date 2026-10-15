@@ -1,6 +1,7 @@
 import { ExperimentalFilmstripSettings } from "./ExperimentalFilmstripSettings";
 import { ExperimentalZoomSettings } from "./ExperimentalZoomSettings";
 import { InterfaceScaleSettings } from "@/components/InterfaceScaleSettings";
+import { GraphicsSettings } from "@/components/GraphicsSettings";
 import { useEffect, useRef, useState } from "react";
 import { HardDrive, PanelsTopLeft, Keyboard, ScanFace, Star, ZoomIn, type LucideIcon } from "lucide-react";
 
@@ -465,6 +466,7 @@ function SettingsBody({ tab, onTab }: { tab: SettingsTab; onTab: (tab: SettingsT
           />
         </TabsContent>
         <TabsContent value="storage" className="space-y-4">
+          <GraphicsSettings />
           <Setting
             title="Prepare previews ahead"
             detail="While you are not doing anything, gets the photos around the one you are on ready, so any of them opens at once. Uses about 1 MB of disk per photo."

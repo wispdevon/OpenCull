@@ -12,6 +12,7 @@ pub mod editors;
 pub mod embed;
 pub mod faces;
 pub mod framing;
+pub mod graphics;
 pub mod ingest;
 pub mod multicard;
 pub mod pool;
@@ -39,6 +40,7 @@ use serve::Previews;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    let graphics = graphics::initialize();
     let launch = Launch::from_args();
     let mut builder = tauri::Builder::default().plugin(tauri_plugin_opener::init()).plugin(tauri_plugin_dialog::init()).plugin(tauri_plugin_updater::Builder::new().build());
     if !launch.self_test {
@@ -50,6 +52,7 @@ pub fn run() {
         builder = builder.plugin(tauri_plugin_window_state::Builder::default().with_state_flags(StateFlags::all() & !StateFlags::VISIBLE).build());
     }
     builder
+        .manage(graphics)
         .setup(move |app| {
             // The dev page is HTTP, while previews use a custom scheme.
             // WebKitGTK otherwise rejects those cross-origin image requests.
@@ -58,6 +61,21 @@ pub fn run() {
                 use webkit2gtk::WebViewExt;
                 webview.inner().set_cors_allowlist(&["opencull://localhost/*"]);
             })?;
+            #[cfg(target_os = "linux")]
+            if graphics != graphics::Profile::Auto {
+                app.get_webview_window("main").expect("main window").with_webview(move |webview| {
+                    use webkit2gtk::{SettingsExt, WebViewExt};
+                    use webkit2gtk::glib::prelude::ObjectExt;
+                    if let Some(settings) = webview.inner().settings() {
+                        let policy = if graphics == graphics::Profile::Software { webkit2gtk::HardwareAccelerationPolicy::Never } else { webkit2gtk::HardwareAccelerationPolicy::Always };
+                        settings.set_hardware_acceleration_policy(policy);
+                        if graphics == graphics::Profile::Nvidia {
+                            settings.set_enable_webgl(true);
+                            if settings.find_property("enable-2d-canvas-acceleration").is_some() { settings.set_property("enable-2d-canvas-acceleration", true); }
+                        }
+                    }
+                })?;
+            }
             // A self-test keeps its previews apart, so a run measures making
             // them rather than finding the last run's.
             let (dir, times_dir, faces_dir) = if launch.self_test {
@@ -159,6 +177,7 @@ pub fn run() {
             settings::config_load,
             settings::config_set,
             commands::video_source,
+            graphics::graphics_info,
             commands::app_info,
             commands::report,
             commands::finish_self_test,

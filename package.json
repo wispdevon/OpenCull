@@ -21,7 +21,10 @@
     "pretest:web": "npm run check:node",
     "prebuild:web": "npm run check:node",
     "predev": "npm run check:node",
-    "check": "npm run test:web && npm run build:web && npm run test:rust"
+    "check": "npm run test:web && npm run build:web && npm run test:rust",
+    "dev:desktop:nvidia": "node scripts/dev-graphics.mjs nvidia",
+    "dev:desktop:compatibility": "node scripts/dev-graphics.mjs compatibility",
+    "dev:desktop:software": "node scripts/dev-graphics.mjs software"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.3",
