@@ -4,7 +4,7 @@ import wisp from "./presets/wisp.json";
 const document = (values: unknown, version = 1) => JSON.stringify({ format: "opencull-settings", version, values });
 describe("portable settings", () => {
   it("round-trips face-view options without exporting a hovered face", () => {
-    const values = { spaceZoomToFace: true, experimentalFaceOutlines: true, experimentalFaceSpotlight: false, experimentalTransitions: true };
+    const values = { spaceZoomToFace: true, experimentalFaceOutlines: true, experimentalFaceSpotlight: false, experimentalTransitions: true, experimentalHideFilmstripOnCrop: true };
     expect(parseSettingsImport(exportSettings({ ...values, hoveredFace: { display: "/private/photo.raw" } }))).toEqual(values);
     expect(() => parseSettingsImport(document({ experimentalFaceSpotlight: "yes" }))).toThrow();
   });

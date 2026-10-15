@@ -4,7 +4,7 @@ import { stripPhotoWidth } from "@/lib/strip-aspect";
 import { useMemo } from "react";
 import { Check, X } from "lucide-react";
 
-import { groupOf, useStore } from "@/lib/store";
+import { filmstripVisible, groupOf, useStore } from "@/lib/store";
 import { sceneFrames } from "@/lib/scene-frames";
 import { cn } from "@/lib/utils";
 import { Filmstrip, FilmstripResizeHandle } from "./Filmstrip";
@@ -33,7 +33,7 @@ export function SceneView() {
   const photos = useStore((s) => s.photos);
   const current = useStore((s) => s.current);
   const height = useStore((s) => s.filmstripHeight);
-  const showFilmstrip = useStore((s) => s.showFilmstrip);
+  const showFilmstrip = useStore(filmstripVisible);
   const poses = useStore((s) => s.poses);
 
   const frames = useMemo(() => sceneFrames(view, current, (i) => groupOf({ photos, poses }, i)),

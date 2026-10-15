@@ -5,7 +5,7 @@ const booleanKeys = new Set([
   "aiMotionBlur", "autoRateMotionBlur",
   "spaceZoomToFace",
   "experimentalFaceOutlines", "experimentalFaceSpotlight",
-  "rememberViewMode", "sortAscending", "ingestSortAscending", "showExif", "showHistogram", "showFilmstrip", "showInfo", "showRatingBar", "showFilterBar", "experimentalNativeFilmstrip", "experimentalSmoothZoom", "experimentalTransitions", "includeSubfolders", "ignoreVideos", "embedInJpeg", "askBeforeTrash", "checkForUpdates", "warmAhead", "speedCullAlways", "keepZoom", "instantZoom", "rgbHistogram", "aiEnabled", "aiAdvanced", "showBackgroundFaces", "aiPause", "smartGroups", "showFaces", "visualThemeFont",
+  "rememberViewMode", "sortAscending", "ingestSortAscending", "showExif", "showHistogram", "showFilmstrip", "showInfo", "showRatingBar", "showFilterBar", "experimentalNativeFilmstrip", "experimentalSmoothZoom", "experimentalTransitions", "experimentalHideFilmstripOnCrop", "includeSubfolders", "ignoreVideos", "embedInJpeg", "askBeforeTrash", "checkForUpdates", "warmAhead", "speedCullAlways", "keepZoom", "instantZoom", "rgbHistogram", "aiEnabled", "aiAdvanced", "showBackgroundFaces", "aiPause", "smartGroups", "showFaces", "visualThemeFont",
 ]);
 const enums: Record<string, readonly string[]> = {
   theme: ["dark", "light", "grey"], visualTheme: ["default", "rapidraw", "wisp"], homeLayout: ["spacious", "classic"],
