@@ -95,6 +95,7 @@ New profiles receive a quick workflow and keyboard overview; reopen it from
 Optional [face-target Space zoom](docs/features/FACE_ZOOM.md) is under **Settings → Zoom**.
 [Experimental face outlines and hover spotlight](docs/features/FACE_OVERLAYS.md) are under **Settings → AI**; hover highlights without moving the photo, and clicking still zooms.
 AI results are [cached across sessions](docs/features/AI_CACHE.md), including reopening the same photos through a card or subfolder. The toolbar distinguishes cached results from new analysis.
+Optional [interface transitions](docs/features/INTERFACE_MOTION.md) and [crop workspace controls](docs/features/CROP_WORKSPACE.md) are available in Design and Zoom settings.
 Experimental [motion-blur detection](docs/features/MOTION_BLUR.md) adds a filterable label, reduces grouping rank, and can give unrated photos one star while preserving existing ratings.
 See the [settings layout guidelines](docs/SETTINGS_DESIGN.md) and
 [Wisp design guidelines](docs/WISP_DESIGN.md) for spacing and contrast rules.
@@ -336,7 +337,7 @@ through the shoot from the keyboard:
 | `1`–`5`, `0` | Star rating, and none |
 | `6` `7` `8` `9` `N` | Red, yellow, green, blue and purple labels |
 | `Space` | Zoom to a detected face, and back out (centre if no face) |
-| `Z` | Zoom in to where you last looked, and back out |
+| `Z` | Zoom to the centre of the photo, and back out |
 | `G` | Grid view |
 | `.` | Face panel |
 | `F` `H` `I` | Filmstrip, histogram and EXIF, info overlay |
