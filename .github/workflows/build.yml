@@ -79,7 +79,7 @@ jobs:
       - run: npm ci
 
       - name: CUDA launcher platform guards
-        run: npm run test:cuda-launcher
+        run: node --test scripts/cuda-desktop.test.mjs scripts/dev-desktop.test.mjs
 
       - name: macOS excludes CUDA even when the feature is requested
         if: runner.os == 'macOS'

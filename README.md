@@ -59,14 +59,14 @@ nvm install
 nvm use
 npm install --global npm@11.21.1
 npm ci
-npm run dev:desktop
+npm run desktop
 ```
 
 Without nvm, install Node 22.23.3 and npm 11.21.1 using your preferred version
 manager, or run the last two commands through the pinned runtime:
 
 ```sh
-npx --yes --package=node@22.23.3 --package=npm@11.21.1 --call 'npm ci && npm run dev:desktop'
+npx --yes --package=node@22.23.3 --package=npm@11.21.1 --call 'npm ci && npm run desktop'
 ```
 
 The desktop development command starts the frontend and native backend
@@ -103,7 +103,7 @@ Linux settings are created in `$XDG_CONFIG_HOME/opencull/config.json`, normally
 `~/.config/opencull/config.json`. No personal configuration file is required.
 macOS and Windows use Tauri's native application-config directory instead.
 The Linux video streaming workaround is compiled only on Linux; macOS keeps
-native asset-protocol playback. `dev:desktop` sets no Linux environment flags.
+native asset-protocol playback. `desktop` sets no Linux environment flags.
 
 For a Mac tester, use the [macOS trial guide](docs/TRY-ON-MACOS.md).
 NVIDIA rendering profiles and CUDA AI are Linux-only; macOS uses its native webview
@@ -112,14 +112,16 @@ feature is requested.
 
 ### Desktop commands
 
+Use one checkout and switch branches with Git when needed. Feature branches remain available without separate project folders. Run `npm ci` after switching if dependencies changed. `npm run` lists the compact command set; desktop profiles are flags on one command.
+
 | Command | Purpose | Platforms |
 |---|---|---|
-| `npm run dev:desktop` | Native desktop development with CPU AI | macOS, Linux, Windows |
-| `npm run dev:desktop:nvidia` | NVIDIA webview compositing profile; CPU AI | Linux |
-| `npm run dev:desktop:cuda` | Experimental NVIDIA AI inference | Linux x86_64 |
-| `OPENCULL_GRAPHICS=nvidia npm run dev:desktop:cuda` | NVIDIA rendering profile plus CUDA AI | Linux x86_64 |
-| `npm run dev:desktop:compatibility` | WebKit compatibility fallback | Linux |
-| `npm run dev:desktop:software` | Force software webview rendering | Linux |
+| `npm run desktop` | Native desktop development with CPU AI | macOS, Linux, Windows |
+| `npm run desktop -- --nvidia` | NVIDIA webview compositing profile; CPU AI | Linux |
+| `npm run desktop -- --cuda` | Experimental NVIDIA AI inference | Linux x86_64 |
+| `npm run desktop -- --nvidia --cuda` | NVIDIA rendering profile plus CUDA AI | Linux x86_64 |
+| `npm run desktop -- --compatibility` | WebKit compatibility fallback | Linux |
+| `npm run desktop -- --software` | Force software webview rendering | Linux |
 | `npm run dev` | Browser UI with demo data; no native file access | All |
 | `npm run build:web` | Type-check and build the frontend | All |
 | `npm run build:desktop` | Build desktop installers | All, with native prerequisites |
@@ -283,7 +285,7 @@ also need the system packages on
    ```
 3. Run it
    ```sh
-   npm run dev:desktop
+   npm run desktop
    ```
 4. Or build the app itself
    ```sh
@@ -294,7 +296,7 @@ also need the system packages on
 
 The opt-in CUDA trial requires an NVIDIA driver, **CUDA 13.x** runtime and
 **cuDNN 9.x** compatible with CUDA 13, in addition to the normal prerequisites.
-Run `npm run dev:desktop:cuda` to compile and launch it. Normal launches keep
+Run `npm run desktop -- --cuda` to compile and launch it. Normal launches keep
 CPU inference. macOS does not build, load or expose CUDA.
 
 See the [CUDA trial guide](docs/CUDA-TRIAL.md) for installation links, exact
@@ -304,7 +306,7 @@ commands, verification and CPU fallback, and the
 More on building, including how to build without the JPEG library, is in
 [How it works](docs/HOW-IT-WORKS.md#building-the-fast-jpeg-library).
 
-`npm run dev:desktop` opens the real desktop app with the Vite development
+`npm run desktop` opens the real desktop app with the Vite development
 server and Rust file watcher. It starts the frontend automatically; do not
 start `npm run dev` separately on the same port. Frontend edits reload live;
 Rust edits rebuild and restart the backend. No production frontend build or
@@ -315,9 +317,9 @@ The existing `npm run tauri dev` command remains available.
 `npm run dev` alone runs the browser UI with sample data, not native card access
 or file copying. `npm test` runs automated frontend and Rust library tests.
 
-On Linux with NVIDIA, try `npm run dev:desktop:nvidia` for the tested accelerated
-webview profile. `npm run dev:desktop:compatibility` retains the broad DMA-BUF
-workaround; `npm run dev:desktop:software` explicitly uses software rendering.
+On Linux with NVIDIA, try `npm run desktop -- --nvidia` for the tested accelerated
+webview profile. `npm run desktop -- --compatibility` retains the broad DMA-BUF
+workaround; `npm run desktop -- --software` explicitly uses software rendering.
 These commands are Linux-only. Native GTK/WebKitGTK and the other
 [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/) are still needed.
 

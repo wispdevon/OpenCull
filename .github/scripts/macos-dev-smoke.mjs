@@ -1,7 +1,7 @@
 // Exercise the actual development entrypoint, without creating an installer.
 import { spawn } from 'node:child_process';
 if (process.platform !== 'darwin') throw new Error('This smoke test requires macOS');
-const child = spawn('npm', ['run', 'dev:desktop', '--', '--no-watch'], { detached: true, stdio: ['ignore', 'pipe', 'pipe'] });
+const child = spawn('npm', ['run', 'desktop', '--', '--no-watch'], { detached: true, stdio: ['ignore', 'pipe', 'pipe'] });
 let log = '', exited = false;
 child.on('exit', () => { exited = true; });
 child.on('error', e => { log += e.message; exited = true; });
