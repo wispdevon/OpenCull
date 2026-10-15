@@ -47,12 +47,12 @@
   --opencull-canvas: #e8e8e8;
 }
 :root[data-visual-theme="wisp"] .setting-row {
-  padding: 16px; gap: 24px; border: 1px solid var(--border); border-radius: 8px;
+  gap: 24px; border: 1px solid var(--border); border-radius: 8px;
   background: var(--card); color: var(--foreground);
 }
 :root[data-visual-theme="wisp"] .setting-title { font-size: 0.875rem; line-height: 1.4; font-weight: 600; color: var(--foreground); }
 :root[data-visual-theme="wisp"] .setting-detail { margin-top: 6px; font-size: 0.8125rem; line-height: 1.6; color: var(--muted-foreground); }
-:root[data-visual-theme="wisp"] fieldset { padding: 16px; border-color: var(--border); background: var(--card); color: var(--foreground); }
+:root[data-visual-theme="wisp"] fieldset { border-color: var(--border); background: var(--card); color: var(--foreground); }
 :root[data-visual-theme="wisp"] [data-slot="tabs-list"] { gap: 4px; padding: 6px; background: var(--background); border: 1px solid var(--border); }
 :root[data-visual-theme="wisp"] [role="tab"] { min-height: 40px; border: 1px solid transparent; color: var(--muted-foreground); }
 :root[data-visual-theme="wisp"] [role="tab"][data-state="active"] { background: var(--secondary); color: var(--foreground); border-color: var(--ring); font-weight: 600; }
@@ -64,8 +64,50 @@
 :root[data-visual-theme="wisp"] [role="switch"][data-state="checked"] [data-slot="switch-thumb"] { background: var(--primary-foreground); }
 :root[data-visual-theme="wisp"] :is(input[type="checkbox"],input[type="radio"],input[type="range"]) { accent-color: var(--primary); }
 :root[data-visual-theme="wisp"] .home-open { background: var(--primary); color: var(--primary-foreground); box-shadow: none; }
+
+/* Metadata is reading content: distinguish hierarchy by size, weight and surfaces,
+   rather than dimming small type against the panel. */
+:root[data-visual-theme="wisp"] .metadata-section {
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  background: var(--background);
+}
+:root[data-visual-theme="wisp"] .metadata-rule { display: none; }
+:root[data-visual-theme="wisp"] .metadata-heading {
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border);
+  color: var(--foreground);
+  font-size: 0.875rem;
+  line-height: 1.5;
+  font-weight: 600;
+  text-transform: none;
+}
+:root[data-visual-theme="wisp"] .metadata-label {
+  color: var(--muted-foreground);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  text-transform: none;
+}
+:root[data-visual-theme="wisp"] .metadata-value {
+  margin-top: 0.25rem;
+  color: var(--foreground);
+  font-size: 0.875rem;
+  line-height: 1.5;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+:root[data-visual-theme="wisp"] .metadata-row { gap: 0.75rem; }
+:root[data-visual-theme="wisp"] .metadata-icon { width: 1rem; flex-shrink: 0; }
+:root[data-visual-theme="wisp"] :is(.metadata-icon, .metadata-label) svg {
+  width: 0.875rem;
+  height: 0.875rem;
+  flex-shrink: 0;
+  color: var(--primary);
+}
+:root[data-visual-theme="wisp"] .metadata-badge { min-width: 0; border-color: var(--border); background: var(--secondary); }
 @media (forced-colors: active) {
-  :root[data-visual-theme="wisp"] :is(.setting-row,fieldset,[data-slot="tabs-list"]) { border-color: CanvasText; background: Canvas; color: CanvasText; }
+  :root[data-visual-theme="wisp"] :is(.setting-row,fieldset,.metadata-section,.metadata-badge,[data-slot="tabs-list"]) { border-color: CanvasText; background: Canvas; color: CanvasText; }
   :root[data-visual-theme="wisp"] [role="tab"][data-state="active"] { outline: 2px solid Highlight; }
 }
 

@@ -6,7 +6,7 @@ import { useAppFont } from "@/components/FontSettings";
 import { useAppTheme } from "@/components/ThemeSettings";
 
 import { CullingView } from "@/components/cull/CullingView";
-import { NoticeDialog, SettingsDialog, ShortcutsDialog, TrashDialog } from "@/components/cull/Dialogs";
+import { NoticeDialog, SettingsDialog, TrashDialog } from "@/components/cull/Dialogs";
 import { ShipDialog } from "@/components/cull/ShipDialog";
 import { IngestView } from "@/components/ingest/IngestView";
 import { HomeView } from "@/components/home/HomeView";
@@ -166,11 +166,10 @@ export default function App() {
       {open ? <CullingView /> : <HomeView dropping={dropping} />}
       {ingesting && <IngestView />}
       <TrashDialog />
-      <SettingsDialog />
+      <SettingsDialog bindings={bindings} onChange={changeBindings} onRecording={setRecording} />
       <ShipDialog />
       <NoticeDialog />
       <UpdateDialog />
-      <ShortcutsDialog bindings={bindings} onChange={changeBindings} onRecording={setRecording} />
     </TooltipProvider>
   );
 }

@@ -68,7 +68,6 @@ interface State {
   viewMode: ViewMode;
   defaultViewMode: ViewMode;
   rememberViewMode: boolean;
-  stackFilmstripAtBottom: boolean;
   gridColumns: number;
   showExif: boolean;
   showHistogram: boolean;
@@ -351,7 +350,6 @@ const PERSISTED = [
   "viewMode",
   "defaultViewMode",
   "rememberViewMode",
-  "stackFilmstripAtBottom",
   "sort",
   "sortAscending",
   "gridColumns",
@@ -698,7 +696,6 @@ export const useStore = create<Store>((set, get) => {
     defaultViewMode: validViewMode(load("defaultViewMode", "loupe")),
     rememberViewMode: load("rememberViewMode", true) === true,
     viewMode: openingView(load("defaultViewMode", "loupe"), load("rememberViewMode", true), load("viewMode", null)),
-    stackFilmstripAtBottom: load<boolean>("stackFilmstripAtBottom", false) === true,
     gridColumns: load("gridColumns", 4),
     showExif: load("showExif", false),
     showHistogram: load("showHistogram", true),
