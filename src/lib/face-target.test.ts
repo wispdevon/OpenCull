@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { faceOutline, faceZoomTarget, highestScoringFace } from "./face-target";
+import { faceOutline, faceZoomTarget, firstVisibleFace, highestScoringFace } from "./face-target";
 import type { AiFace } from "./types";
 
 const photo = { fullWidth: 6000, fullHeight: 4000, framing: { turn: 1, crop: null } };
@@ -41,4 +41,10 @@ it("does not draw invalid, unknown or wholly cropped-out face regions", () => {
   expect(faceOutline(face(80, true, 2), photo)).toBeNull();
   expect(faceOutline({ ...face(80), w: -1 }, photo)).toBeNull();
   expect(faceOutline(face(80), { ...photo, fullHeight: 0 })).toBeNull();
+});
+
+it("face zoom can target an unscored visible subject and skips cropped-out faces", () => {
+  const subject = face(null);
+  expect(firstVisibleFace([face(99, false), subject], photo)).toBe(subject);
+  expect(firstVisibleFace([face(99, true, 2)], photo)).toBeNull();
 });

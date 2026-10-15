@@ -6,7 +6,7 @@ import { Flag, Loader2, X } from "lucide-react";
 import { api, bucket, FIT_SIZES } from "@/lib/api";
 import * as fmt from "@/lib/format";
 import { framingKey, magnified, placement, shownSize, uprightToShown } from "@/lib/framing";
-import { faceZoomTarget, highestScoringFace } from "@/lib/face-target";
+import { faceZoomTarget, firstVisibleFace, highestScoringFace } from "@/lib/face-target";
 import { hold, holdFull, isHeld } from "@/lib/held";
 import { load, save } from "@/lib/prefs";
 import { isMac } from "@/lib/shortcuts";
@@ -399,14 +399,17 @@ function Canvas({ photo }: { photo: Photo }) {
     if (command.nonce === seen.current) return;
     seen.current = command.nonce;
     const z = now.current;
-    if (command.kind === "centre") {
-      // The middle of the photo and back, whatever was looked at before.
+    if (command.kind === "centre" || command.kind === "face") {
+      // Separate centre and face commands; preserve saved shortcut bindings.
       if (z.scale > 1.001) {
         rememberLevel(z.scale);
         backToFit();
       } else {
         const s = useStore.getState();
-        const face = s.spaceZoomToFace && s.aiEnabled ? highestScoringFace(s.ai[photo.index]?.faces ?? [], photo) : null;
+        const faces = s.ai[photo.index]?.faces ?? [];
+        const face = command.kind === "face" && s.aiEnabled
+          ? (s.spaceZoomToFace ? highestScoringFace(faces, photo) : null) ?? firstVisibleFace(faces, photo)
+          : null;
         const at = face ? uprightToShown(photo, { x: face.x + face.w / 2, y: face.y + face.h / 2 }) : { x: 0.5, y: 0.5 };
         zoomInOn({ x: (at.x - 0.5) * shown.w, y: (at.y - 0.5) * shown.h }, face !== null);
       }

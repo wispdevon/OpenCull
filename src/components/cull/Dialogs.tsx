@@ -426,9 +426,9 @@ function SettingsBody({ tab, onTab, ...shortcutProps }: { tab: SettingsTab; onTa
         <TabsContent value="zoom" className="space-y-4">
           <ExperimentalZoomSettings />
           <Setting
-            title="Space zooms to the highest-scoring face"
-            detail="Targets the sharpest scored main subject; uses a background face if no subject is scored. With no available face score, zooms to the centre. Press again to return to fit. Follows the centre-zoom shortcut if you rebind Space."
-            control={toggle("spaceZoomToFace", "Space zooms to the highest-scoring face")}
+            title="Prefer highest-scoring face"
+            detail="Face zoom targets the sharpest scored main subject when enabled; otherwise it uses the first visible main subject. With no detected face, it uses the centre. Press again to return to fit. Follows Zoom to face if you rebind Space."
+            control={toggle("spaceZoomToFace", "Prefer highest-scoring face")}
           />
           <Setting
             title="Keep zoom between photos"

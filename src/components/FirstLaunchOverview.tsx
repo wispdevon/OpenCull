@@ -9,7 +9,7 @@ const COMMON: [Action, string][] = [
   ["nextImage", "Next photo"], ["previousImage", "Previous photo"],
   ["nextGroup", "Next group"], ["pick", "Pick"], ["reject", "Reject"],
   ["unflag", "Clear flag"], ["rate1", "1 star"],
-  ["zoomCentre", "Zoom at centre"], ["zoomToggle", "Toggle zoom"],
+  ["zoomCentre", "Zoom to face"], ["zoomToggle", "Zoom to centre"],
   ["toggleFilmstrip", "Show/hide filmstrip"], ["viewGrid", "Grid view"], ["undo", "Undo"],
 ];
 export function FirstLaunchOverview({ bindings }: { bindings: Record<Action, Combo> }) {
