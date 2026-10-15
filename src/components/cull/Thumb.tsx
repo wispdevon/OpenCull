@@ -1,5 +1,6 @@
 import { Film } from "lucide-react";
 import { isVideo } from "@/lib/media";
+import { rememberPreviewAspect } from "@/lib/preview-aspect";
 import { memo, useEffect, useState, type CSSProperties } from "react";
 import { Crop, Flag, X } from "lucide-react";
 
@@ -56,6 +57,7 @@ function StillThumbImage({ photo, size, className, style }: { photo: Pick<Photo,
       alt=""
       draggable={false}
       decoding="async"
+      onLoad={(e) => rememberPreviewAspect(photo, e.currentTarget)}
       className={className}
       style={style}
       onError={() => {

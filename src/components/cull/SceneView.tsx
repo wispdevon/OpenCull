@@ -1,3 +1,4 @@
+import { previewAspect, usePreviewAspectRevision } from "@/lib/preview-aspect";
 import { stripPhotoWidth } from "@/lib/strip-aspect";
 import { useMemo } from "react";
 import { Check } from "lucide-react";
@@ -73,7 +74,8 @@ function SceneStrip({ scenes, active }: { scenes: Scene[]; active: Scene | undef
   const cardHeight = Math.max(24, height - 24);
   const photos = useStore((s) => s.photos);
   const native = useStore((s) => s.experimentalNativeFilmstrip);
-  const widths = useMemo(() => scenes.map((scene) => stripPhotoWidth(photos[scene.frames[0]], cardHeight, native)), [scenes, photos, native, cardHeight]);
+  const aspectRevision = usePreviewAspectRevision(native);
+  const widths = useMemo(() => scenes.map((scene) => stripPhotoWidth(photos[scene.frames[0]], cardHeight, native, previewAspect(photos[scene.frames[0]]))), [scenes, photos, native, aspectRevision, cardHeight]);
   const starts = useMemo(() => {
     const positions = new Float64Array(scenes.length + 1);
     let x = 10;
