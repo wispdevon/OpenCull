@@ -2,7 +2,7 @@ import { memo, useMemo, useRef } from "react";
 
 import { bucket, THUMB_SIZES } from "@/lib/api";
 import { groupOf, hasActiveFilter, useStore } from "@/lib/store";
-import { shownSize } from "@/lib/framing";
+import { stripPhotoWidth } from "@/lib/strip-aspect";
 import { cn } from "@/lib/utils";
 import { PhotoMenu } from "./PhotoMenu";
 import { useStrip } from "./strip";
@@ -69,12 +69,7 @@ export function Filmstrip({ only, height: fixedHeight, resizable = true }: { onl
   const height = fixedHeight ?? storedHeight;
   const thumbH = stripThumbHeight(height);
   const nativeAspect = useStore((s) => s.experimentalNativeFilmstrip);
-  const widths = useMemo(() => view.map((index) => {
-    const photo = photos[index];
-    const size = photo && shownSize(photo);
-    const ratio = nativeAspect && size && size.w > 0 && size.h > 0 ? size.w / size.h : 1.5;
-    return Math.max(1, Math.round(thumbH * ratio));
-  }), [view, photos, thumbH, nativeAspect]);
+  const widths = useMemo(() => view.map((index) => stripPhotoWidth(photos[index], thumbH, nativeAspect)), [view, photos, thumbH, nativeAspect]);
   const size = useStripThumbSize(height);
 
   // Frames of one group are drawn joined, on a shared backing. A group is a
