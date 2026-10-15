@@ -105,7 +105,7 @@ export function Filmstrip({ only, height: fixedHeight, resizable = true }: { onl
 
   return (
     <div className="relative flex shrink-0 flex-col bg-strip" style={{ height }}>
-      {resizable ? <ResizeHandle /> : <div style={{ height: HANDLE }} className="shrink-0 bg-[var(--ui-surface-262626)]" />}
+      {resizable ? <FilmstripResizeHandle /> : <div style={{ height: HANDLE }} className="shrink-0 bg-[var(--ui-surface-262626)]" />}
       <div ref={scroller} onWheel={onWheel} onScroll={onScroll} className="relative min-h-0 flex-1 overflow-x-auto overflow-y-hidden">
         <div className="relative h-full" style={{ width: length }}>
           {rows.slice(from, to).map((row, i) => {
@@ -189,10 +189,16 @@ function Counter() {
 }
 
 /** The top edge of the strip, which drags to make it taller or shorter. */
-function ResizeHandle() {
+export function FilmstripResizeHandle({ setting = "filmstripHeight", label = "Resize filmstrip" }: { setting?: "filmstripHeight" | "sceneStripHeight"; label?: string }) {
+  const height = useStore((s) => s[setting]);
+  const onKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    const next = e.key === "ArrowUp" ? height + 12 : e.key === "ArrowDown" ? height - 12 : e.key === "Home" ? MIN_HEIGHT : e.key === "End" ? MAX_HEIGHT : null;
+    if (next === null) return;
+    e.preventDefault(); useStore.getState().set(setting, Math.max(MIN_HEIGHT, Math.min(MAX_HEIGHT, next)));
+  };
   const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     const startY = e.clientY;
-    const startHeight = useStore.getState().filmstripHeight;
+    const startHeight = useStore.getState()[setting];
     const target = e.currentTarget;
     target.setPointerCapture(e.pointerId);
 
@@ -205,7 +211,7 @@ function ResizeHandle() {
     let frame = 0;
     const apply = () => {
       frame = 0;
-      if (wanted !== useStore.getState().filmstripHeight) useStore.getState().set("filmstripHeight", wanted);
+      if (wanted !== useStore.getState()[setting]) useStore.getState().set(setting, wanted);
     };
     const onMove = (ev: PointerEvent) => {
       wanted = Math.round(Math.max(MIN_HEIGHT, Math.min(MAX_HEIGHT, startHeight + (startY - ev.clientY))));
@@ -227,7 +233,7 @@ function ResizeHandle() {
   return (
     // Lit along its whole length while the pointer is on it, as the edges of
     // the side panels are: the line above it and the bar itself, five pixels.
-    <div onPointerDown={onPointerDown} className="group relative z-10 shrink-0 cursor-row-resize bg-[var(--ui-surface-262626)]" style={{ height: HANDLE }}>
+    <div role="separator" tabIndex={0} aria-label={label} aria-orientation="horizontal" aria-valuenow={height} aria-valuemin={MIN_HEIGHT} aria-valuemax={MAX_HEIGHT} onKeyDown={onKeyDown} onPointerDown={onPointerDown} className="group relative z-10 shrink-0 cursor-row-resize bg-[var(--ui-surface-262626)]" style={{ height: HANDLE }}>
       <span className="absolute inset-x-0 -top-px bottom-0 group-hover:bg-[#4d8cff]/60 group-active:bg-[#4d8cff]/60" />
     </div>
   );

@@ -81,6 +81,7 @@ interface State {
   experimentalNativeFilmstrip: boolean;
   experimentalSmoothZoom: boolean;
   filmstripHeight: number;
+  sceneStripHeight: number;
   /** The strip's edge is being dragged, and its height is changing every frame. */
   stripResizing: boolean;
   /** A side panel's edge is being dragged, and the photo beside it changes size every frame. */
@@ -364,6 +365,7 @@ const PERSISTED = [
   "experimentalNativeFilmstrip",
   "experimentalSmoothZoom",
   "filmstripHeight",
+  "sceneStripHeight",
   "includeSubfolders",
   "ignoreVideos",
   "fileKinds",
@@ -707,6 +709,7 @@ export const useStore = create<Store>((set, get) => {
     showFilterBar: load("showFilterBar", false),
     experimentalNativeFilmstrip: load<boolean>("experimentalNativeFilmstrip", false) === true,
     experimentalSmoothZoom: load<boolean>("experimentalSmoothZoom", false) === true,
+    sceneStripHeight: load("sceneStripHeight", 116),
     filmstripHeight: load("filmstripHeight", 120),
     stripResizing: false,
     panelResizing: false,

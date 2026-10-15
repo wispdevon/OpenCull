@@ -4,7 +4,7 @@ import { Check } from "lucide-react";
 
 import { groupOf, useStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
-import { Filmstrip } from "./Filmstrip";
+import { Filmstrip, FilmstripResizeHandle } from "./Filmstrip";
 import { Loupe } from "./Loupe";
 import { useStrip } from "./strip";
 import { FramedThumb } from "./Thumb";
@@ -14,7 +14,6 @@ interface Scene {
   frames: number[];
 }
 
-const SCENE_STRIP = 116;
 
 /**
  * The folder as scenes rather than frames.
@@ -31,6 +30,7 @@ export function SceneView({ externalFilmstrip = false }: { externalFilmstrip?: b
   const photos = useStore((s) => s.photos);
   const current = useStore((s) => s.current);
   const height = useStore((s) => s.filmstripHeight);
+  const showFilmstrip = useStore((s) => s.showFilmstrip);
   const poses = useStore((s) => s.poses);
 
   const scenes = useMemo(() => {
@@ -51,15 +51,14 @@ export function SceneView({ externalFilmstrip = false }: { externalFilmstrip?: b
       <div className="min-h-0 flex-1">
         <Loupe />
       </div>
-      {!externalFilmstrip && <div className="border-t border-[var(--ui-line-333333)]">
-        <Filmstrip only={active?.frames ?? []} height={height} resizable={false} />
+      {showFilmstrip && !externalFilmstrip && <div className="border-t border-[var(--ui-line-333333)]">
+        <Filmstrip only={active?.frames ?? []} height={height} resizable={true} />
       </div>}
-      <SceneStrip scenes={scenes} active={active} />
+      {showFilmstrip && <SceneStrip scenes={scenes} active={active} />}
     </div>
   );
 }
 
-const CARD_H = SCENE_STRIP - 20;
 const CARD_GAP = 8;
 
 /**
@@ -70,9 +69,11 @@ const CARD_GAP = 8;
  * opened — almost none of them for anything on screen.
  */
 function SceneStrip({ scenes, active }: { scenes: Scene[]; active: Scene | undefined }) {
+  const height = useStore((s) => s.sceneStripHeight);
+  const cardHeight = Math.max(24, height - 24);
   const photos = useStore((s) => s.photos);
   const native = useStore((s) => s.experimentalNativeFilmstrip);
-  const widths = useMemo(() => scenes.map((scene) => stripPhotoWidth(photos[scene.frames[0]], CARD_H, native)), [scenes, photos, native]);
+  const widths = useMemo(() => scenes.map((scene) => stripPhotoWidth(photos[scene.frames[0]], cardHeight, native)), [scenes, photos, native, cardHeight]);
   const starts = useMemo(() => {
     const positions = new Float64Array(scenes.length + 1);
     let x = 10;
@@ -83,19 +84,22 @@ function SceneStrip({ scenes, active }: { scenes: Scene[]; active: Scene | undef
   const { scroller, length, from, to, onScroll, onWheel } = useStrip({ starts, pad: 10 - CARD_GAP, position: active ? active.number - 1 : -1, anchor: active?.frames[0] });
 
   return (
-    <div ref={scroller} onWheel={onWheel} onScroll={onScroll} className="shrink-0 overflow-x-auto overflow-y-hidden border-t border-[var(--ui-line-333333)] bg-strip" style={{ height: SCENE_STRIP }}>
+    <div className="scene-overview flex shrink-0 flex-col bg-strip" style={{ height }}>
+      <FilmstripResizeHandle setting="sceneStripHeight" label="Resize stack overview" />
+    <div ref={scroller} onWheel={onWheel} onScroll={onScroll} className="min-h-0 flex-1 overflow-x-auto overflow-y-hidden border-t border-[var(--ui-line-333333)] bg-strip">
       <div className="relative h-full" style={{ width: length }}>
         {scenes.slice(from, to).map((scene, i) => (
           <div key={scene.frames[0]} className="absolute top-2.5" style={{ left: starts[from + i] }}>
-            <SceneCard scene={scene} active={scene === active} width={widths[from + i]} native={native} />
+            <SceneCard scene={scene} active={scene === active} width={widths[from + i]} height={cardHeight} native={native} />
           </div>
         ))}
       </div>
     </div>
+    </div>
   );
 }
 
-function SceneCard({ scene, active, width, native }: { scene: Scene; active: boolean; width: number; native: boolean }) {
+function SceneCard({ scene, active, width, height, native }: { scene: Scene; active: boolean; width: number; height: number; native: boolean }) {
   const first = useStore((s) => s.photos[scene.frames[0]]);
   // Marked all the way through: every frame has a flag, a rating or a colour.
   const complete = useStore((s) => scene.frames.every((i) => s.photos[i].rating > 0 || s.photos[i].color !== "none" || s.photos[i].flag !== "none"));
@@ -108,9 +112,9 @@ function SceneCard({ scene, active, width, native }: { scene: Scene; active: boo
       // selection made in one scene means nothing in the next.
       onClick={() => useStore.getState().select(scene.frames[0], { meta: false, shift: false })}
       className={cn("relative overflow-hidden rounded-md bg-[var(--ui-surface-141414)]", active ? "ring-2 ring-[#d9d9d9]" : "opacity-75 hover:opacity-100")}
-      style={{ width, height: CARD_H }}
+      style={{ width, height }}
     >
-      <FramedThumb photo={first} size={320} box={{ w: width, h: CARD_H }} cover={!native} className={native ? "size-full object-contain" : "size-full object-cover"} />
+      <FramedThumb photo={first} size={320} box={{ w: width, h: height }} cover={!native} className={native ? "size-full object-contain" : "size-full object-cover"} />
       <span className="absolute bottom-1 left-1 rounded bg-black/60 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-[var(--ui-text-d9d9d9)]">{scene.number}</span>
       {scene.frames.length > 1 && (
         <span className="absolute bottom-1 right-1 rounded bg-black/60 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-[#73b8ff]">×{scene.frames.length}</span>
