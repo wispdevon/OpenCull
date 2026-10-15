@@ -148,7 +148,7 @@ cannot be installed where the app lives, it says so and brings you back here.
 ### Build From Source
 
 You need [Rust](https://rustup.rs) and [Node](https://nodejs.org) 22.12+ LTS, 24, or 26+ (Node 22.23.3 and npm 11.21.1 are pinned for CI), and one
-thing for the JPEG library: `brew install jpeg-turbo` on macOS, or CMake
+thing for the JPEG library: `brew install jpeg-turbo pkgconf` on macOS, or CMake
 (plus NASM on Intel and AMD machines) on Windows and Linux. Windows and Linux
 also need the system packages on
 [Tauri's list](https://tauri.app/start/prerequisites/).
