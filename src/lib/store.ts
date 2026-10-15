@@ -61,6 +61,7 @@ interface State {
   sortAscending: boolean;
 
   viewMode: ViewMode;
+  stackFilmstripAtBottom: boolean;
   gridColumns: number;
   showExif: boolean;
   /** How wide the EXIF panel is, in pixels. */
@@ -335,6 +336,7 @@ export const speedCulling = (s: Pick<State, "speedCull" | "speedCullAlways">) =>
 
 /** Settings written back to storage whenever they change. */
 const PERSISTED = [
+  "stackFilmstripAtBottom",
   "sort",
   "sortAscending",
   "gridColumns",
@@ -672,6 +674,7 @@ export const useStore = create<Store>((set, get) => {
     sortAscending: load("sortAscending", true),
 
     viewMode: "loupe",
+    stackFilmstripAtBottom: load<boolean>("stackFilmstripAtBottom", false) === true,
     gridColumns: load("gridColumns", 4),
     showExif: load("showExif", false),
     exifPanelWidth: load("exifPanelWidth", 250),

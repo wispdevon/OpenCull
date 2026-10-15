@@ -25,7 +25,7 @@ const SCENE_STRIP = 116;
  * working through the shoot one moment at a time, with the middle row for
  * choosing within each.
  */
-export function SceneView() {
+export function SceneView({ externalFilmstrip = false }: { externalFilmstrip?: boolean }) {
   const view = useStore((s) => s.view);
   const photos = useStore((s) => s.photos);
   const current = useStore((s) => s.current);
@@ -50,9 +50,9 @@ export function SceneView() {
       <div className="min-h-0 flex-1">
         <Loupe />
       </div>
-      <div className="border-t border-[#333]">
+      {!externalFilmstrip && <div className="border-t border-[#333]">
         <Filmstrip only={active?.frames ?? []} height={height} resizable={false} />
-      </div>
+      </div>}
       <SceneStrip scenes={scenes} active={active} />
     </div>
   );
