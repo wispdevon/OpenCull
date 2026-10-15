@@ -152,6 +152,8 @@ interface State {
   /** How many photos have been analysed, and whether analysis is still going. */
   aiDone: number;
   aiRunning: boolean;
+  aiCached: number;
+  aiPending: number | null;
   /** Find and judge faces at all. */
   aiEnabled: boolean;
   /** Judge them the newer way, still being worked on, rather than as the last release did. */
@@ -751,6 +753,8 @@ export const useStore = create<Store>((set, get) => {
     poses: [],
     smartGroups: load("smartGroups", true),
     aiDone: 0,
+    aiCached: 0,
+    aiPending: null,
     aiRunning: false,
     aiEnabled: load("aiEnabled", true),
     aiAdvanced: load("aiAdvanced", false),
@@ -886,6 +890,7 @@ export const useStore = create<Store>((set, get) => {
         ranks: [],
         poses: [],
         aiDone: 0,
+        aiCached: 0, aiPending: null,
         aiRunning: false,
         faceZoom: null,
         hoveredFace: null,
@@ -938,7 +943,7 @@ export const useStore = create<Store>((set, get) => {
       if (!session) return;
       rememberPosition();
       if (session.id >= 0) void api.closeFolder(session.id);
-      set({ session: null, review: null, loading: false, photos: [], order: [], view: [], current: -1, selected: new Set(), trashPending: null, cropOpen: false, warmRemaining: 0, ai: [], compared: [], ranks: [], poses: [], aiDone: 0, aiRunning: false, faceZoom: null, hoveredFace: null });
+      set({ session: null, review: null, loading: false, photos: [], order: [], view: [], current: -1, selected: new Set(), trashPending: null, cropOpen: false, warmRemaining: 0, ai: [], compared: [], ranks: [], poses: [], aiDone: 0, aiCached: 0, aiPending: null, aiRunning: false, faceZoom: null, hoveredFace: null });
     },
 
     reloadForSubfolders() {

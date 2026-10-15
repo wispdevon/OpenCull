@@ -168,7 +168,7 @@ export interface Compared {
   eyes: (number | null)[];
 }
 
-export type AiEvent = { type: "batch"; items: ({ index: number } & AiResult)[] } | { type: "done"; finished: boolean };
+export type AiEvent = { type: "cache"; cached: number; pending: number } | { type: "batch"; items: ({ index: number } & AiResult)[] } | { type: "done"; finished: boolean };
 
 /** A photo's place among the frames it was compared with: 1 is the best of `count`. */
 export interface Rank {

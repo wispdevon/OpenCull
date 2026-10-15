@@ -672,6 +672,7 @@ pub struct Analysed {
 #[derive(Serialize, Clone)]
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum AiEvent {
+    Cache { cached: usize, pending: usize },
     Batch { items: Vec<Analysed> },
     /// The scan has ended. `finished` is false if it was stopped part way.
     Done { finished: bool },
@@ -702,7 +703,7 @@ pub async fn ai_scan(app: AppState<'_>, session: u64, order: Vec<usize>, advance
 
     tauri::async_runtime::spawn_blocking(move || {
         let wanted = || !session.closed.load(Ordering::SeqCst) && app.ai_scan.load(Ordering::SeqCst) == mine;
-        let known = Mutex::new(app.faces.load(&session.folder, rules));
+        let known = Mutex::new(app.faces.load_images(&session.folder, rules, session.images.iter().map(|image| (image.display.as_path(), image.version.as_str()))));
 
         // What is already known goes out at once.
         let mut todo = Vec::new();
@@ -715,10 +716,19 @@ pub async fn ai_scan(app: AppState<'_>, session: u64, order: Vec<usize>, advance
                 None => todo.push(index),
             }
         }
+        eprintln!("[ai-cache] restoring {} cached photos; {} require analysis", ready.len(), todo.len());
+        events.send(AiEvent::Cache { cached: ready.len(), pending: todo.len() }).ok();
         for chunk in ready.chunks(256) {
             if events.send(AiEvent::Batch { items: chunk.to_vec() }).is_err() {
                 return;
             }
+        }
+
+        if todo.is_empty() {
+            // Populate per-source directories from older root-only caches.
+            app.faces.save(&session.folder, rules, &known.lock().unwrap());
+            events.send(AiEvent::Done { finished: wanted() }).ok();
+            return;
         }
 
         // A few at a time: enough to get through a folder in a minute or two,
