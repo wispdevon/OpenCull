@@ -1,8 +1,10 @@
 import { FolderSearch, Images } from "lucide-react";
+import { useMemo } from "react";
 
 import { ReviewBar } from "@/components/ingest/ReviewBar";
 import { Button } from "@/components/ui/button";
-import { useStore } from "@/lib/store";
+import { groupOf, useStore } from "@/lib/store";
+import { sceneFrames } from "@/lib/scene-frames";
 import { useFaceScan } from "@/lib/faces";
 import { useWarmAhead } from "@/lib/warm";
 import { ExifPanel } from "./ExifPanel";
@@ -36,6 +38,14 @@ const held = (panel: PanelWidth, width: number) => `clamp(${PANEL_LIMITS[panel].
 /** The main workspace: toolbar, photo, filmstrip. */
 export function CullingView() {
   const viewMode = useStore((s) => s.viewMode);
+  const stackAtBottom = useStore((s) => s.stackFilmstripAtBottom);
+  const view = useStore((s) => s.view);
+  const photos = useStore((s) => s.photos);
+  const poses = useStore((s) => s.poses);
+  const current = useStore((s) => s.current);
+  const stackFrames = useMemo(() => viewMode === "scene" && stackAtBottom
+    ? sceneFrames(view, current, (i) => groupOf({ photos, poses }, i)) : undefined,
+  [viewMode, stackAtBottom, view, current, photos, poses]);
   const showExif = useStore((s) => s.showExif);
   const showFilmstrip = useStore((s) => s.showFilmstrip);
   const showFaces = useStore((s) => s.showFaces);
@@ -68,7 +78,7 @@ export function CullingView() {
             )}
             {showExif && <PanelHandle panel="exifPanelWidth" direction={1} />}
             <div className="min-w-0 flex-1 overflow-hidden">
-              {viewMode === "scene" ? <SceneView /> : <Loupe />}
+              {viewMode === "scene" ? <SceneView externalFilmstrip={stackAtBottom} /> : <Loupe />}
             </div>
             {showFaces && <PanelHandle panel="facePanelWidth" direction={-1} />}
             {showFaces && (
@@ -82,9 +92,9 @@ export function CullingView() {
           </>
         )}
       </div>
-      {showFilmstrip && viewMode === "loupe" && !empty && (
+      {showFilmstrip && (viewMode === "loupe" || (viewMode === "scene" && stackAtBottom)) && !empty && (
         <div className="border-t border-[var(--ui-line-333333)]">
-          <Filmstrip />
+          <Filmstrip only={stackFrames} />
         </div>
       )}
     </div>
