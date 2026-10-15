@@ -32,7 +32,7 @@
         "style-src": "'self' 'unsafe-inline'",
         "font-src": "'self' data:",
         "connect-src": "'self' ipc: http://ipc.localhost",
-        "media-src": "'self' asset: http://asset.localhost blob:"
+        "media-src": "'self' asset: http://asset.localhost http://127.0.0.1:* blob:"
       },
       "devCsp": null,
       "assetProtocol": {

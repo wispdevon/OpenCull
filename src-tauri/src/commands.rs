@@ -1107,5 +1107,8 @@ pub fn video_source(handle: tauri::AppHandle, app: AppState, path: String) -> Re
     let sessions = app.sessions.lock().map_err(|e| e.to_string())?;
     if !sessions.values().any(|s| s.images.iter().any(|p| p.path.canonicalize().ok().as_ref() == Some(&requested))) { return Err("Video is not in the selected session".into()); }
     handle.asset_protocol_scope().allow_file(&requested).map_err(|e| e.to_string())?;
-    Ok(requested.to_string_lossy().into_owned())
+    #[cfg(target_os = "linux")]
+    { crate::video_stream::url(requested) }
+    #[cfg(not(target_os = "linux"))]
+    { Ok(requested.to_string_lossy().into_owned()) }
 }
