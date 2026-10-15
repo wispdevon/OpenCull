@@ -6,7 +6,7 @@ import { initialSelection, selectedReview } from "@/lib/review";
 import { copyReview, loadReview, saveReview } from "@/lib/review-api";
 import { useStore } from "@/lib/store";
 
-export function ResumeCardSession() {
+export function ResumeCardSession({ className }: { className?: string }) {
   const [available, setAvailable] = useState(false);
   const [error, setError] = useState("");
   useEffect(() => { void loadReview().then((r) => setAvailable(r !== null)).catch((e) => setError(String(e))); }, []);
@@ -19,7 +19,7 @@ export function ResumeCardSession() {
       await useStore.getState().openFolder(review.sources[0], review);
     } catch (e) { setError(String(e)); }
   };
-  return <>{available && <Button variant="outline" onClick={() => void resume()}>Resume card session</Button>}{error && <p role="alert" className="text-sm text-destructive">{error}</p>}</>;
+  return <>{available && <Button variant="outline" className={className} onClick={() => void resume()}>Resume card session</Button>}{error && <p role="alert" className="text-sm text-destructive">{error}</p>}</>;
 }
 
 export function ReviewBar() {

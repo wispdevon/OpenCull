@@ -121,6 +121,18 @@
   align-items: center;
 }
 :root[data-visual-theme="rapidraw"] .home-heading { flex: 1 0 100%; }
+:root[data-visual-theme="rapidraw"] .home-controls {
+  width: 100%;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 16px;
+}
+:root[data-visual-theme="rapidraw"] .home-utilities { justify-content: flex-start; }
+:root[data-visual-theme="rapidraw"] .home-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+}
 :root[data-visual-theme="rapidraw"] .home-heading h1 {
   margin: 0 0 16px;
   background: none;
@@ -139,27 +151,25 @@
   color: var(--muted-foreground);
 }
 :root[data-visual-theme="rapidraw"] .home-header button {
-  min-height: 44px;
+  min-height: 40px;
   margin: 0;
-  border-radius: 6px;
+  border-radius: 8px;
   color: var(--foreground);
   background: var(--secondary);
   box-shadow: none;
 }
 :root[data-visual-theme="rapidraw"] .home-header button:hover { background: var(--accent); }
 :root[data-visual-theme="rapidraw"] .home-header .home-open {
-  order: 1;
   justify-content: center;
   flex: 1 0 100%;
   color: var(--primary-foreground);
   background: var(--primary);
 }
 :root[data-visual-theme="rapidraw"] .home-header .home-ingest {
-  order: 2;
   flex: 1;
   justify-content: center;
 }
-:root[data-visual-theme="rapidraw"] .home-header button[aria-label] { order: 3; padding: 12px; }
+:root[data-visual-theme="rapidraw"] .home-header button[aria-label] { padding: 0; }
 :root[data-visual-theme="rapidraw"] .home-header button:focus-visible {
   outline: 2px solid var(--ring);
   outline-offset: 3px;
