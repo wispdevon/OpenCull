@@ -78,6 +78,7 @@ interface State {
   showInfo: boolean;
   showRatingBar: boolean;
   showFilterBar: boolean;
+  experimentalNativeFilmstrip: boolean;
   filmstripHeight: number;
   /** The strip's edge is being dragged, and its height is changing every frame. */
   stripResizing: boolean;
@@ -359,6 +360,7 @@ const PERSISTED = [
   "showInfo",
   "showRatingBar",
   "showFilterBar",
+  "experimentalNativeFilmstrip",
   "filmstripHeight",
   "includeSubfolders",
   "ignoreVideos",
@@ -701,6 +703,7 @@ export const useStore = create<Store>((set, get) => {
     showInfo: load("showInfo", false),
     showRatingBar: load("showRatingBar", true),
     showFilterBar: load("showFilterBar", false),
+    experimentalNativeFilmstrip: load<boolean>("experimentalNativeFilmstrip", false) === true,
     filmstripHeight: load("filmstripHeight", 120),
     stripResizing: false,
     panelResizing: false,

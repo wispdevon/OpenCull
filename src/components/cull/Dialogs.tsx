@@ -1,3 +1,4 @@
+import { ExperimentalFilmstripSettings } from "./ExperimentalFilmstripSettings";
 import { useEffect, useRef, useState } from "react";
 import { HardDrive, PanelsTopLeft, Keyboard, ScanFace, Star, ZoomIn, type LucideIcon } from "lucide-react";
 
@@ -314,6 +315,7 @@ function SettingsBody({ tab, onTab }: { tab: SettingsTab; onTab: (tab: SettingsT
           <Setting title="Ignore videos" detail="Hide video files when opening folders and ingesting cards. Turn off to include playback where the system supports the codec."
             control={<Switch aria-label="Ignore videos" checked={s.ignoreVideos} onCheckedChange={(on) => { set("ignoreVideos", on); useStore.getState().reloadForSubfolders(); }} />} />
           <VisualThemeSettings />
+          <ExperimentalFilmstripSettings />
           <Setting
             title="Speed cull"
             detail="Moves straight on to the next photo after you pick, reject or rate one. Its key — Caps Lock unless you change it — also turns it on, whatever is set here."
