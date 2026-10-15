@@ -830,6 +830,7 @@ export const useStore = create<Store>((set, get) => {
       const current = photos.length === 0 ? -1 : resume >= 0 ? resume : order[0];
 
       const recents = review ? get().recents : [path, ...get().recents.filter((r) => r !== path)].slice(0, MAX_RECENTS);
+      if (!review) save("lastFolderSession", { path, updatedAt: Date.now() });
       set({
         session: { id: reply.session, folder: path, name: review?.name ?? baseName(path), includeSubfolders, subfolderCount: reply.subfolderCount, fileKinds, leftOut: reply.leftOut, timed: reply.timed },
         loading: false,

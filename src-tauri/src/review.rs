@@ -20,23 +20,99 @@ fn save(path: &Path, value: &Value) -> Result<(), String> {
     if result.is_err() { let _ = fs::remove_file(tmp); }
     result
 }
-#[tauri::command]
-pub fn review_save(app: tauri::AppHandle, value: Value) -> Result<(), String> {
-    let _lock = WRITING.lock().map_err(|e| e.to_string())?;
-    if value.get("version").and_then(Value::as_u64) != Some(1) || !value.get("items").is_some_and(Value::is_array) { return Err("Invalid session".into()); }
-    save(&path(&app)?, &value)
+fn valid_id(id: &str) -> bool {
+    !id.is_empty() && id.len() <= 128 && id.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_')
 }
-#[tauri::command]
-pub fn review_load(app: tauri::AppHandle) -> Result<Option<Value>, String> {
-    let _lock = WRITING.lock().map_err(|e| e.to_string())?;
-    match fs::read(path(&app)?) {
+fn read(path: &Path) -> Result<Option<Value>, String> {
+    match fs::read(path) {
         Ok(bytes) => serde_json::from_slice(&bytes).map(Some).map_err(|e| format!("Saved session could not be read: {e}")),
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
         Err(e) => Err(e.to_string()),
     }
 }
+fn save_history(latest: &Path, value: &Value) -> Result<(), String> {
+    let id = value.get("id").and_then(Value::as_str).filter(|id| valid_id(id) && *id != "latest").ok_or("Invalid session ID")?;
+    if value.get("version").and_then(Value::as_u64) != Some(1) || !value.get("items").is_some_and(Value::is_array) { return Err("Invalid session".into()); }
+    save(&latest.with_file_name(format!("{id}.json")), value)?;
+    save(latest, value)
+}
+fn history(latest: &Path) -> Result<Vec<Value>, String> {
+    let parent = latest.parent().ok_or("No session directory")?;
+    let entries = match fs::read_dir(parent) {
+        Ok(entries) => entries,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
+        Err(e) => return Err(e.to_string()),
+    };
+    let mut files: Vec<_> = entries.filter_map(Result::ok).filter_map(|entry| {
+        let path = entry.path();
+        if path.extension().and_then(|s| s.to_str()) != Some("json") { return None; }
+        let modified = entry.metadata().ok()?.modified().ok()?.duration_since(std::time::UNIX_EPOCH).ok()?.as_millis() as u64;
+        Some((path, modified))
+    }).collect();
+    files.sort_by(|a, b| b.1.cmp(&a.1));
+    let mut summaries = Vec::new();
+    for (file, modified) in files {
+        let Ok(Some(value)) = read(&file) else { continue; };
+        if value["version"] != 1 || !value["items"].is_array() || !value["sources"].is_array() { continue; }
+        let id = value["id"].as_str().filter(|id| valid_id(id)).unwrap_or("latest");
+        if summaries.iter().any(|v: &Value| v["id"] == id) { continue; }
+        summaries.push(serde_json::json!({
+            "id": id, "name": value["name"].as_str().unwrap_or("Card session"),
+            "sources": value["sources"], "count": value["items"].as_array().unwrap().len(),
+            "updatedAt": value["updatedAt"].as_u64().unwrap_or(modified),
+            "stage": value["stage"].as_str().unwrap_or("review"), "cover": value["items"][0],
+        }));
+        if summaries.len() == 24 { break; }
+    }
+    summaries.sort_by(|a,b| b["updatedAt"].as_u64().cmp(&a["updatedAt"].as_u64()));
+    Ok(summaries)
+}
+#[tauri::command]
+pub fn review_save(app: tauri::AppHandle, value: Value) -> Result<(), String> {
+    let _lock = WRITING.lock().map_err(|e| e.to_string())?;
+    save_history(&path(&app)?, &value)
+}
+#[tauri::command]
+pub fn review_load(app: tauri::AppHandle, id: Option<String>) -> Result<Option<Value>, String> {
+    let _lock = WRITING.lock().map_err(|e| e.to_string())?;
+    let latest = path(&app)?;
+    if let Some(id) = id {
+        if !valid_id(&id) { return Err("Invalid session ID".into()); }
+        let file = latest.with_file_name(format!("{id}.json"));
+        if let Some(value) = read(&file)? { return Ok(Some(value)); }
+        let legacy = read(&latest)?;
+        return Ok(legacy.filter(|v| v["id"] == id));
+    }
+    read(&latest)
+}
+#[tauri::command]
+pub async fn review_list(app: tauri::AppHandle) -> Result<Vec<Value>, String> {
+    let latest = path(&app)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let _lock = WRITING.lock().map_err(|e| e.to_string())?;
+        history(&latest)
+    }).await.map_err(|e| e.to_string())?
+}
 #[cfg(test)] mod tests {
     use super::*;
+    #[test] fn history_retains_independent_sessions_and_updates_them() {
+        let root = std::env::temp_dir().join(format!("opencull-history-{}", std::process::id()));
+        let latest = root.join("latest.json");
+        for (id, updated) in [("a", 1), ("b", 2), ("a", 3)] {
+            save_history(&latest, &serde_json::json!({"version":1,"id":id,"name":id,"sources":["/card"],"items":[],"updatedAt":updated})).unwrap();
+        }
+        let list = history(&latest).unwrap();
+        assert_eq!(list.len(), 2); assert_eq!(list[0]["id"], "a"); assert_eq!(list[1]["id"], "b");
+        assert_eq!(read(&root.join("b.json")).unwrap().unwrap()["id"], "b");
+        assert!(save_history(&latest, &serde_json::json!({"version":1,"id":"../outside","items":[]})).is_err());
+        fs::remove_dir_all(root).unwrap();
+    }
+    #[test] fn legacy_latest_session_is_listed_without_rewriting_it() {
+        let root = std::env::temp_dir().join(format!("opencull-history-legacy-{}", std::process::id())); let latest = root.join("latest.json");
+        save(&latest, &serde_json::json!({"version":1,"id":"old","sources":["/card"],"items":[]})).unwrap();
+        let before = fs::read(&latest).unwrap(); assert_eq!(history(&latest).unwrap()[0]["id"], "old");
+        assert_eq!(fs::read(&latest).unwrap(), before); fs::remove_dir_all(root).unwrap();
+    }
     #[test] fn session_is_stored_separately_and_replaced_whole() {
         let root = std::env::temp_dir().join(format!("opencull-review-{}", std::process::id()));
         let path = root.join("sessions/latest.json");

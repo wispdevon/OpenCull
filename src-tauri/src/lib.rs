@@ -140,6 +140,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             review::review_save,
+            review::review_list,
             review::review_load,
             commands::review_copy,
             commands::app_info,
