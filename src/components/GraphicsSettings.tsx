@@ -8,7 +8,7 @@ export function GraphicsSettings() {
   const check = async () => {
     setBusy(true);
     try {
-      const info = inTauri ? await invoke<{requested:string;platform:string;dmabufDisabled:boolean;softwareForced:boolean}>("graphics_info") : null;
+      const info = inTauri ? await invoke<{requested:string;platform:string;dmabufDisabled:boolean;softwareForced:boolean;sharedMemoryTransport:boolean}>("graphics_info") : null;
       const canvas = document.createElement("canvas");
       const gl = canvas.getContext("webgl");
       let renderer = "WebGL unavailable";
@@ -17,7 +17,7 @@ export function GraphicsSettings() {
         renderer = String(gl.getParameter(debug ? debug.UNMASKED_RENDERER_WEBGL : gl.RENDERER));
         gl.getExtension("WEBGL_lose_context")?.loseContext();
       }
-      setResult(`${info ? `${info.platform} · requested profile: ${info.requested}${info.dmabufDisabled ? " · DMA-BUF disabled" : ""}${info.softwareForced ? " · software forced" : ""}` : "Browser renderer"}\n${renderer}`);
+      setResult(`${info ? `${info.platform} · requested profile: ${info.requested}${info.sharedMemoryTransport ? " · shared-memory transport" : ""}${info.dmabufDisabled ? " · DMA-BUF disabled" : ""}${info.softwareForced ? " · software forced" : ""}` : "Browser renderer"}\n${renderer}`);
     } catch(e) { setResult(`Renderer check failed: ${String(e)}`); }
     finally { setBusy(false); }
   };
