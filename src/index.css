@@ -265,3 +265,7 @@
   :root { --background: Canvas; --foreground: CanvasText; --border: ButtonText;
     --opencull-canvas: Canvas; --opencull-panel: Canvas; --opencull-toolbar: Canvas; --opencull-strip: Canvas; }
 }
+
+:root { --home-from: #12121a; --home-to: #1a1a26; }
+:root[data-theme="light"] { --home-from: #fafafa; --home-to: #eee; }
+:root[data-theme="grey"] { --home-from: #303030; --home-to: #303030; }

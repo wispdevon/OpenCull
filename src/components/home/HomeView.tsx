@@ -94,10 +94,10 @@ export function HomeView({ dropping }: { dropping: boolean }) {
   };
 
   return (
-    <div className="relative flex size-full flex-col bg-gradient-to-br from-[#12121a] to-[#1a1a26]">
+    <div className="relative flex size-full flex-col bg-gradient-to-br from-[var(--home-from)] to-[var(--home-to)]">
       <header data-tauri-drag-region className={cn("flex shrink-0 items-center px-10 pb-6 pt-7", platform === "macos" && "pl-[78px]")}>
         <div data-tauri-drag-region className="flex-1">
-          <h1 className="bg-gradient-to-r from-white to-[#bfbfbf] bg-clip-text text-[28px] font-bold leading-tight tracking-tight text-transparent">OpenCull</h1>
+          <h1 className="bg-gradient-to-r from-foreground to-muted-foreground bg-clip-text text-[28px] font-bold leading-tight tracking-tight text-transparent">OpenCull</h1>
           <p className="mt-1 text-[13px] text-[var(--ui-text-808080)]">Culling Software made for Photographers</p>
         </div>
         <button type="button" title="Keyboard Shortcuts" aria-label="Keyboard Shortcuts" onClick={() => useStore.getState().set("shortcutsOpen", true)} className="mr-1 rounded-lg p-2.5 text-[var(--ui-text-8c8c8c)] hover:bg-white/[0.07] hover:text-white">
