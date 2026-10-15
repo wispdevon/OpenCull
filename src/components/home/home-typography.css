@@ -15,3 +15,6 @@
 }
 .home-heading { flex: 1 0 100%; min-width: 0; }
 .home-controls { flex: 1 0 100%; justify-content: flex-start; }
+/* The original and Wisp designs always use the whole window, including after switching from a split preset. */
+:root:not([data-visual-theme="rapidraw"]) .home-view { display: flex; inline-size: 100%; block-size: 100%; max-inline-size: none; }
+:root:not([data-visual-theme="rapidraw"]) .home-content { inline-size: 100%; min-inline-size: 0; align-self: stretch; }
