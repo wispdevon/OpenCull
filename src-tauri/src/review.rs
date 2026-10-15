@@ -67,6 +67,28 @@ fn history(latest: &Path) -> Result<Vec<Value>, String> {
     summaries.sort_by(|a,b| b["updatedAt"].as_u64().cmp(&a["updatedAt"].as_u64()));
     Ok(summaries)
 }
+fn remove_history(latest: &Path, ids: &[String]) -> Result<(), String> {
+    if ids.iter().any(|id| !valid_id(id)) { return Err("Invalid session ID".into()); }
+    let current = read(latest)?;
+    let remove_latest = current.as_ref().is_some_and(|v| ids.iter().any(|id| id == v["id"].as_str().unwrap_or("latest")));
+    for id in ids {
+        let file = latest.with_file_name(format!("{id}.json"));
+        match fs::remove_file(file) { Ok(()) => {}, Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}, Err(e) => return Err(e.to_string()) }
+    }
+    if remove_latest {
+        match fs::remove_file(latest) { Ok(()) => {}, Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}, Err(e) => return Err(e.to_string()) }
+        if let Some(next) = history(latest)?.first() {
+            let id = next["id"].as_str().ok_or("Invalid saved session")?;
+            if let Some(value) = read(&latest.with_file_name(format!("{id}.json")))? { save(latest, &value)?; }
+        }
+    }
+    Ok(())
+}
+#[tauri::command]
+pub fn review_remove(app: tauri::AppHandle, ids: Vec<String>) -> Result<(), String> {
+    let _lock = WRITING.lock().map_err(|e| e.to_string())?;
+    remove_history(&path(&app)?, &ids)
+}
 #[tauri::command]
 pub fn review_save(app: tauri::AppHandle, value: Value) -> Result<(), String> {
     let _lock = WRITING.lock().map_err(|e| e.to_string())?;
@@ -95,6 +117,31 @@ pub async fn review_list(app: tauri::AppHandle) -> Result<Vec<Value>, String> {
 }
 #[cfg(test)] mod tests {
     use super::*;
+    #[test] fn removing_sessions_updates_latest_without_touching_source_files() {
+        let root = std::env::temp_dir().join(format!("opencull-remove-{}", std::process::id()));
+        let latest = root.join("sessions/latest.json"); fs::create_dir_all(&root).unwrap();
+        let source = root.join("original.raw"); fs::write(&source, b"original photo").unwrap();
+        for (id, updated) in [("a", 1), ("b", 2), ("c", 3)] {
+            save_history(&latest, &serde_json::json!({"version":1,"id":id,"sources":[source],"items":[{"path":source}],"updatedAt":updated})).unwrap();
+        }
+        assert!(remove_history(&latest, &["../original".into(), "b".into()]).is_err());
+        assert!(root.join("sessions/b.json").exists());
+        remove_history(&latest, &["a".into()]).unwrap();
+        assert_eq!(read(&latest).unwrap().unwrap()["id"], "c");
+        remove_history(&latest, &["c".into()]).unwrap();
+        assert_eq!(read(&latest).unwrap().unwrap()["id"], "b");
+        assert_eq!(history(&latest).unwrap().len(), 1);
+        remove_history(&latest, &["b".into()]).unwrap();
+        assert!(read(&latest).unwrap().is_none()); assert!(history(&latest).unwrap().is_empty());
+        assert_eq!(fs::read(&source).unwrap(), b"original photo"); fs::remove_dir_all(root).unwrap();
+    }
+    #[test] fn removing_legacy_session_clears_latest_alias() {
+        let root = std::env::temp_dir().join(format!("opencull-remove-legacy-{}", std::process::id()));
+        let latest = root.join("latest.json");
+        save(&latest, &serde_json::json!({"version":1,"sources":[],"items":[]})).unwrap();
+        remove_history(&latest, &["latest".into()]).unwrap();
+        assert!(history(&latest).unwrap().is_empty());fs::remove_dir_all(root).unwrap();
+    }
     #[test] fn history_retains_independent_sessions_and_updates_them() {
         let root = std::env::temp_dir().join(format!("opencull-history-{}", std::process::id()));
         let latest = root.join("latest.json");

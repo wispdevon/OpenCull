@@ -27,6 +27,18 @@ export async function listReviews(): Promise<RecentSession[]> {
     id:r.id ?? "latest",name:r.name ?? "Card session",sources:r.sources,count:r.items.length,updatedAt:r.updatedAt ?? (Number(r.id) || 0),stage:r.stage,cover:r.items[0] ?? null,
   })).sort((a,b) => b.updatedAt-a.updatedAt).slice(0,24);
 }
+export async function removeReviews(ids: string[]): Promise<void> {
+  if (inTauri) {
+    saving = saving.catch(() => {}).then(() => invoke("review_remove", { ids }));
+    await saving;
+  } else {
+    const kept = browserHistory().filter((r) => !ids.includes(r.id ?? "latest")).sort((a,b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0));
+    localStorage.setItem("opencull.session.history", JSON.stringify(kept));
+    if (kept.length) localStorage.setItem("opencull.session.latest", JSON.stringify(kept[0]));
+    else localStorage.removeItem("opencull.session.latest");
+  }
+  window.dispatchEvent(new Event("opencull:sessions-changed"));
+}
 export async function loadReview(id?: string): Promise<ReviewSession | null> {
   const value: ReviewSession | null = inTauri ? await invoke("review_load", { id }) : id ? browserHistory().find((r) => (r.id ?? "latest") === id) ?? null : JSON.parse(localStorage.getItem("opencull.session.latest") ?? "null");
   if (value && (value.version !== 1 || !Array.isArray(value.items) || !Array.isArray(value.sources) || typeof value.decisions !== "object")) throw new Error("Saved card session is not supported");
