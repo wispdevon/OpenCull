@@ -27,9 +27,9 @@
     <br />
     <a href="https://github.com/NatePhotos/OpenCull/releases">Download</a>
     &middot;
-    <a href="https://github.com/NatePhotos/OpenCull/issues/new?labels=bug">Report Bug</a>
+    <a href="https://github.com/wispdevon/OpenCull/issues/new?labels=bug">Report Bug</a>
     &middot;
-    <a href="https://github.com/NatePhotos/OpenCull/issues/new?labels=enhancement">Request Feature</a>
+    <a href="https://github.com/wispdevon/OpenCull/issues/new?labels=enhancement">Request Feature</a>
   </p>
 </div>
 
@@ -222,7 +222,11 @@ normal CPU builds do not require them. See the [trial setup](docs/CUDA-TRIAL.md)
 
 ### Download
 
-Installers are on the [releases page][release-url].
+For this fork's combined features, use the source instructions above or the
+installer artifacts attached to a successful `main` run of the
+[fork's Build workflow](https://github.com/wispdevon/OpenCull/actions/workflows/build.yml).
+The [upstream releases page][release-url] contains the original application's
+releases, which do not include this fork's added features.
 
 | System | File |
 |---|---|
@@ -413,8 +417,8 @@ Project Link: [https://github.com/NatePhotos/OpenCull](https://github.com/NatePh
 [product-screenshot]: docs/images/screenshot.jpg
 [release-shield]: https://img.shields.io/github/v/release/NatePhotos/OpenCull?include_prereleases&style=for-the-badge
 [release-url]: https://github.com/NatePhotos/OpenCull/releases
-[build-shield]: https://img.shields.io/github/actions/workflow/status/NatePhotos/OpenCull/build.yml?branch=main&style=for-the-badge
-[build-url]: https://github.com/NatePhotos/OpenCull/actions/workflows/build.yml
+[build-shield]: https://img.shields.io/github/actions/workflow/status/wispdevon/OpenCull/build.yml?branch=main&style=for-the-badge
+[build-url]: https://github.com/wispdevon/OpenCull/actions/workflows/build.yml
 [stars-shield]: https://img.shields.io/github/stars/NatePhotos/OpenCull.svg?style=for-the-badge
 [stars-url]: https://github.com/NatePhotos/OpenCull/stargazers
 [issues-shield]: https://img.shields.io/github/issues/NatePhotos/OpenCull.svg?style=for-the-badge
