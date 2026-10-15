@@ -17,6 +17,7 @@ import { api, bucket, THUMB_SIZES, type IngestFolder, type Volume } from "@/lib/
 import { load, save } from "@/lib/prefs";
 import { isMac } from "@/lib/shortcuts";
 import { newReview } from "@/lib/review";
+import { Switch } from "@/components/ui/switch";
 import { useStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
 import type { Scanned } from "@/lib/types";
@@ -74,6 +75,7 @@ function timeLabel(item: Item, long = false): string {
 const SELECTED_ROW = "bg-[#4073f2]/45";
 
 export function IngestView() {
+  const ignoreVideos = useStore((s) => s.ignoreVideos);
   const startAt = useStore((s) => s.ingestFrom);
   const platform = useStore((s) => s.platform);
 
@@ -126,7 +128,7 @@ export function IngestView() {
     anchor.current = 0;
     setItems([]);
     setPhase({ is: "scanning" });
-    void api.ingestSources(paths).then(
+    void api.ingestSources(paths, ignoreVideos).then(
       (found) => {
         if (listing.current !== mine) return;
         setItems(found.map((f) => ({ ...f, captureMs: null, rating: 0 })));
@@ -147,7 +149,8 @@ export function IngestView() {
       },
       (e) => listing.current === mine && setPhase({ is: "failed", message: String(e) }),
     );
-  }, []);
+  }, [ignoreVideos]);
+  useEffect(() => { if (source) choose(source); }, [ignoreVideos]);
 
   const choose = useCallback((path: string) => scanSources([...new Set([...sourceList.current, path])]), [scanSources]);
 
@@ -166,7 +169,7 @@ export function IngestView() {
     }
     setChildren([]);
     setBrowsing(true);
-    void api.ingestBrowse(path).then(
+    void api.ingestBrowse(path, ignoreVideos).then(
       (found) => {
         if (browse.current !== mine) return;
         setChildren(found.folders);
@@ -191,7 +194,7 @@ export function IngestView() {
     if (isCameraMedia(folder.name)) return choose(folder.path);
     const mine = ++browse.current;
     setBrowsing(true);
-    void api.ingestBrowse(folder.path).then(
+    void api.ingestBrowse(folder.path, ignoreVideos).then(
       (found) => {
         if (browse.current !== mine) return;
         setBrowsing(false);
@@ -424,6 +427,7 @@ export function IngestView() {
 
         {/* Where to. */}
         <aside className="flex w-[280px] shrink-0 flex-col gap-4 bg-[var(--ui-surface-131318)] p-4">
+          <label className="flex items-center justify-between gap-2 text-xs">Ignore videos<Switch aria-label="Ignore videos on card" disabled={busy} checked={ignoreVideos} onCheckedChange={(on) => useStore.getState().set("ignoreVideos", on)} /></label>
           <Label>Review first</Label>
           <p className="text-xs text-muted-foreground">Cull the card in the normal workspace. At the end, choose files to copy or import in place. Nothing is copied or deleted now.</p>
           <span className="flex-1" />

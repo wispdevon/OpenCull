@@ -59,7 +59,7 @@ export function ReviewBar() {
       if (result.failed.length || result.sidecarFailed.length) throw new Error([...result.failed, ...result.sidecarFailed].join("\n"));
       if (pending.some((p) => !next.completed[p.path])) throw new Error("Copy cancelled. Completed files are remembered; you can retry the remaining files.");
       const destinations = selected.map((p) => next.completed[p.path]);
-      const copied = (await api.ingestScan(destination)).filter((p) => destinations.includes(p.path));
+      const copied = (await api.ingestScan(destination, useStore.getState().ignoreVideos)).filter((p) => destinations.includes(p.path));
       setOpen(false);
       const imported = { ...next, sources: [destination], items: copied, chosen: copied.map((p) => p.path), decisions: {}, completed: {}, stage: "in-place" as const };
       await useStore.getState().openFolder(destination, imported);

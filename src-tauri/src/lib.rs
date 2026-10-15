@@ -147,6 +147,7 @@ pub fn run() {
             commands::review_copy,
             settings::config_load,
             settings::config_set,
+            commands::video_source,
             commands::app_info,
             commands::report,
             commands::finish_self_test,

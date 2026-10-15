@@ -24,12 +24,13 @@ fn pair(mut images: Vec<Scanned>, facts: impl Fn(&Path) -> Option<Facts>) -> Vec
     images.into_iter().enumerate().filter_map(|(i, image)| (!remove.contains(&i)).then_some(image)).collect()
 }
 
-pub fn scan_sources(sources: &[PathBuf]) -> Result<Vec<Scanned>, String> {
+pub fn scan_sources(sources: &[PathBuf]) -> Result<Vec<Scanned>, String> { scan_sources_media(sources, false) }
+pub fn scan_sources_media(sources: &[PathBuf], include_videos: bool) -> Result<Vec<Scanned>, String> {
     let mut seen = HashSet::new(); let mut images = Vec::new();
     for source in sources {
         let root = source.canonicalize().map_err(|e| format!("{}: {e}", source.display()))?;
         if !root.is_dir() { return Err(format!("{} is not a folder", root.display())); }
-        for mut image in scan::scan_folder(&root, true).images {
+        for mut image in scan::scan_folder_media(&root, true, scan::Kinds::Both, include_videos).images {
             if !seen.insert(image.path.clone()) { continue; }
             let label = root.file_name().unwrap_or_default().to_string_lossy();
             image.subpath = Some(match image.subpath { Some(sub) => format!("{label}/{sub}"), None => label.to_string() });
