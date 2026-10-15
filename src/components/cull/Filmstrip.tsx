@@ -2,6 +2,7 @@ import { memo, useMemo, useRef } from "react";
 
 import { bucket, THUMB_SIZES } from "@/lib/api";
 import { groupOf, hasActiveFilter, useStore } from "@/lib/store";
+import { shownSize } from "@/lib/framing";
 import { cn } from "@/lib/utils";
 import { PhotoMenu } from "./PhotoMenu";
 import { useStrip } from "./strip";
@@ -67,7 +68,13 @@ export function Filmstrip({ only, height: fixedHeight, resizable = true }: { onl
   const storedHeight = useStore((s) => s.filmstripHeight);
   const height = fixedHeight ?? storedHeight;
   const thumbH = stripThumbHeight(height);
-  const thumbW = Math.round(thumbH * 1.5);
+  const nativeAspect = useStore((s) => s.experimentalNativeFilmstrip);
+  const widths = useMemo(() => view.map((index) => {
+    const photo = photos[index];
+    const size = photo && shownSize(photo);
+    const ratio = nativeAspect && size && size.w > 0 && size.h > 0 ? size.w / size.h : 1.5;
+    return Math.max(1, Math.round(thumbH * ratio));
+  }), [view, photos, thumbH, nativeAspect]);
   const size = useStripThumbSize(height);
 
   // Frames of one group are drawn joined, on a shared backing. A group is a
@@ -92,11 +99,11 @@ export function Filmstrip({ only, height: fixedHeight, resizable = true }: { onl
     let x = PAD;
     rows.forEach((row, i) => {
       out[i] = x;
-      x += thumbW + (row.burst && row.first ? 8 : 3) + (row.burst && row.last ? 8 : 3) + (row.gap ? 6 : 0);
+      x += widths[i] + (row.burst && row.first ? 8 : 3) + (row.burst && row.last ? 8 : 3) + (row.gap ? 6 : 0);
     });
     out[rows.length] = x;
     return out;
-  }, [rows, thumbW]);
+  }, [rows, widths]);
   // Keep the photo in the loupe in the middle of the strip.
   const position = useMemo(() => rows.findIndex((r) => r.index === current), [rows, current]);
   const { scroller, length, from, to, onScroll, onWheel } = useStrip({ starts, pad: PAD, position, anchor: current });
@@ -119,7 +126,7 @@ export function Filmstrip({ only, height: fixedHeight, resizable = true }: { onl
                   )}
                   style={{ paddingLeft: row.burst && row.first ? 8 : 3, paddingRight: row.burst && row.last ? 8 : 3 }}
                 >
-                  <Cell index={row.index} width={thumbW} height={thumbH} size={size} />
+                  <Cell index={row.index} width={widths[at]} height={thumbH} size={size} />
                 </div>
               </div>
             );

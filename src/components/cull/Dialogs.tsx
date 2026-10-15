@@ -1,3 +1,4 @@
+import { ExperimentalFilmstripSettings } from "./ExperimentalFilmstripSettings";
 import { useEffect, useRef, useState } from "react";
 import { HardDrive, Keyboard, ScanFace, Star, ZoomIn, type LucideIcon } from "lucide-react";
 
@@ -280,6 +281,7 @@ function SettingsBody({ tab, onTab }: { tab: SettingsTab; onTab: (tab: SettingsT
           they are stepped through; a tab with more than fits scrolls. */}
       <div className="h-[430px] overflow-x-hidden overflow-y-auto pr-1">
         <TabsContent value="culling" className="space-y-4">
+          <ExperimentalFilmstripSettings />
           <Setting
             title="Speed cull"
             detail="Moves straight on to the next photo after you pick, reject or rate one. Its key — Caps Lock unless you change it — also turns it on, whatever is set here."
