@@ -1,9 +1,15 @@
 import { expect, it } from "vitest";
-import { faceOutline, highestScoringFace } from "./face-target";
+import { faceOutline, faceZoomTarget, highestScoringFace } from "./face-target";
 import type { AiFace } from "./types";
 
 const photo = { fullWidth: 6000, fullHeight: 4000, framing: { turn: 1, crop: null } };
 const face = (sharpness: number | null, subject = true, x = 0.2) => ({ x, y: 0.2, w: 0.1, h: 0.1, sharpness, subject }) as AiFace;
+it("places a face at 28% of the view height while centring it horizontally", () => {
+  const point = { x: 120, y: -60 }, scale = 2;
+  const target = faceZoomTarget(point, scale, 800);
+  expect(target.x + point.x * scale).toBe(0);
+  expect(400 + target.y + point.y * scale).toBeCloseTo(800 * 0.28);
+});
 it("targets the highest scored subject rather than a sharper background face", () => {
   const best = face(80);
   expect(highestScoringFace([face(20), face(99, false), best], photo)).toBe(best);
