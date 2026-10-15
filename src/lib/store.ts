@@ -6,6 +6,7 @@ import { api, type UpdateFound } from "./api";
 import { useCrop } from "./crop";
 import { cropFromShare, isPlain, MIRROR_ACROSS, MIRROR_DOWN, PLAIN, QUARTER_LEFT, QUARTER_RIGHT, sameFraming, shareOf, turned, viewSize, type Share } from "./framing";
 import { load, save } from "./prefs";
+import { openingView, validViewMode } from "./view-preferences";
 import type { AiFace, AiResult, Color, Compared, FileKinds, Flag, FlagFilter, Framing, Marks, MetaEvent, Photo, Rank, SortKey, ViewMode } from "./types";
 
 interface Session {
@@ -61,6 +62,8 @@ interface State {
   sortAscending: boolean;
 
   viewMode: ViewMode;
+  defaultViewMode: ViewMode;
+  rememberViewMode: boolean;
   gridColumns: number;
   showExif: boolean;
   /** How wide the EXIF panel is, in pixels. */
@@ -335,6 +338,9 @@ export const speedCulling = (s: Pick<State, "speedCull" | "speedCullAlways">) =>
 
 /** Settings written back to storage whenever they change. */
 const PERSISTED = [
+  "viewMode",
+  "defaultViewMode",
+  "rememberViewMode",
   "sort",
   "sortAscending",
   "gridColumns",
@@ -671,7 +677,9 @@ export const useStore = create<Store>((set, get) => {
     sort: load<SortKey>("sort", "captureTime"),
     sortAscending: load("sortAscending", true),
 
-    viewMode: "loupe",
+    defaultViewMode: validViewMode(load("defaultViewMode", "loupe")),
+    rememberViewMode: load("rememberViewMode", true) === true,
+    viewMode: openingView(load("defaultViewMode", "loupe"), load("rememberViewMode", true), load("viewMode", null)),
     gridColumns: load("gridColumns", 4),
     showExif: load("showExif", false),
     exifPanelWidth: load("exifPanelWidth", 250),
@@ -769,7 +777,7 @@ export const useStore = create<Store>((set, get) => {
         metaProgress: 0,
         undoStack: [],
         redoStack: [],
-        viewMode: "loupe",
+        viewMode: openingView(get().defaultViewMode, get().rememberViewMode, get().viewMode),
         flagFilter: "all",
         ratingFilter: null,
         colorFilters: new Set(),
