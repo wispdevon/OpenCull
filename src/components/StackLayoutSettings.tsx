@@ -5,10 +5,10 @@ export function StackLayoutSettings() {
     <legend className="px-1 text-sm font-semibold">Stack filmstrip placement</legend>
     <div className="flex flex-col gap-2 text-xs">
       <label className="flex items-center gap-2"><input type="radio" name="stack-filmstrip-layout" checked={!fixed}
-        onChange={() => useStore.getState().set("stackFilmstripAtBottom", false)} />Classic stack layout</label>
+        onChange={() => useStore.getState().set("stackFilmstripAtBottom", false)} />Classic stack layout (default)</label>
       <label className="flex items-center gap-2"><input type="radio" name="stack-filmstrip-layout" checked={fixed}
         onChange={() => useStore.getState().set("stackFilmstripAtBottom", true)} />Keep normal filmstrip placement</label>
     </div>
-    <p className="text-xs text-muted-foreground">Keep the active stack's frames in the normal full-width bottom filmstrip, with the same height and resize control as Filmstrip view. The scene overview stays above it. Classic preserves the original layout.</p>
+    <p className="text-xs text-muted-foreground">Classic keeps both rows below the photo. Keep normal filmstrip placement puts the group overview across the full-width bottom row; the active stack’s frames stay above it, beneath the photo. Both rows can be resized and hidden.</p>
   </fieldset>;
 }
