@@ -126,6 +126,7 @@ export function IngestView() {
       (found) => {
         if (listing.current !== mine) return;
         setItems(found.map((f) => ({ ...f, captureMs: null, rating: 0 })));
+        setSelected(new Set(found.map((_, i) => i)));
         setPhase({ is: "ready" });
         // Capture times and in-camera stars are read afterwards, so the
         // card's photos are on screen without waiting for either.
@@ -276,12 +277,12 @@ export function IngestView() {
 
   // ── Copying ───────────────────────────────────────────────────────────────
 
-  const canIngest = items.length > 0 && !busy;
+  const canIngest = selected.size > 0 && !busy;
 
   const requestIngest = async () => {
     if (!canIngest || !source) return;
     close();
-    const chosen = selected.size ? order.filter((i) => selected.has(i)).map((i) => items[i]) : items;
+    const chosen = order.filter((i) => selected.has(i)).map((i) => items[i]);
     await useStore.getState().openFolder(source, newReview([source], chosen));
 
   };
