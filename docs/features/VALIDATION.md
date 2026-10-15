@@ -14,6 +14,37 @@ The seven feature branches start independently at upstream release 0.4.1. Each h
 | Cull before import | `feature/cull-before-ingest` | [#6](https://github.com/wispdevon/OpenCull/pull/6) |
 | Multi-card sources | `feature/multi-card-session` | [#7](https://github.com/wispdevon/OpenCull/pull/7) |
 | Video playback | `feature/video-culling` | [#8](https://github.com/wispdevon/OpenCull/pull/8) |
+| RapidRAW inspired design | `feature/rapidraw-theme` | [#10](https://github.com/wispdevon/OpenCull/pull/10) |
+| Precise card subfolders | `feature/ingest-subfolders` | [#11](https://github.com/wispdevon/OpenCull/pull/11) |
+| Larger headings and review guidance | `feature/ui-changes` | [#12](https://github.com/wispdevon/OpenCull/pull/12) |
+
+The design and subfolder branches also start directly from upstream. The UI
+branch starts from `feature/cull-before-ingest`, because its instruction text
+describes that workflow; its PR targets that branch to isolate the UI diff.
+
+## Additional welcome, folder, and heading checks
+
+The latest integration passes 48 frontend tests and a Linux debug desktop
+build. Standalone design/subfolder/UI branches pass their frontend tests and
+TypeScript/Vite builds. No Rust logic changed in these additions.
+
+The in-app browser remained unavailable, so a separate headless Chromium
+instance checked the rendered screens. No existing user browser was controlled.
+Theme checks covered selection, reload persistence, offline font application,
+font opt-out, restoration of the default design, and 1440px/600px layouts without
+horizontal overflow or JavaScript errors. Combined light/dark/grey modes keep
+the expected native colour scheme and grey's `#767676` photo canvas.
+
+Folder checks observed no photo scan when navigating CARD or DCIM, a scan of
+only `DCIM/100CANON` after selecting it, and an explicit parent selection with
+**Use this folder**. Combined multi-source selection retained earlier sources.
+Heading checks verified a 24px ingest heading, 14px instruction immediately
+below it, no duplicate sidebar instruction, and 20px shared dialog titles.
+
+The updated executable opened successfully in the user's Wayland session with
+`WEBKIT_DISABLE_DMABUF_RENDERER=1`. An unmodified launch previously exited with
+a Wayland protocol error. The previous app window was left running so its
+pending card selection was preserved.
 
 ## Verified locally
 
