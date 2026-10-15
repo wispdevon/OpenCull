@@ -6,6 +6,7 @@ type Values = BTreeMap<String, Value>;
 static NEXT: AtomicU64 = AtomicU64::new(0);
 pub struct Settings(pub Mutex<PathBuf>);
 
+#[cfg(target_os = "linux")]
 pub fn linux_path(xdg: Option<&Path>, home: &Path) -> PathBuf {
     xdg.filter(|p| p.is_absolute()).map(Path::to_path_buf).unwrap_or_else(|| home.join(".config")).join("opencull/config.json")
 }
@@ -71,6 +72,7 @@ pub fn config_set(settings: tauri::State<Settings>, key: String, value: Value) -
 mod tests {
     use super::*;
     fn root() -> PathBuf { std::env::temp_dir().join(format!("opencull-config-{}-{}", std::process::id(), NEXT.fetch_add(1, Ordering::Relaxed))) }
+    #[cfg(target_os = "linux")]
     #[test] fn xdg_paths() {
         assert_eq!(linux_path(Some(Path::new("/custom")), Path::new("/home/a")), Path::new("/custom/opencull/config.json"));
         assert_eq!(linux_path(None, Path::new("/home/a")), Path::new("/home/a/.config/opencull/config.json"));
