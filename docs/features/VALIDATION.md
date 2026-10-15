@@ -57,6 +57,20 @@ pending card selection was preserved.
 
 ## Verified locally
 
+- Clean-clone quickstart: a fresh remote clone of `integration/linux-features`
+  installed with pinned `npm ci` and passed `npm run check` (52 frontend tests,
+  production frontend build, and 283 Rust tests). The clone contained no local
+  patches or dependency symlinks. Cargo reused cached native dependencies.
+- `npm run dev:desktop` passed its Node guard, started Vite on port 1420, and
+  opened the real desktop app in the user's Wayland session. This uses the
+  development URL and Rust watcher rather than a packaged frontend. The Linux
+  graphics workaround was supplied only to that local process's environment.
+- Platform review: Linux video streaming and XDG path code/tests are guarded by
+  Linux target configuration. macOS uses its native app-config location,
+  asset-protocol video playback, and `turbo-system` JPEG feature. macOS setup/CI
+  now explicitly installs Homebrew `jpeg-turbo` and `pkgconf`. Native macOS
+  verification is tracked by [the cross-platform run](https://github.com/wispdevon/OpenCull/actions/runs/38796608300);
+  it was still in progress when the local desktop development session opened.
 - Toolchain: Node 22.23.3, npm 11.21.1. Clean `npm ci`, then `npm run check`: 46 frontend tests, frontend production build, and 283 Rust library tests pass on the combined branch. Fork main separately passes its 31 frontend tests, production build, and 268 Rust tests.
 - Desktop: `npm run build:desktop -- --debug --no-bundle` succeeds on Linux with libjpeg-turbo enabled.
 - Native self-test: opens files, loads previews, transfers without changing originals, and exercises the new features through real Tauri IPC and the existing store.
