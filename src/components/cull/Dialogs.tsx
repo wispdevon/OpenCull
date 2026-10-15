@@ -517,6 +517,7 @@ function SettingsBody({ tab, onTab, ...shortcutProps }: { tab: SettingsTab; onTa
           />
         </TabsContent>
         <TabsContent value="keyboard" className="space-y-4">
+          <Button variant="outline" onClick={() => useStore.setState({ settingsOpen: false, overviewOpen: true })}>Quick overview</Button>
           <ShortcutEditor {...shortcutProps} />
         </TabsContent>
       </div>
