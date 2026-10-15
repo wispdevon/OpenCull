@@ -1,4 +1,5 @@
 import { ExperimentalFilmstripSettings } from "./ExperimentalFilmstripSettings";
+import { ExperimentalZoomSettings } from "./ExperimentalZoomSettings";
 import { useEffect, useRef, useState } from "react";
 import { HardDrive, PanelsTopLeft, Keyboard, ScanFace, Star, ZoomIn, type LucideIcon } from "lucide-react";
 
@@ -417,6 +418,7 @@ function SettingsBody({ tab, onTab }: { tab: SettingsTab; onTab: (tab: SettingsT
           />
         </TabsContent>
         <TabsContent value="zoom" className="space-y-4">
+          <ExperimentalZoomSettings />
           <Setting
             title="Keep zoom between photos"
             detail="Holds the zoom and the spot you are looking at as you move through a folder, so focus can be checked on the same face across a burst. Turn off to return to the whole frame on every photo."
