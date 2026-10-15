@@ -94,6 +94,7 @@ New profiles receive a quick workflow and keyboard overview; reopen it from
 **Settings → Keyboard → Quick overview**.
 Optional [face-target Space zoom](docs/features/FACE_ZOOM.md) is under **Settings → Zoom**.
 [Experimental face outlines and hover spotlight](docs/features/FACE_OVERLAYS.md) are under **Settings → AI**; hover highlights without moving the photo, and clicking still zooms.
+AI results are [cached across sessions](docs/features/AI_CACHE.md), including reopening the same photos through a card or subfolder. The toolbar distinguishes cached results from new analysis.
 See the [settings layout guidelines](docs/SETTINGS_DESIGN.md) and
 [Wisp design guidelines](docs/WISP_DESIGN.md) for spacing and contrast rules.
 Linux settings are created in `$XDG_CONFIG_HOME/opencull/config.json`, normally

@@ -91,7 +91,7 @@ export function useFaceScan(): void {
     const here = Math.max(0, order.indexOf(current));
     const nearest = order.map((index, place) => ({ index, far: Math.abs(place - here) })).sort((a, b) => a.far - b.far).map((o) => o.index).filter((i) => !isVideo(photos[i].path));
 
-    useStore.setState({ aiRunning: true });
+    useStore.setState({ aiRunning: true, aiCached: 0, aiPending: null });
     // A scan that has been stopped may still have answers on their way.
     // Judged by other rules, they must not be taken for this scan's.
     let live = true;
@@ -99,7 +99,8 @@ export function useFaceScan(): void {
       .aiScan(session, nearest, advanced, (event) => {
         const s = useStore.getState();
         if (!live || s.session?.id !== session) return; // stopped, or a folder since closed
-        if (event.type === "batch") s.addAnalysis(event.items);
+        if (event.type === "cache") useStore.setState({ aiCached: event.cached, aiPending: event.pending });
+        else if (event.type === "batch") s.addAnalysis(event.items);
         else s.set("aiRunning", false);
       })
       .catch(() => useStore.getState().session?.id === session && useStore.setState({ aiRunning: false }));

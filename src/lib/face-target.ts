@@ -3,6 +3,11 @@ import type { AiFace, Photo } from "./types";
 
 type FramedPhoto = Pick<Photo, "fullWidth" | "fullHeight" | "framing">;
 
+/** Leave room for the person below their face; photo-edge clamping is applied by the view. */
+export function faceZoomTarget(point: { x: number; y: number }, scale: number, frameHeight: number) {
+  return { scale, x: -point.x * scale, y: -point.y * scale - frameHeight * 0.22 };
+}
+
 /** Preserve all four corners through crop rotation and mirroring. */
 export function faceOutline(face: Pick<AiFace, "x" | "y" | "w" | "h">, photo: FramedPhoto) {
   if (photo.fullWidth <= 0 || photo.fullHeight <= 0 || ![face.x, face.y, face.w, face.h].every(Number.isFinite) || face.w <= 0 || face.h <= 0) return null;
