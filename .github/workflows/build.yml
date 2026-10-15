@@ -63,7 +63,7 @@ jobs:
 
       - name: macOS packages
         if: runner.os == 'macOS'
-        run: brew install jpeg-turbo
+        run: brew install jpeg-turbo pkgconf
 
       - name: Windows packages
         if: runner.os == 'Windows'
