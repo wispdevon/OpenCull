@@ -121,3 +121,12 @@ Existing panel defaults remain unchanged. These are personal values; standalone 
 - RapidRAW recent-folder contact sheets remain visible. Its session cards measured 304px versus 437px in the default preset at the same 1440px viewport; card layouts and toolbar hierarchy verified in browser runtime.
 - User rejected the monochrome mountain demo. demo/rapidraw-welcome is excluded from integration and the app continues to use its original opening page.
 - Frontend suite: 58 tests pass; combined production frontend build passes. Native macOS scaling has not been run locally.
+
+## Contrast, strips, history deletion and graphics follow-up
+
+- 61 frontend tests pass; production frontend build passes. 288 Rust tests pass, including session removal/promotion, legacy cleanup and graphics-profile choice.
+- Wisp's measured setting title/detail contrast meets 4.5:1, and row boundaries meet 3:1, in dark, light and grey. Active tabs have explicit boundaries. Guidelines are in DESIGN.md.
+- Browser runtime verifies session deletion, bulk controls hidden before selection, source-history separation, whole-window OpenCull layout after theme switching, both strip resize controls, and hide/show for both classic stack strips.
+- Native aspect covers both the active-frame and scene overview strips. Decoded upright JPEG dimensions supply early proportions; full camera dimensions remain separate and supersede the preview ratio.
+- This NVIDIA/Wayland test hit protocol error 71 with direct DMA-BUF. X11 compatibility presentation stays usable; its WebKitWebProcess was observed on the RTX 3060 Ti (7 MiB graphics allocation). The profile requests hardware compositing/WebGL/available 2D canvas acceleration while retaining compatible presentation. This proves GPU access for that context, not that CPU decoding or every UI operation is GPU accelerated. No zoom-performance gain is claimed without representative timings.
+- The earlier combined macOS Apple-silicon build passed. Fork main's new macOS dev startup smoke passed, checking the native process and Vite frontend. Final combined commit CI is still being checked; Intel Mac runtime is not covered.
