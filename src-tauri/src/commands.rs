@@ -1176,3 +1176,9 @@ pub async fn review_copy(app: AppState<'_>, items: Vec<ReviewCopyItem>, sources:
         assert!(copy_review_items(&[], &[root.clone()], &root, &AtomicBool::new(false), |_| {}).is_err()); std::fs::remove_dir_all(root).unwrap();
     }
 }
+
+/// Selected cards are scanned as one shoot; disconnected sources are reported.
+#[tauri::command]
+pub async fn ingest_sources(sources: Vec<PathBuf>) -> Result<Vec<Scanned>, String> {
+    tauri::async_runtime::spawn_blocking(move || crate::multicard::scan_sources(&sources)).await.map_err(|e| e.to_string())?
+}

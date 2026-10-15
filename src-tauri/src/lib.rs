@@ -13,6 +13,7 @@ pub mod embed;
 pub mod faces;
 pub mod framing;
 pub mod ingest;
+pub mod multicard;
 pub mod pool;
 pub mod preview;
 pub mod raw;
@@ -172,6 +173,7 @@ pub fn run() {
             commands::ingest_volumes,
             commands::ingest_browse,
             commands::ingest_scan,
+            commands::ingest_sources,
             commands::ingest_details,
             commands::ingest_conflicts,
             commands::ingest_copy,

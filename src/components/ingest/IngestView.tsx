@@ -82,6 +82,8 @@ export function IngestView() {
   const [children, setChildren] = useState<IngestFolder[]>([]);
   const [browsing, setBrowsing] = useState(false);
   const [source, setSource] = useState<string | null>(null);
+  const [sources, setSources] = useState<string[]>([]);
+  const sourceList = useRef<string[]>([]);
 
   const [items, setItems] = useState<Item[]>([]);
   const [selected, setSelected] = useState<Set<number>>(new Set());
@@ -115,17 +117,20 @@ export function IngestView() {
   useEffect(() => save("ingestSortAscending", ascending), [ascending]);
 
   /** Lists the photos in a folder and makes it the one being ingested from. */
-  const choose = useCallback((path: string) => {
+  const scanSources = useCallback((paths: string[]) => {
+    sourceList.current = paths; setSources(paths);
+    const path = paths[paths.length - 1] ?? null;
     const mine = ++listing.current;
     setSource(path);
     setSelected(new Set());
     anchor.current = 0;
     setItems([]);
     setPhase({ is: "scanning" });
-    void api.ingestScan(path).then(
+    void api.ingestSources(paths).then(
       (found) => {
         if (listing.current !== mine) return;
         setItems(found.map((f) => ({ ...f, captureMs: null, rating: 0 })));
+        setSelected(new Set(found.map((_, i) => i)));
         setPhase({ is: "ready" });
         // Capture times and in-camera stars are read afterwards, so the
         // card's photos are on screen without waiting for either.
@@ -143,6 +148,8 @@ export function IngestView() {
       (e) => listing.current === mine && setPhase({ is: "failed", message: String(e) }),
     );
   }, []);
+
+  const choose = useCallback((path: string) => scanSources([...new Set([...sourceList.current, path])]), [scanSources]);
 
   /** Shows the folders inside `path`, one level further into the browser. */
   const goInto = useCallback((path: string, title: string, known?: IngestFolder[]) => {
@@ -282,7 +289,7 @@ export function IngestView() {
     if (!canIngest || !source) return;
     close();
     const chosen = selected.size ? order.filter((i) => selected.has(i)).map((i) => items[i]) : items;
-    await useStore.getState().openFolder(source, newReview([source], chosen));
+    await useStore.getState().openFolder(source, newReview(sources, chosen));
 
   };
 
@@ -294,7 +301,7 @@ export function IngestView() {
     <div className="fixed inset-0 z-40 flex flex-col bg-[#17171c] text-white">
       <header data-tauri-drag-region className={cn("flex h-[52px] shrink-0 items-center bg-[#14141a] px-5", platform === "macos" && "pl-[84px]")}>
         <span data-tauri-drag-region className="flex-1 text-[15px] font-semibold">
-          Ingest from Card
+          Ingest from Card · {sources.length} source{sources.length === 1 ? "" : "s"}
         </span>
         <button
           type="button"
@@ -309,8 +316,14 @@ export function IngestView() {
       <Rule />
 
       <div className="flex min-h-0 flex-1">
-        {/* Where from. */}
+        {/* Each selected source contributes to the same session. */}
         <aside className="flex w-[260px] shrink-0 flex-col bg-[#131318]">
+          <div className="flex shrink-0 flex-col gap-1 border-b border-border p-3 text-xs">
+            <p className="text-muted-foreground">Choose cards or folders to add them to this shoot.</p>
+            {sources.map((path) => <div key={path} className="flex items-center gap-1"><span className="min-w-0 flex-1 truncate" title={path}>{path}</span>
+              <button type="button" aria-label={`Remove source ${path}`} disabled={busy} className="rounded px-2 py-1 hover:bg-accent"
+                onClick={() => scanSources(sourceList.current.filter((p) => p !== path))}>×</button></div>)}
+          </div>
           {current ? (
             <div className="flex items-center gap-2 px-3 pb-2 pt-3.5">
               <button type="button" aria-label="Back" onClick={goBack} className="flex size-6 items-center justify-center rounded-md bg-white/[0.07] text-[#bfbfbf] hover:text-white">
