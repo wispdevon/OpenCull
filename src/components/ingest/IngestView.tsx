@@ -286,12 +286,12 @@ export function IngestView() {
 
   // ── Copying ───────────────────────────────────────────────────────────────
 
-  const canIngest = items.length > 0 && !busy;
+  const canIngest = selected.size > 0 && !busy;
 
   const requestIngest = async () => {
     if (!canIngest || !source) return;
     close();
-    const chosen = selected.size ? order.filter((i) => selected.has(i)).map((i) => items[i]) : items;
+    const chosen = order.filter((i) => selected.has(i)).map((i) => items[i]);
     await useStore.getState().openFolder(source, newReview(sources, chosen));
 
   };
