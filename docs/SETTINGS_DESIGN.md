@@ -26,3 +26,8 @@ geometry. All sizes below use rems so the saved interface scale applies.
 View mode demonstrates this structure: one outer card, a compact semantic group
 for the three opening-view radios, then the Remember last view checkbox and its
 description. The inner group adds no extra inset.
+
+Keyboard shortcuts are edited directly in the Keyboard tab. Home and workspace
+keyboard buttons open that same tab. Use responsive section cards, preserve
+key-conflict handling, cancel capture with Escape, and stop capture when leaving
+the tab or closing Settings. Do not open another modal for the editor.
