@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-const api = vi.hoisted(() => ({ setMarks: vi.fn(), setFraming: vi.fn() }));
+const api = vi.hoisted(() => ({ setMarks: vi.fn(), setFraming: vi.fn(), moveToTrash: vi.fn().mockResolvedValue([]) }));
 vi.mock("./api", () => ({ api, inTauri: false }));
 import { useStore } from "./store";
 import { newReview } from "./review";
@@ -27,6 +27,11 @@ describe("source-safe review", () => {
   it("normal folder marks still write sidecars", () => {
     useStore.setState({ review: null }); useStore.getState().setRating(3);
     expect(api.setMarks).toHaveBeenCalledOnce();
+  });
+  it("removes explicitly deleted files from the saved session", async () => {
+    useStore.setState({ session: { id: 1, folder: "/card", name: "card", includeSubfolders: false, subfolderCount: 0, fileKinds: "both", leftOut: 0, timed: true } });
+    useStore.getState().requestTrash([0]); await useStore.getState().confirmTrash();
+    expect(useStore.getState().review?.items).toEqual([]);
   });
   it("always confirms source deletion during card review", () => {
     useStore.setState({ askBeforeTrash: false }); useStore.getState().requestTrash([0]);
