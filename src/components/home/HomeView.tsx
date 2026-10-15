@@ -1,3 +1,4 @@
+import "./home-typography.css";
 import { useEffect, useRef, useState } from "react";
 import { Circle, CircleCheck, FolderPlus, FolderSearch, Images, Keyboard, Settings, Trash2, X } from "lucide-react";
 
