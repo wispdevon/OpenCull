@@ -83,6 +83,7 @@ interface State {
   experimentalNativeFilmstrip: boolean;
   experimentalSmoothZoom: boolean;
   experimentalTransitions: boolean;
+  experimentalHideFilmstripOnCrop: boolean;
   filmstripHeight: number;
   sceneStripHeight: number;
   /** The strip's edge is being dragged, and its height is changing every frame. */
@@ -363,6 +364,9 @@ export function problemOf(result: AiResult | undefined, compared?: Compared, mot
 }
 
 /** Whether marking a photo should move on to the next one. */
+/** Presentation only: leave the saved filmstrip preference untouched while cropping. */
+export const filmstripVisible = (s: Pick<State, "showFilmstrip" | "cropOpen" | "experimentalHideFilmstripOnCrop">) => s.showFilmstrip && !(s.cropOpen && s.experimentalHideFilmstripOnCrop);
+
 export const speedCulling = (s: Pick<State, "speedCull" | "speedCullAlways">) => s.speedCull || s.speedCullAlways;
 
 /** Settings written back to storage whenever they change. */
@@ -383,6 +387,7 @@ const PERSISTED = [
   "experimentalNativeFilmstrip",
   "experimentalSmoothZoom",
   "experimentalTransitions",
+  "experimentalHideFilmstripOnCrop",
   "filmstripHeight",
   "sceneStripHeight",
   "includeSubfolders",
@@ -736,6 +741,7 @@ export const useStore = create<Store>((set, get) => {
     showRatingBar: load("showRatingBar", true),
     showFilterBar: load("showFilterBar", false),
     experimentalNativeFilmstrip: load<boolean>("experimentalNativeFilmstrip", false) === true,
+    experimentalHideFilmstripOnCrop: load("experimentalHideFilmstripOnCrop", false),
     experimentalTransitions: load("experimentalTransitions", false),
     experimentalSmoothZoom: load<boolean>("experimentalSmoothZoom", false) === true,
     sceneStripHeight: load("sceneStripHeight", 116),

@@ -3,7 +3,7 @@ import { FolderSearch, Images } from "lucide-react";
 
 import { ReviewBar } from "@/components/ingest/ReviewBar";
 import { Button } from "@/components/ui/button";
-import { useStore } from "@/lib/store";
+import { filmstripVisible, useStore } from "@/lib/store";
 import { useFaceScan } from "@/lib/faces";
 import { useWarmAhead } from "@/lib/warm";
 import { ExifPanel } from "./ExifPanel";
@@ -38,7 +38,7 @@ const held = (panel: PanelWidth, width: number) => `clamp(${PANEL_LIMITS[panel].
 export function CullingView() {
   const viewMode = useStore((s) => s.viewMode);
   const showExif = useStore((s) => s.showExif);
-  const showFilmstrip = useStore((s) => s.showFilmstrip);
+  const showFilmstrip = useStore(filmstripVisible);
   const showFaces = useStore((s) => s.showFaces);
   const exifPanelWidth = useStore((s) => s.exifPanelWidth);
   const facePanelWidth = useStore((s) => s.facePanelWidth);
