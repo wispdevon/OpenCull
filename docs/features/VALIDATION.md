@@ -130,3 +130,10 @@ Existing panel defaults remain unchanged. These are personal values; standalone 
 - Native aspect covers both the active-frame and scene overview strips. Decoded upright JPEG dimensions supply early proportions; full camera dimensions remain separate and supersede the preview ratio.
 - This NVIDIA/Wayland test hit protocol error 71 with direct DMA-BUF. The narrower FORCE_SHM/DISABLE_GBM transport keeps the accelerated renderer enabled. An isolated CSS-only WebKit animation used the RTX 3060 Ti with 53 MiB allocated; no WebGL probe was required. NVIDIA profile requests hardware compositing/WebGL/available 2D canvas acceleration and uses this transport. CPU decoding remains separate. No zoom-performance gain is claimed without representative timings.
 - The earlier combined macOS Apple-silicon build passed. Fork main's new macOS dev startup smoke passed, checking the native process and Vite frontend. Final combined commit CI is still being checked; Intel Mac runtime is not covered.
+
+
+## Final native NVIDIA check
+
+The actual OpenCull WebKit process (not an isolated WebGL probe) was observed using the RTX 3060 Ti with a 311 MiB graphics allocation while rendering real RAW previews. No failed previews were found in the inspected sample. This uses FORCE_SHM/DISABLE_GBM presentation, keeping hardware compositing enabled. The broad WEBKIT_DISABLE_DMABUF_RENDERER flag is cleared only for this opt-in profile. Native Linux desktop is running via npm run dev:desktop:nvidia. GPU acceleration does not imply CPU image decoding or AI inference has moved to GPU.
+
+Additional feature PRs: [Wisp theme](https://github.com/wispdevon/OpenCull/pull/19), [resizable stack strips](https://github.com/wispdevon/OpenCull/pull/20), [NVIDIA rendering](https://github.com/wispdevon/OpenCull/pull/21). Wisp depends on the RapidRAW preset infrastructure; the resize and NVIDIA branches start from upstream. The combined macOS dev-startup smoke at source fb2a83a passed; final source 4b7316d CI is running after the Linux-only transport correction and diagnostics clarification.
