@@ -7,7 +7,7 @@
 @theme inline {
     --font-heading: var(--font-sans);
     /* The system's own face, as the Mac app uses, rather than one shipped in. */
-    --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    --font-sans: var(--app-font, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif);
     --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;
     --color-ring: var(--ring);
     --color-input: var(--input);
@@ -123,4 +123,11 @@
 * {
     scrollbar-width: thin;
     scrollbar-color: #3a3a44 transparent;
+}
+@font-face {
+  font-family: "Space Grotesk";
+  src: url("/fonts/SpaceGrotesk.ttf") format("truetype");
+  font-weight: 300 700;
+  font-style: normal;
+  font-display: swap;
 }
