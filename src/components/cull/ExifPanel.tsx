@@ -8,6 +8,7 @@ import type { Histogram as HistogramData, Photo } from "@/lib/types";
 
 /** The panel down the left: a histogram, then what the camera recorded. */
 export function ExifPanel() {
+  const showHistogram = useStore((s) => s.showHistogram);
   const photo = useStore((s) => (s.current >= 0 ? s.photos[s.current] : undefined));
 
   return (
@@ -19,9 +20,9 @@ export function ExifPanel() {
           <X className="size-2.5" strokeWidth={3} />
         </button>
       </div>
-      <div className="border-y border-[#2e2e2e]">
+      {showHistogram && <div className="border-y border-[#2e2e2e]">
         <Histogram photo={photo} />
-      </div>
+      </div>}
       {photo ? <Details photo={photo} /> : <Empty />}
     </div>
   );

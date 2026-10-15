@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { HardDrive, Keyboard, ScanFace, Star, ZoomIn, type LucideIcon } from "lucide-react";
+import { HardDrive, PanelsTopLeft, Keyboard, ScanFace, Star, ZoomIn, type LucideIcon } from "lucide-react";
 
 import {
   AlertDialog,
@@ -191,9 +191,10 @@ export function SettingsDialog() {
 /** How long the cache limit is left alone before it is acted on. */
 const LIMIT_SETTLE_MS = 800;
 
-type SettingsTab = "culling" | "zoom" | "ai" | "storage" | "keyboard";
+type SettingsTab = "layout" | "culling" | "zoom" | "ai" | "storage" | "keyboard";
 const SETTINGS_TABS: [SettingsTab, string, LucideIcon][] = [
   ["culling", "Culling", Star],
+  ["layout", "Layout", PanelsTopLeft],
   ["zoom", "Zoom", ZoomIn],
   ["ai", "AI", ScanFace],
   ["storage", "Storage", HardDrive],
@@ -279,6 +280,27 @@ function SettingsBody({ tab, onTab }: { tab: SettingsTab; onTab: (tab: SettingsT
       {/* One height for every tab, so the window does not jump about as
           they are stepped through; a tab with more than fits scrolls. */}
       <div className="h-[430px] overflow-x-hidden overflow-y-auto pr-1">
+        <TabsContent value="layout" className="flex flex-col gap-4">
+          {([
+            ["showFilmstrip", "Filmstrip"], ["showFaces", "Face panel"],
+            ["showExif", "EXIF panel"], ["showHistogram", "Histogram in EXIF panel"],
+            ["showInfo", "Information overlay"], ["showRatingBar", "Rating bar"],
+            ["showFilterBar", "Filter bar"],
+          ] as const).map(([key, title]) => (
+            <Setting key={key} title={title} detail="Also follows the existing toolbar and keyboard controls."
+              control={<Switch aria-label={title} checked={s[key]} onCheckedChange={(on) => set(key, on)} />} />
+          ))}
+          {([
+            ["filmstripHeight", "Filmstrip height", 80, 300],
+            ["exifPanelWidth", "EXIF panel width", 160, 640],
+            ["facePanelWidth", "Face panel width", 160, 800],
+          ] as const).map(([key, title, min, max]) => (
+            <Setting key={key} title={title} detail="Pixels; side panels are constrained to fit the window. Dragging a panel updates this setting too."
+              control={<label className="flex items-center gap-2"><input aria-label={title} type="range" min={min} max={max} step={1}
+                value={s[key]} onChange={(e) => set(key, Number(e.target.value))} className="w-24 accent-primary" />
+                <output className="w-8 text-right text-xs">{s[key]}</output></label>} />
+          ))}
+        </TabsContent>
         <TabsContent value="culling" className="space-y-4">
           <Setting
             title="Speed cull"
