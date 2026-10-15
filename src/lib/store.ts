@@ -1,3 +1,4 @@
+import { validRankingPalette, type RankingPalette } from "./ranking-palette";
 import { isVideo } from "./media";
 import { hasMotionBlur, motionAdjustedScore } from "./motion-blur";
 // The state of the app: which folder is open, what has been decided about
@@ -80,6 +81,7 @@ interface State {
   showInfo: boolean;
   showRatingBar: boolean;
   showFilterBar: boolean;
+  rankingPalette: RankingPalette;
   experimentalNativeFilmstrip: boolean;
   experimentalSmoothZoom: boolean;
   experimentalTransitions: boolean;
@@ -384,6 +386,7 @@ const PERSISTED = [
   "showInfo",
   "showRatingBar",
   "showFilterBar",
+  "rankingPalette",
   "experimentalNativeFilmstrip",
   "experimentalSmoothZoom",
   "experimentalTransitions",
@@ -740,6 +743,7 @@ export const useStore = create<Store>((set, get) => {
     showInfo: load("showInfo", false),
     showRatingBar: load("showRatingBar", true),
     showFilterBar: load("showFilterBar", false),
+    rankingPalette: validRankingPalette(load("rankingPalette", "classic")),
     experimentalNativeFilmstrip: load<boolean>("experimentalNativeFilmstrip", false) === true,
     experimentalHideFilmstripOnCrop: load("experimentalHideFilmstripOnCrop", false),
     experimentalTransitions: load("experimentalTransitions", false),

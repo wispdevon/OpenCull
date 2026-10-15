@@ -1,8 +1,9 @@
+import { rankingColour } from "@/lib/ranking-palette";
 import { Film } from "lucide-react";
 import { isVideo } from "@/lib/media";
 import { rememberPreviewAspect } from "@/lib/preview-aspect";
 import { memo, useEffect, useState, type CSSProperties } from "react";
-import { Crop, Flag, X } from "lucide-react";
+import { Check, Crop, X } from "lucide-react";
 
 import { api } from "@/lib/api";
 import { placement, shownSize } from "@/lib/framing";
@@ -106,14 +107,14 @@ export function FramedThumb({ photo, size, box, inset = 0, cover = false, classN
  */
 export const RankBar = memo(function RankBar({ index, height = 14 }: { index: number; height?: number }) {
   const rank = useStore((s) => s.ranks[index]);
+  const palette = useStore(s => s.rankingPalette);
   const problem = useStore((s) => problemOf(s.ai[index], s.compared[index], s.aiEnabled && s.aiMotionBlur));
   if (!rank && problem !== "eyesClosed" && problem !== "motionBlur") return null;
 
   let colour = "#525252";
   if (problem === "eyesClosed" || problem === "motionBlur") colour = "#d95252";
   else if (rank) {
-    const third = Math.max(1, Math.ceil(rank.count / 3));
-    colour = rank.rank === 1 ? "#2ea0fa" : rank.rank <= third ? "#8cbde6" : rank.rank > rank.count - third ? "#de8a8a" : "#525252";
+    colour = rankingColour(rank.rank, rank.count, palette);
   }
   const title = problem ? PROBLEM_LABEL[problem] : rank!.rank === 1 ? `Best of these ${rank!.count}` : `Rank ${rank!.rank} of ${rank!.count}`;
   return (
@@ -129,16 +130,13 @@ export function useHasRankBar(index: number): boolean {
 }
 
 /** Pick or reject, as a small badge in the corner of a thumbnail. */
-export function FlagBadge({ flag, small }: { flag: Photo["flag"]; small?: boolean }) {
+export function FlagBadge({ flag, small, title }: { flag: Photo["flag"]; small?: boolean; title?: string }) {
   if (flag === "none") return null;
   const size = small ? "size-2.5" : "size-3";
+  const label = title ?? (flag === "pick" ? "Picked" : "Rejected");
   return (
-    <span className="rounded bg-black/45 p-1">
-      {flag === "pick" ? (
-        <Flag className={cn(size, "fill-white text-foreground")} />
-      ) : (
-        <X className={cn(size, "text-[#ff5959]")} strokeWidth={4} />
-      )}
+    <span role="img" aria-label={label} title={label} className={cn("inline-flex shrink-0 items-center justify-center rounded-full p-0.5", flag === "pick" ? "bg-[#33cc66]" : "bg-[#d95252]")}>
+      {flag === "pick" ? <Check aria-hidden="true" className={cn(size, "text-black")} strokeWidth={4} /> : <X aria-hidden="true" className={cn(size, "text-white")} strokeWidth={4} />}
     </span>
   );
 }

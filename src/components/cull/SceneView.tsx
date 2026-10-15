@@ -2,7 +2,6 @@ import { MotionRegion } from "./InterfaceMotion";
 import { previewAspect, usePreviewAspectRevision } from "@/lib/preview-aspect";
 import { stripPhotoWidth } from "@/lib/strip-aspect";
 import { useMemo } from "react";
-import { Check, X } from "lucide-react";
 
 import { filmstripVisible, groupOf, useStore } from "@/lib/store";
 import { sceneFrames } from "@/lib/scene-frames";
@@ -10,7 +9,7 @@ import { cn } from "@/lib/utils";
 import { Filmstrip, FilmstripResizeHandle } from "./Filmstrip";
 import { Loupe } from "./Loupe";
 import { useStrip } from "./strip";
-import { FramedThumb } from "./Thumb";
+import { FlagBadge, FramedThumb } from "./Thumb";
 
 interface Scene {
   number: number;
@@ -137,8 +136,8 @@ function SceneCard({ scene, active, width, height, native }: { scene: Scene; act
         <span className="absolute bottom-1 right-1 rounded bg-black/60 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-[#73b8ff]">×{scene.frames.length}</span>
       )}
       {(rejected || complete) && (
-        <span title={rejected ? "Rejected preview photo" : "All photos in group reviewed"} aria-label={rejected ? "Rejected preview photo" : "All photos in group reviewed"} className={cn("absolute right-1 top-1 rounded-full p-0.5", rejected ? "bg-[#d95252]" : "bg-[#33cc66]")}>
-          {rejected ? <X className="size-2.5 text-white" strokeWidth={4} /> : <Check className="size-2.5 text-black" strokeWidth={4} />}
+        <span className="absolute right-1 top-1 flex">
+          <FlagBadge flag={rejected ? "reject" : "pick"} small title={rejected ? "Rejected preview photo" : "All photos in group reviewed"} />
         </span>
       )}
     </button>

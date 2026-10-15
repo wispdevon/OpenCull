@@ -49,3 +49,10 @@ foreground labels and muted descriptions. Keep the word “Experimental” visib
 so colour is not the only status cue. The accent has separate light and dark
 values; retain the same spacing and typography as ordinary sections. New
 experimental options must also be included in settings import/export.
+
+Appearance places Ranking colours beside Theme, wrapping to a full row when
+space is limited. Keep the classic blue–grey–red palette as the default. The
+optional red–green palette makes rank 1 green, intermediate frames yellow and
+the lowest rank red. Preserve numeric ranks and problem labels. Pick/Reject
+status uses the same green tick/red cross circles in grid, filmstrip and group
+previews; reviewed-group ticks retain their distinct accessible label.

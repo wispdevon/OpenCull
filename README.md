@@ -97,6 +97,7 @@ Optional [face-target Space zoom](docs/features/FACE_ZOOM.md) is under **Setting
 AI results are [cached across sessions](docs/features/AI_CACHE.md), including reopening the same photos through a card or subfolder. The toolbar distinguishes cached results from new analysis.
 Optional [interface transitions](docs/features/INTERFACE_MOTION.md) and [crop workspace controls](docs/features/CROP_WORKSPACE.md) are available in Design and Zoom settings.
 Experimental [motion-blur detection](docs/features/MOTION_BLUR.md) adds a filterable label, reduces grouping rank, and can give unrated photos one star and Reject while preserving existing ratings and explicit picks.
+Settings → Design → Appearance includes **Ranking colours**: keep blue–grey–red or choose red–green (green is best). Pick and Reject thumbnail badges match the green tick/red cross in group previews.
 See the [settings layout guidelines](docs/SETTINGS_DESIGN.md) and
 [Wisp design guidelines](docs/WISP_DESIGN.md) for spacing and contrast rules.
 Linux settings are created in `$XDG_CONFIG_HOME/opencull/config.json`, normally
