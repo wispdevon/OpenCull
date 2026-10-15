@@ -3,6 +3,7 @@ import { create } from "zustand";
 import { load, save } from "@/lib/prefs";
 import { validVisualTheme, visualThemeFont, type VisualTheme } from "@/lib/visual-theme";
 import "@/visual-theme.css";
+import "@/wisp-theme.css";
 
 const useVisualTheme = create<{
   theme: VisualTheme;
@@ -48,9 +49,10 @@ export function VisualThemeSettings() {
           className="rounded border border-input bg-background px-2 py-1 text-foreground">
           <option value="default">OpenCull</option>
           <option value="rapidraw">RapidRAW inspired</option>
+          <option value="wisp">Wisp</option>
         </select>
       </label>
-      <p className="text-xs text-muted-foreground">A photographic split welcome screen, quiet neutral surfaces, and simple session actions. Your colour mode stays separate.</p>
+      <p className="text-xs text-muted-foreground">OpenCull is the original layout. RapidRAW adds a photographic split page. Wisp adds distinct surfaces, stronger contrast and violet accents. Your colour mode stays separate.</p>
       {theme === "rapidraw" && <label className="flex items-center gap-2 text-xs">
         <input type="checkbox" checked={includedFont} onChange={(e) => setIncludedFont(e.target.checked)} />
         Use included Space Grotesk font

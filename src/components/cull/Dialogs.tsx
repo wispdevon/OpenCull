@@ -537,10 +537,10 @@ function SettingsBody({ tab, onTab }: { tab: SettingsTab; onTab: (tab: SettingsT
 
 function Setting({ title, detail, control }: { title: string; detail: string; control: React.ReactNode }) {
   return (
-    <div className="flex items-start justify-between gap-6">
+    <div className="setting-row flex items-start justify-between gap-6">
       <div>
-        <div className="text-[13px] font-medium text-foreground">{title}</div>
-        <div className="mt-0.5 text-xs leading-relaxed text-[var(--ui-text-8c8c8c)]">{detail}</div>
+        <div className="setting-title text-[13px] font-medium text-foreground">{title}</div>
+        <div className="setting-detail mt-0.5 text-xs leading-relaxed text-[var(--ui-text-8c8c8c)]">{detail}</div>
       </div>
       <div className="shrink-0 pt-0.5">{control}</div>
     </div>
