@@ -17,10 +17,11 @@ pub fn initialize() -> Profile {
     #[cfg(target_os="linux")]
     match profile {
         Profile::Nvidia => {
-            for name in ["WEBKIT_DISABLE_COMPOSITING_MODE", "LIBGL_ALWAYS_SOFTWARE"] { std::env::remove_var(name); }
-            // Current proprietary drivers can reject WebKit GBM buffers. Keep
-            // hardware compositing, but use the compatible presentation path.
-            std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
+            // Keep accelerated compositing; only replace the failing GBM
+            // buffer transport. Disabling the whole renderer would disable GPU composition.
+            for name in ["WEBKIT_DISABLE_DMABUF_RENDERER", "WEBKIT_DISABLE_COMPOSITING_MODE", "LIBGL_ALWAYS_SOFTWARE"] { std::env::remove_var(name); }
+            std::env::set_var("WEBKIT_DMABUF_RENDERER_FORCE_SHM", "1");
+            std::env::set_var("WEBKIT_DMABUF_RENDERER_DISABLE_GBM", "1");
             if std::env::var_os("GDK_BACKEND").is_none() && std::env::var_os("DISPLAY").is_some() { std::env::set_var("GDK_BACKEND", "x11"); }
             std::env::set_var("__GLX_VENDOR_LIBRARY_NAME", "nvidia");
         },
@@ -33,12 +34,13 @@ pub fn initialize() -> Profile {
 }
 #[derive(Serialize)]
 #[serde(rename_all="camelCase")]
-pub struct GraphicsInfo { requested: Profile, platform: &'static str, dmabuf_disabled: bool, software_forced: bool }
+pub struct GraphicsInfo { requested: Profile, platform: &'static str, dmabuf_disabled: bool, software_forced: bool, shared_memory_transport: bool }
 #[tauri::command]
 pub fn graphics_info(profile: tauri::State<Profile>) -> GraphicsInfo {
     GraphicsInfo { requested: *profile, platform: std::env::consts::OS,
         dmabuf_disabled: std::env::var("WEBKIT_DISABLE_DMABUF_RENDERER").as_deref() == Ok("1"),
-        software_forced: std::env::var("LIBGL_ALWAYS_SOFTWARE").as_deref() == Ok("1") }
+        software_forced: std::env::var("LIBGL_ALWAYS_SOFTWARE").as_deref() == Ok("1"),
+        shared_memory_transport: std::env::var("WEBKIT_DMABUF_RENDERER_FORCE_SHM").as_deref() == Ok("1") }
 }
 #[cfg(test)] mod tests {
     use super::*;
