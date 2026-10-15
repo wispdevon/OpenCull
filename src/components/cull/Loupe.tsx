@@ -16,6 +16,7 @@ import { COLORS, type Photo } from "@/lib/types";
 import { useStripThumbSize } from "./Filmstrip";
 import { CropView } from "./Crop";
 import { PhotoMenu } from "./PhotoMenu";
+import { FaceOverlays } from "./FaceOverlays";
 
 /** Zoom and pan: how many times larger than fit, and how far off centre. */
 interface Zoom {
@@ -725,6 +726,7 @@ function Canvas({ photo }: { photo: Photo }) {
               />
             )}
             </div>
+            <FaceOverlays photo={photo} />
           </div>
         )}
         {marquee && <MarqueeBox marquee={marquee} frame={box} />}

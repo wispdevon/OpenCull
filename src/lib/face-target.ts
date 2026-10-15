@@ -3,6 +3,18 @@ import type { AiFace, Photo } from "./types";
 
 type FramedPhoto = Pick<Photo, "fullWidth" | "fullHeight" | "framing">;
 
+/** Preserve all four corners through crop rotation and mirroring. */
+export function faceOutline(face: Pick<AiFace, "x" | "y" | "w" | "h">, photo: FramedPhoto) {
+  if (photo.fullWidth <= 0 || photo.fullHeight <= 0 || ![face.x, face.y, face.w, face.h].every(Number.isFinite) || face.w <= 0 || face.h <= 0) return null;
+  const corners = [
+    { x: face.x, y: face.y }, { x: face.x + face.w, y: face.y },
+    { x: face.x + face.w, y: face.y + face.h }, { x: face.x, y: face.y + face.h },
+  ].map((at) => uprightToShown(photo, at));
+  if (corners.some((at) => !Number.isFinite(at.x) || !Number.isFinite(at.y))) return null;
+  if (Math.max(...corners.map((p) => p.x)) <= 0 || Math.min(...corners.map((p) => p.x)) >= 1 || Math.max(...corners.map((p) => p.y)) <= 0 || Math.min(...corners.map((p) => p.y)) >= 1) return null;
+  return corners;
+}
+
 /** The existing per-face numeric score is sharpness, not the whole-photo AI mark. */
 export function highestScoringFace(faces: readonly AiFace[], photo: FramedPhoto): AiFace | null {
   if (photo.fullWidth <= 0 || photo.fullHeight <= 0) return null;

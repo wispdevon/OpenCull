@@ -92,6 +92,8 @@ Wisp applies the included RapidRAW inspired preset: 18% grey photo surround,
 contrasting controls, Space Grotesk, 125% scale, and the saved culling options.
 New profiles receive a quick workflow and keyboard overview; reopen it from
 **Settings → Keyboard → Quick overview**.
+Optional [face-target Space zoom](docs/features/FACE_ZOOM.md) is under **Settings → Zoom**.
+[Experimental face outlines and hover spotlight](docs/features/FACE_OVERLAYS.md) are under **Settings → AI**; hover highlights without moving the photo, and clicking still zooms.
 See the [settings layout guidelines](docs/SETTINGS_DESIGN.md) and
 [Wisp design guidelines](docs/WISP_DESIGN.md) for spacing and contrast rules.
 Linux settings are created in `$XDG_CONFIG_HOME/opencull/config.json`, normally

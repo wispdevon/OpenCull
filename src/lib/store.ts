@@ -113,6 +113,8 @@ interface State {
   instantZoom: boolean;
   /** Space's zoom target uses the highest scored face rather than the centre. */
   spaceZoomToFace: boolean;
+  experimentalFaceOutlines: boolean;
+  experimentalFaceSpotlight: boolean;
   /** Draw the histogram as red, green and blue, not as brightness alone. */
   rgbHistogram: boolean;
   /** How large the preview cache may grow, in gigabytes. */
@@ -164,6 +166,8 @@ interface State {
   facePanelWidth: number;
   /** A face to zoom the loupe to; numbered so the same one can be asked for twice. */
   faceZoom: { x: number; y: number; nonce: number } | null;
+  /** Transient preview only; never saved or applied to another photo. */
+  hoveredFace: { photoIndex: number; display: string; version: string; face: AiFace } | null;
 
   shortcutsOpen: boolean;
   overviewOpen: boolean;
@@ -380,6 +384,8 @@ const PERSISTED = [
   "keepZoom",
   "instantZoom",
   "spaceZoomToFace",
+  "experimentalFaceOutlines",
+  "experimentalFaceSpotlight",
   "rgbHistogram",
   "cacheLimitGb",
   "aiEnabled",
@@ -730,6 +736,8 @@ export const useStore = create<Store>((set, get) => {
     keepZoom: load("keepZoom", true),
     instantZoom: load("instantZoom", true),
     spaceZoomToFace: load("spaceZoomToFace", false),
+    experimentalFaceOutlines: load("experimentalFaceOutlines", false),
+    experimentalFaceSpotlight: load("experimentalFaceSpotlight", false),
     rgbHistogram: load("rgbHistogram", true),
     cacheLimitGb: load("cacheLimitGb", 5),
     warmAhead: load("warmAhead", true),
@@ -751,6 +759,7 @@ export const useStore = create<Store>((set, get) => {
     showFaces: load("showFaces", true),
     facePanelWidth: load("facePanelWidth", 340),
     faceZoom: null,
+    hoveredFace: null,
 
     shortcutsOpen: false,
     overviewOpen: shouldShowOverview(snapshotPreferences()),
@@ -879,6 +888,7 @@ export const useStore = create<Store>((set, get) => {
         aiDone: 0,
         aiRunning: false,
         faceZoom: null,
+        hoveredFace: null,
       });
       if (photos.length === 0) return;
 
@@ -928,7 +938,7 @@ export const useStore = create<Store>((set, get) => {
       if (!session) return;
       rememberPosition();
       if (session.id >= 0) void api.closeFolder(session.id);
-      set({ session: null, review: null, loading: false, photos: [], order: [], view: [], current: -1, selected: new Set(), trashPending: null, cropOpen: false, warmRemaining: 0, ai: [], compared: [], ranks: [], poses: [], aiDone: 0, aiRunning: false, faceZoom: null });
+      set({ session: null, review: null, loading: false, photos: [], order: [], view: [], current: -1, selected: new Set(), trashPending: null, cropOpen: false, warmRemaining: 0, ai: [], compared: [], ranks: [], poses: [], aiDone: 0, aiRunning: false, faceZoom: null, hoveredFace: null });
     },
 
     reloadForSubfolders() {
