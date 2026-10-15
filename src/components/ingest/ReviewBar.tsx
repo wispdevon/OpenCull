@@ -49,7 +49,10 @@ export function ReviewBar() {
     setBusy(true); setError(""); setDone(0);
     useStore.setState({ review: { ...review, destination } });
     try {
-      const pending = selected.filter((p) => !review.completed[p.path]);
+      const recorded = selected.filter((p) => review.completed[p.path]);
+      const present = await api.pathsExist(recorded.map((p) => review.completed[p.path]));
+      const complete = new Set(recorded.filter((_, i) => present[i]).map((p) => p.path));
+      const pending = selected.filter((p) => !complete.has(p.path));
       const result = await copyReview(pending, destination, review.sources, setDone);
       const next = { ...review, destination, chosen, completed: { ...review.completed, ...result.completed } };
       useStore.setState({ review: next }); await saveReview(next);

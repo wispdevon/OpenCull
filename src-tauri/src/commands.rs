@@ -238,6 +238,9 @@ pub async fn open_folder(app: AppState<'_>, path: String, include_subfolders: bo
             Some(images) => {
                 for image in &images {
                     if !image.path.is_file() || !image.display.is_file() { return Err(format!("Reconnect the source containing {}", image.name)); }
+                    let meta = image.path.metadata().map_err(|e| e.to_string())?;
+                    let modified = meta.modified().ok().and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok()).map(|d| d.as_millis() as u64).unwrap_or(0);
+                    if meta.len() != image.size || modified != image.modified { return Err(format!("{} changed since this session was saved. Start a new card review to avoid applying marks to a different file.", image.name)); }
                 }
                 scan::ScanResult { images, subfolder_count: 0, left_out: 0 }
             }
