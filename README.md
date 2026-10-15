@@ -164,15 +164,31 @@ also need the system packages on
    ```
 3. Run it
    ```sh
-   npm run tauri dev
+   npm run dev:desktop
    ```
 4. Or build the app itself
    ```sh
-   npm run tauri build
+   npm run build:desktop
    ```
 
 More on building, including how to build without the JPEG library, is in
 [How it works](docs/HOW-IT-WORKS.md#building-the-fast-jpeg-library).
+
+`npm run dev:desktop` opens the real desktop app with the Vite development
+server and Rust file watcher. It starts the frontend automatically; do not
+start `npm run dev` separately on the same port. Frontend edits reload live;
+Rust edits rebuild and restart the backend. No production frontend build or
+installer packaging is required. The first run still compiles the native Rust
+app and its dependencies; later runs reuse Cargo's cache. Stop with Ctrl+C.
+The existing `npm run tauri dev` command remains available.
+
+`npm run dev` alone runs the browser UI with sample data, not native card access
+or file copying. `npm test` runs automated frontend and Rust library tests.
+
+On Linux, if WebKit exits with a Wayland protocol error or opens a blank window,
+try `WEBKIT_DISABLE_DMABUF_RENDERER=1 npm run dev:desktop`. This workaround only
+affects that invocation. Native GTK/WebKitGTK and the other
+[Tauri prerequisites](https://v2.tauri.app/start/prerequisites/) are still needed.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
