@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useAppVisualTheme } from "@/components/VisualThemeSettings";
 
 import { useAppFont } from "@/components/FontSettings";
 import { useAppTheme } from "@/components/ThemeSettings";
@@ -17,6 +18,7 @@ import { useStore } from "@/lib/store";
 export default function App() {
   useAppFont();
   useAppTheme();
+  useAppVisualTheme();
   const open = useStore((s) => s.session !== null);
   const ingesting = useStore((s) => s.ingestOpen);
   const [bindings, setBindings] = useState(loadBindings);

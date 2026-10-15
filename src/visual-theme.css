@@ -1,0 +1,193 @@
+@font-face {
+  font-family: "Space Grotesk";
+  src: url("/fonts/SpaceGrotesk.ttf") format("truetype");
+  font-weight: 300 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+.rapidraw-intro, .rapidraw-footer { display: none; }
+
+:root[data-visual-theme="rapidraw"] {
+  color-scheme: dark;
+  --background: #181818;
+  --foreground: #e8eaed;
+  --card: #232323;
+  --card-foreground: #e8eaed;
+  --popover: #232323;
+  --popover-foreground: #e8eaed;
+  --primary: #e8eaed;
+  --primary-foreground: #181818;
+  --secondary: #2b2b2b;
+  --secondary-foreground: #e8eaed;
+  --muted: #232323;
+  --muted-foreground: #a6a6a6;
+  --accent: #353535;
+  --accent-foreground: #e8eaed;
+  --border: #3c3c3c;
+  --input: #4c4c4c;
+  --ring: #c6c6c6;
+  --opencull-canvas: #181818;
+  --opencull-toolbar: #232323;
+  --opencull-panel: #1c1c1c;
+  --opencull-strip: #181818;
+  --opencull-cell: #2b2b2b;
+  --opencull-accent: #dedede;
+  --opencull-select: #dedede;
+  font-family: var(--visual-theme-font, var(--app-font, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif));
+}
+
+/* Colour mode is orthogonal to the layout/typography preset. */
+:root[data-visual-theme="rapidraw"][data-theme="light"] {
+  color-scheme: light;
+  --background: #f5f5f5;
+  --foreground: #141414;
+  --card: #fff;
+  --card-foreground: #141414;
+  --popover: #fff;
+  --popover-foreground: #141414;
+  --secondary: #e5e5e5;
+  --secondary-foreground: #141414;
+  --muted: #ededed;
+  --muted-foreground: #626262;
+  --accent: #dedede;
+  --accent-foreground: #141414;
+  --primary: #3c3c3c;
+  --primary-foreground: #fff;
+  --border: #d0d0d0;
+  --input: #b0b0b0;
+  --opencull-canvas: #e8e8e8;
+  --opencull-toolbar: #fff;
+  --opencull-panel: #f1f1f1;
+  --opencull-strip: #ededed;
+  --opencull-cell: #dedede;
+  --opencull-accent: #555;
+  --opencull-select: #555;
+}
+:root[data-visual-theme="rapidraw"][data-theme="grey"] {
+  --background: #303030;
+  --card: #383838;
+  --popover: #383838;
+  --secondary: #454545;
+  --muted: #383838;
+  --accent: #484848;
+  --border: #606060;
+  --input: #707070;
+  --opencull-canvas: #767676;
+  --opencull-toolbar: #383838;
+  --opencull-panel: #383838;
+  --opencull-strip: #303030;
+  --opencull-cell: #484848;
+}
+
+:root[data-visual-theme="rapidraw"] .home-view {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(420px, 1fr);
+  padding: 8px;
+  background: var(--background);
+}
+:root[data-visual-theme="rapidraw"] .rapidraw-artwork {
+  position: relative;
+  min-height: 0;
+  overflow: hidden;
+  border-radius: 6px 0 0 6px;
+  background: var(--muted);
+}
+.rapidraw-artwork img { width: 100%; height: 100%; object-fit: cover; }
+.rapidraw-artwork span {
+  position: absolute;
+  bottom: 24px;
+  left: 24px;
+  padding: 6px 10px;
+  color: #fff;
+  background: #0009;
+  border-radius: 4px;
+  font-size: 11px;
+}
+:root[data-visual-theme="rapidraw"] .home-content {
+  min-width: 0;
+  overflow-y: auto;
+  justify-content: center;
+  padding: 48px clamp(24px, 4vw, 64px) 24px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 0 6px 6px 0;
+}
+:root[data-visual-theme="rapidraw"] .home-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 0;
+  align-items: center;
+}
+:root[data-visual-theme="rapidraw"] .home-heading { flex: 1 0 100%; }
+:root[data-visual-theme="rapidraw"] .home-heading h1 {
+  margin: 0 0 16px;
+  background: none;
+  color: var(--foreground);
+  font-size: 48px;
+  font-weight: 600;
+  letter-spacing: -2px;
+}
+:root[data-visual-theme="rapidraw"] .home-heading > p:first-of-type { display: none; }
+:root[data-visual-theme="rapidraw"] .rapidraw-intro {
+  display: block;
+  max-width: 360px;
+  margin: 0 0 24px;
+  font-size: 18px;
+  line-height: 1.6;
+  color: var(--muted-foreground);
+}
+:root[data-visual-theme="rapidraw"] .home-header button {
+  min-height: 44px;
+  margin: 0;
+  border-radius: 6px;
+  color: var(--foreground);
+  background: var(--secondary);
+  box-shadow: none;
+}
+:root[data-visual-theme="rapidraw"] .home-header button:hover { background: var(--accent); }
+:root[data-visual-theme="rapidraw"] .home-header .home-open {
+  order: 1;
+  justify-content: center;
+  flex: 1 0 100%;
+  color: var(--primary-foreground);
+  background: var(--primary);
+}
+:root[data-visual-theme="rapidraw"] .home-header .home-ingest {
+  order: 2;
+  flex: 1;
+  justify-content: center;
+}
+:root[data-visual-theme="rapidraw"] .home-header button[aria-label] { order: 3; padding: 12px; }
+:root[data-visual-theme="rapidraw"] .home-header button:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 3px;
+}
+:root[data-visual-theme="rapidraw"] .home-recents { flex: 0 0 auto; max-height: 40vh; padding: 28px 0 0; }
+:root[data-visual-theme="rapidraw"] .home-empty { display: none; }
+:root[data-visual-theme="rapidraw"] .home-recents h2 { color: var(--muted-foreground); }
+:root[data-visual-theme="rapidraw"] .home-recents > .grid { grid-template-columns: minmax(0, 1fr); }
+:root[data-visual-theme="rapidraw"] .home-recents .group {
+  background: var(--secondary);
+  border-color: var(--border);
+  box-shadow: none;
+  border-radius: 6px;
+}
+:root[data-visual-theme="rapidraw"] .home-recents .group:hover { transform: none; background: var(--accent); }
+:root[data-visual-theme="rapidraw"] .home-recents .group > div:first-child { display: none; }
+:root[data-visual-theme="rapidraw"] .home-recents .group > div:nth-child(2) { padding-left: 42px; }
+:root[data-visual-theme="rapidraw"] .home-recents .group > div:nth-child(2) > div { color: var(--foreground); }
+:root[data-visual-theme="rapidraw"] .home-recents .group > div:nth-child(2) > div + div { color: var(--muted-foreground); }
+:root[data-visual-theme="rapidraw"] .home-recents .group > button { display: block; top: 14px; }
+:root[data-visual-theme="rapidraw"] .rapidraw-footer {
+  display: block;
+  margin-top: 32px;
+  font-size: 11px;
+  color: var(--muted-foreground);
+}
+@media (max-width: 800px) {
+  :root[data-visual-theme="rapidraw"] .home-view { grid-template-columns: minmax(0, 1fr); }
+  :root[data-visual-theme="rapidraw"] .rapidraw-artwork { display: none; }
+  :root[data-visual-theme="rapidraw"] .home-content { border-radius: 6px; padding: 40px 24px 24px; }
+}

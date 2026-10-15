@@ -14,6 +14,7 @@ import {
 import { FontSettings } from "@/components/FontSettings";
 import { ThemeSettings } from "@/components/ThemeSettings";
 import { Button } from "@/components/ui/button";
+import { VisualThemeSettings } from "@/components/VisualThemeSettings";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -308,6 +309,7 @@ function SettingsBody({ tab, onTab }: { tab: SettingsTab; onTab: (tab: SettingsT
           <ThemeSettings />
           <Setting title="Ignore videos" detail="Hide video files when opening folders and ingesting cards. Turn off to include playback where the system supports the codec."
             control={<Switch aria-label="Ignore videos" checked={s.ignoreVideos} onCheckedChange={(on) => { set("ignoreVideos", on); useStore.getState().reloadForSubfolders(); }} />} />
+          <VisualThemeSettings />
           <Setting
             title="Speed cull"
             detail="Moves straight on to the next photo after you pick, reject or rate one. Its key — Caps Lock unless you change it — also turns it on, whatever is set here."
