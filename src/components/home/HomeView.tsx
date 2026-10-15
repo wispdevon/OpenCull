@@ -102,7 +102,7 @@ export function HomeView({ dropping }: { dropping: boolean }) {
 
   return (
     <div data-home-layout={layout} data-platform={platform} className="home-view relative flex size-full flex-col bg-gradient-to-br from-[var(--home-from)] to-[var(--home-to)]">
-      {designTheme === "rapidraw" && <WelcomeArtwork path={recents.find((path) => !missing.has(path))} />}
+      {(designTheme === "rapidraw" || designTheme === "wisp") && <WelcomeArtwork path={recents.find((path) => !missing.has(path))} />}
       <div className="home-content flex min-h-0 flex-1 flex-col">
       <header data-tauri-drag-region className={cn("home-header flex shrink-0 flex-wrap items-center gap-6 px-8 py-6", platform === "macos" && "pl-[78px]")}>
         <div data-tauri-drag-region className="home-heading min-w-[220px] flex-1">

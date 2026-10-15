@@ -1,8 +1,17 @@
 # Wisp design guidelines
 
-Select Wisp under Settings → Design → Interface design. It works with Dark,
-Light and 18% grey appearance modes. The photographic surround stays neutral;
-theme colours never alter photo pixels or rating colours.
+Select Wisp under Settings → Design → Interface design. Wisp applies the
+[included preset](../src/lib/presets/wisp.json): a RapidRAW-style welcome layout,
+18% grey photographic surround, Space Grotesk, 125% interface scale and the
+saved culling options captured for this fork. These include classic home action
+placement, native-aspect strips, smooth click zoom, Advanced AI, background
+faces and always-on Speed Cull. No source paths or session history are included.
+
+Selecting Wisp or Restore Wisp preset applies those defaults. Later changes
+remain saved across launches; they are not reset at startup. Export the current
+configuration or import the included JSON through Settings → Storage. Dark and
+Light modes remain available after choosing the preset. The photographic
+surround stays neutral; theme colours never alter photo pixels or rating colours.
 
 - Use semantic foreground, muted-foreground, background, card, border and primary
   tokens. Never dim an entire readable row with opacity or hard-code grey text.

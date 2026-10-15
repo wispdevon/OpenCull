@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { create } from "zustand";
 import { load, save } from "@/lib/prefs";
 import { validTheme, type Theme } from "@/lib/theme";
-const useTheme = create<{ theme: Theme; set: (theme: Theme) => void }>((set) => ({
+export const useTheme = create<{ theme: Theme; set: (theme: Theme) => void }>((set) => ({
   theme: validTheme(load("theme", "dark")),
   set(theme) { const safe = validTheme(theme); save("theme", safe); set({ theme: safe }); },
 }));

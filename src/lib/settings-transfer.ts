@@ -2,11 +2,11 @@ import { DEFAULTS } from "./shortcuts";
 import { INTERFACE_SCALES } from "./interface-scale";
 export const SETTINGS_FILE_LIMIT = 1024 * 1024;
 const booleanKeys = new Set([
-  "rememberViewMode", "sortAscending", "showExif", "showHistogram", "showFilmstrip", "showInfo", "showRatingBar", "showFilterBar", "experimentalNativeFilmstrip", "experimentalSmoothZoom", "includeSubfolders", "ignoreVideos", "embedInJpeg", "askBeforeTrash", "checkForUpdates", "warmAhead", "speedCullAlways", "keepZoom", "instantZoom", "rgbHistogram", "aiEnabled", "aiAdvanced", "showBackgroundFaces", "aiPause", "smartGroups", "showFaces", "visualThemeFont",
+  "rememberViewMode", "sortAscending", "ingestSortAscending", "showExif", "showHistogram", "showFilmstrip", "showInfo", "showRatingBar", "showFilterBar", "experimentalNativeFilmstrip", "experimentalSmoothZoom", "includeSubfolders", "ignoreVideos", "embedInJpeg", "askBeforeTrash", "checkForUpdates", "warmAhead", "speedCullAlways", "keepZoom", "instantZoom", "rgbHistogram", "aiEnabled", "aiAdvanced", "showBackgroundFaces", "aiPause", "smartGroups", "showFaces", "visualThemeFont",
 ]);
 const enums: Record<string, readonly string[]> = {
   theme: ["dark", "light", "grey"], visualTheme: ["default", "rapidraw", "wisp"], homeLayout: ["spacious", "classic"],
-  viewMode: ["loupe", "scene", "grid"], defaultViewMode: ["loupe", "scene", "grid"], sort: ["captureTime", "filename", "rating"], fileKinds: ["both", "raw", "jpeg"],
+  viewMode: ["loupe", "scene", "grid"], defaultViewMode: ["loupe", "scene", "grid"], sort: ["captureTime", "filename", "rating"], ingestSort: ["captureTime", "filename", "rating"], fileKinds: ["both", "raw", "jpeg"],
 };
 const ranges: Record<string, readonly [number, number]> = { gridColumns: [1, 100], exifPanelWidth: [40, 10000], facePanelWidth: [40, 10000], filmstripHeight: [72, 300], sceneStripHeight: [72, 300], cacheLimitGb: [1, 200] };
 function record(value: unknown): value is Record<string, unknown> { return value !== null && typeof value === "object" && !Array.isArray(value); }

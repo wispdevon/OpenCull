@@ -1,7 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { exportSettings, parseSettingsImport } from "./settings-transfer";
+import wisp from "./presets/wisp.json";
 const document = (values: unknown, version = 1) => JSON.stringify({ format: "opencull-settings", version, values });
 describe("portable settings", () => {
+  it("ships the portable Wisp culling preset without source paths", () => {
+    const values = parseSettingsImport(JSON.stringify(wisp));
+    expect(values).toMatchObject({ visualTheme: "wisp", theme: "grey", font: { choice: "space-grotesk", family: "" }, interfaceScale: 1.25, experimentalNativeFilmstrip: true, experimentalSmoothZoom: true, aiAdvanced: true, speedCullAlways: true });
+    expect(values).not.toHaveProperty("recents"); expect(values).not.toHaveProperty("ingestDestination");
+    expect(Object.keys(values).some((key) => key.startsWith("position.") || key.startsWith("session."))).toBe(false);
+  });
   it("round-trips preferences and shortcuts without folder/session history", () => {
     const text = exportSettings({ theme: "grey", homeLayout: "classic", showExif: true, font: { choice: "custom", family: "Noto Sans" }, shortcuts: { nextImage: { code: "KeyJ", mod: true } }, recents: ["/private"], "session.secret": { source: "/card" } });
     expect(text).not.toContain("/private"); expect(text).not.toContain("/card");
