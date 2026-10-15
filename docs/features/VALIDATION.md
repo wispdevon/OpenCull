@@ -101,3 +101,14 @@ These fixtures validate session, pairing, copying, persistence, and media delive
 ```
 
 Existing panel defaults remain unchanged. These are personal values; standalone feature branches preserve the original first-run defaults.
+
+
+## October 16 follow-up
+
+- Combined frontend: 57 tests pass; TypeScript/Vite production build passes.
+- Combined Rust library: 285 tests pass, including retained session history and legacy session compatibility.
+- Browser runtime: mixed native-aspect widths, fixed full-width stack filmstrip geometry, and the experimental 320ms cubic click-zoom transition verified after a fresh dev-server launch.
+- Linux native preview fix: WebKitGTK dev-origin CORS allowlist enables opencull://localhost previews. Reproduced failure with the DMABUF flag both set and unset; verified JPEG and real RW2 preview dimensions after the fix.
+- Stack placement lives under Layout in the combined app. Standalone branch uses Culling.
+- New standalone branches: feature/recent-sessions (depends on cull-before-ingest), feature/stack-filmstrip-layout, feature/experimental-filmstrip-aspect, feature/experimental-smooth-zoom.
+- Native macOS runtime remains unverified locally.
