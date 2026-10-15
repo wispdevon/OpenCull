@@ -1155,8 +1155,8 @@ export const useStore = create<Store>((set, get) => {
     rateMotionBlur() {
       const s = get();
       if (!s.aiEnabled || !s.aiMotionBlur || !s.autoRateMotionBlur || s.selfTest || s.metaProgress < 1) return;
-      const changes = s.photos.flatMap((p) => p.rating === 0 && !s.motionRatingSkipped.has(p.index) && hasMotionBlur(s.ai[p.index])
-        ? [{ index: p.index, after: { ...marksOf(p), rating: 1 } }] : []);
+      const changes = s.photos.flatMap((p) => p.rating === 0 && p.flag !== "pick" && !s.motionRatingSkipped.has(p.index) && hasMotionBlur(s.ai[p.index])
+        ? [{ index: p.index, after: { ...marksOf(p), rating: 1, flag: "reject" as const } }] : []);
       applyMarks(changes);
     },
     toggleColorFilter(color) {

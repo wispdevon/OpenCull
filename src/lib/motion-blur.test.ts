@@ -27,15 +27,18 @@ it("lowers group rank only when detection is enabled", () => {
   expect(ranks[0]?.rank).toBe(2); expect(ranks[1]?.rank).toBe(1);
   expect(motionAdjustedScore(90, result(0.9), false)).toBe(90);
 });
-it("rates only unrated detections, without advancing or writing to a card", () => {
+it("rates and rejects only unrated detections, without advancing or writing to a card", () => {
   useStore.getState().addAnalysis([{ index: 0, ...result(0.9) }, { index: 1, ...result(0.9) }, { index: 2, ...result(0.1) }]);
   expect(useStore.getState().photos.map((p) => p.rating)).toEqual([1, 5, 0]);
+  expect(useStore.getState().photos.map(p => p.flag)).toEqual(["reject", "none", "none"]);
   expect(useStore.getState().current).toBe(0);
   expect(useStore.getState().review?.decisions["/card/0.RAW"].rating).toBe(1);
+  expect(useStore.getState().review?.decisions["/card/0.RAW"].flag).toBe("reject");
   expect(api.setMarks).not.toHaveBeenCalled();
   useStore.getState().undo();
   useStore.getState().addAnalysis([{ index: 0, ...result(0.9) }]);
   expect(useStore.getState().photos[0].rating).toBe(0);
+  expect(useStore.getState().photos[0].flag).toBe("none");
 });
 it("honours manual ratings and persists a normal-folder automatic rating through the usual writer", () => {
   useStore.getState().setRating(0, [0]);
@@ -43,7 +46,7 @@ it("honours manual ratings and persists a normal-folder automatic rating through
   expect(useStore.getState().photos[0].rating).toBe(0);
   useStore.setState({ review: null, motionRatingSkipped: new Set() });
   useStore.getState().rateMotionBlur();
-  expect(api.setMarks).toHaveBeenCalledWith([expect.objectContaining({ path: "/card/0.RAW", rating: 1, flag: "none", color: "none" })]);
+  expect(api.setMarks).toHaveBeenCalledWith([expect.objectContaining({ path: "/card/0.RAW", rating: 1, flag: "reject", color: "none" })]);
 });
 it("combines motion, star and colour filters, and clears the motion filter", () => {
   useStore.getState().addAnalysis([{ index: 0, ...result(0.9) }, { index: 1, ...result(0.9) }, { index: 2, ...result(null) }]);
@@ -60,4 +63,13 @@ it("does not rate before metadata loads or when automation is disabled; transfer
   useStore.setState({ metaProgress: 1, autoRateMotionBlur: false });
   useStore.getState().rateMotionBlur(); expect(useStore.getState().photos[0].rating).toBe(0);
   expect(parseSettingsImport(exportSettings({ aiMotionBlur: true, autoRateMotionBlur: false, motionRatingSkipped: new Set([0]) }))).toEqual({ aiMotionBlur: true, autoRateMotionBlur: false });
+});
+
+it("preserves an explicit pick even when the picked photo is unrated", () => {
+  const photos = useStore.getState().photos.slice();
+  photos[0] = { ...photos[0], flag: "pick", color: "blue" };
+  useStore.setState({ photos });
+  useStore.getState().addAnalysis([{ index: 0, ...result(.9) }]);
+  expect(useStore.getState().photos[0]).toMatchObject({ rating: 0, flag: "pick", color: "blue" });
+  expect(api.setMarks).not.toHaveBeenCalled();
 });

@@ -11,8 +11,8 @@ export function MotionBlurSettings() {
       <Switch aria-label="Detect motion blur" checked={detect} onCheckedChange={(on) => useStore.getState().set("aiMotionBlur", on)} />
     </label>
     <label className="setting-toggle-row flex items-start justify-between gap-4">
-      <span className="setting-copy"><span className="setting-label block">Give motion blur one star</span><span className="setting-hint mt-1.5 block text-muted-foreground">Automatically rate currently unrated detections one star. Keeps existing ratings, flags and colours. Undo restores the previous rating; manual changes are respected for this session. Needs motion blur detection.</span></span>
-      <Switch aria-label="Give motion blur one star" checked={auto} onCheckedChange={(on) => useStore.getState().set("autoRateMotionBlur", on)} />
+      <span className="setting-copy"><span className="setting-label block">Mark motion blur one star + Reject</span><span className="setting-hint mt-1.5 block text-muted-foreground">Automatically give currently unrated detections one star and mark them Reject. Keeps existing ratings, explicit picks and colours. Undo restores both marks; manual changes are respected for this session. Needs motion blur detection.</span></span>
+      <Switch aria-label="Mark motion blur one star + Reject" checked={auto} onCheckedChange={(on) => useStore.getState().set("autoRateMotionBlur", on)} />
     </label>
   </fieldset>;
 }
