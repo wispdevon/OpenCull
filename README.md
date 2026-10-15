@@ -40,9 +40,18 @@ No manual merging or cherry-picking is needed. Individual feature branches
 remain available for selective upstream review; fork `main` contains general
 tooling fixes rather than the combined application.
 
-Install [Rust stable](https://rustup.rs), the
-[native Tauri prerequisites](https://v2.tauri.app/start/prerequisites/), and
-CMake/NASM for the JPEG library first. Then, using nvm:
+Install [Rust stable](https://rustup.rs) and the
+[native Tauri prerequisites](https://v2.tauri.app/start/prerequisites/) first:
+
+- **macOS:** install Xcode Command Line Tools (`xcode-select --install`), then
+  `brew install jpeg-turbo pkgconf`. Tauri automatically uses the macOS
+  `turbo-system` configuration.
+- **Linux:** install GTK/WebKitGTK prerequisites plus CMake and NASM (NASM is
+  needed on Intel/AMD). Tauri uses the Linux `turbo` configuration.
+- **Windows:** install the Visual Studio C++ and WebView2 prerequisites plus
+  CMake and NASM. Tauri uses the Windows `turbo` configuration.
+
+Then, using nvm (or your platform's Node version manager):
 
 ```sh
 git clone --branch integration/linux-features --single-branch https://github.com/wispdevon/OpenCull.git
@@ -75,6 +84,9 @@ Optional preferences are selectable in Settings; the RapidRAW design is under
 **Culling → Design theme**, and view/panel controls are under **Layout**.
 Linux settings are created in `$XDG_CONFIG_HOME/opencull/config.json`, normally
 `~/.config/opencull/config.json`. No personal configuration file is required.
+macOS and Windows use Tauri's native application-config directory instead.
+The Linux video streaming workaround is compiled only on Linux; macOS keeps
+native asset-protocol playback. `dev:desktop` sets no Linux environment flags.
 
 Run `npm run check` for automated checks. See the
 [feature and validation map](docs/features/VALIDATION.md) for individual PRs
