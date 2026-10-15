@@ -1,3 +1,4 @@
+import { WelcomeDemo } from "@/components/home/WelcomeDemo";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAppVisualTheme } from "@/components/VisualThemeSettings";
 
@@ -161,7 +162,7 @@ export default function App() {
 
   return (
     <TooltipProvider delayDuration={500}>
-      {open ? <CullingView /> : <HomeView dropping={dropping} />}
+      {open ? <CullingView /> : (import.meta.env.DEV && new URLSearchParams(location.search).has("welcome-demo") ? <WelcomeDemo dropping={dropping} /> : <HomeView dropping={dropping} />)}
       {ingesting && <IngestView />}
       <TrashDialog />
       <SettingsDialog />
