@@ -73,6 +73,10 @@ pub struct FaceRecord {
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq)]
 pub struct Record {
+    #[serde(default, rename = "motionBlur")]
+    pub motion_blur: Option<f32>,
+    #[serde(default, rename = "motionVersion")]
+    pub motion_version: u8,
     pub faces: Vec<FaceRecord>,
     pub score: Option<f32>,
     /// The parts of the mark that are not about how open the eyes are, each
@@ -118,7 +122,7 @@ impl From<&Analysis> for Record {
             })
             .collect();
         let key = a.key.map(|k| KeyRecord { x: k.x as f32, y: k.y as f32, w: k.w as f32, h: k.h as f32 });
-        Record { faces, score: a.score.map(|s| s as f32), focus: a.parts.map(|p| p.focus as f32), gaze: a.parts.map(|p| p.gaze as f32), key }
+        Record { faces, score: a.score.map(|s| s as f32), focus: a.parts.map(|p| p.focus as f32), gaze: a.parts.map(|p| p.gaze as f32), key, motion_blur: None, motion_version: 0 }
     }
 }
 
@@ -161,7 +165,10 @@ impl Store {
         // without running the face models again after this update.
         let parents: std::collections::HashSet<_> = requested.keys().flat_map(|p| Path::new(p).parent().into_iter().flat_map(|p| p.ancestors().take(4))).filter(|p| *p != folder).collect();
         for parent in parents {
-            known.extend(self.load(parent, rules).into_iter().filter(|(path, entry)| wanted(path, entry)));
+            for (path, entry) in self.load(parent, rules).into_iter().filter(|(path, entry)| wanted(path, entry)) {
+                if known.get(&path).is_some_and(|old| old.1.motion_version > entry.1.motion_version) { continue; }
+                known.insert(path, entry);
+            }
         }
         known
     }
@@ -176,7 +183,11 @@ impl Store {
         for (parent, entries) in folders {
             // Keep completed photos if a newer session contains only a subset.
             let mut merged = self.load(&parent, rules);
-            merged.extend(entries);
+            for (path, entry) in entries {
+                // A cancelled older scan must not erase newer blur enrichment.
+                if merged.get(&path).is_some_and(|old| old.0 == entry.0 && old.1.motion_version > entry.1.motion_version) { continue; }
+                merged.insert(path, entry);
+            }
             self.write(&parent, rules, &merged);
         }
     }
@@ -255,7 +266,7 @@ mod tests {
 
     fn record(score: f32) -> Record {
         let face = FaceRecord { x: 0.1, y: 0.2, w: 0.05, h: 0.07, subject: true, reason: None, eyes_shut: false, looking_away: true, maybe_away: false, sharpness: Some(80.0), eye: 0.28, eyes_read: true, state: Some("Looking Down".into()), concern: 0, excused: 0.85, open: false };
-        Record { faces: vec![face], score: Some(score), focus: Some(0.5), gaze: Some(1.0), key: None }
+        Record { faces: vec![face], score: Some(score), focus: Some(0.5), gaze: Some(1.0), key: None, ..Default::default() }
     }
 
     #[test]

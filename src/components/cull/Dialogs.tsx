@@ -1,5 +1,6 @@
 import { ExperimentalFilmstripSettings } from "./ExperimentalFilmstripSettings";
 import { FaceOverlaySettings } from "./FaceOverlaySettings";
+import { MotionBlurSettings } from "./MotionBlurSettings";
 import { ExperimentalZoomSettings } from "./ExperimentalZoomSettings";
 import { HomeLayoutSettings } from "@/components/HomeLayoutSettings";
 import { SettingsTransfer } from "@/components/SettingsTransfer";
@@ -447,6 +448,7 @@ function SettingsBody({ tab, onTab, ...shortcutProps }: { tab: SettingsTab; onTa
         </TabsContent>
         <TabsContent value="ai" className="space-y-4">
           <FaceOverlaySettings />
+          <MotionBlurSettings />
           <Setting
             title="OpenCull AI"
             detail="Finds the faces in each photo and judges them: eyes shut, looking away, how sharp, and who the photo is about. From that it marks each photo and ranks the frames of a burst, or of the same pose shot again. Runs on this computer; nothing is sent anywhere."
