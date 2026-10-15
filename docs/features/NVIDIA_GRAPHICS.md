@@ -7,3 +7,13 @@ Linux: `npm run dev:desktop:nvidia` requests hardware compositing, enables WebGL
 Settings → Storage → Graphics acceleration provides a renderer probe. An NVIDIA WebGL renderer is evidence for that context, not proof that every rendering operation is GPU accelerated. Verify native WebKit process GPU device use and frame timings as well. These profiles do not install drivers or edit system configuration. On hybrid systems, choose the discrete GPU through the system's normal offload launcher.
 
 Reference: https://docs.webkit.org/Ports/WebKitGTK%20and%20WPE%20WebKit/Graphics.html and the WebKitGTK HardwareAccelerationPolicy API. The NVIDIA profile requests Always; it does not claim a specific performance improvement. Compatibility remains available for driver/compositor issues.
+
+## WebKitGTK 2.54 repaint workaround
+
+The Linux NVIDIA profile also defaults `WEBKIT_USE_SKIA_FOR_COMPOSITION=0` before WebKit starts. This selects WebKit's fallback compositor while retaining hardware compositing. An explicit value supplied by the launcher is preserved; `WEBKIT_USE_SKIA_FOR_COMPOSITION=1 npm run dev:desktop:nvidia` allows comparing the newer compositor again. Other profiles and macOS/Windows do not receive this default.
+
+On the tested RTX 3060 Ti / NVIDIA 615.78.08 / WebKitGTK 2.54.1 / Hyprland system, photo zoom and Settings interactions briefly displayed previous frames. Software rendering, native Wayland rendering, and disabling animations/blur did not resolve the reported flicker. A plain WebKit control window stayed stable. Switching the full app to the fallback compositor removed the flicker in the user's comparison; `nvidia-smi pmon` still showed its WebKit process using the GPU. This is a tested compatibility workaround for that combination, not proof of a universal driver fault or a performance improvement.
+
+Settings → Storage → Check renderer reports whether the fallback was requested. Restart the desktop after changing launch environment variables. No photo files or saved interface preferences need changing.
+
+WebKit describes the new compositor and changes to the software rendering path in its [2.54 release notes](https://webkitgtk.org/2026/09/16/webkitgtk-2.54-highlights.html). Its [2.54 startup implementation](https://github.com/WebKit/WebKit/blob/webkitglib/2.54/Source/WebKit/WebProcess/WebPage/CoordinatedGraphics/DrawingAreaCoordinatedGraphicsGLib.cpp) handles the compositor override.
