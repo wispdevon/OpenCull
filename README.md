@@ -208,6 +208,13 @@ system, reports are very welcome.
 * [![Tailwind CSS][Tailwind-badge]][Tailwind-url]
 * [![ONNX Runtime][ONNX-badge]][ONNX-url]
 
+**Optional NVIDIA AI acceleration — Linux x86_64 only:**
+
+[![CUDA][CUDA-badge]][CUDA-url] [![cuDNN][cuDNN-badge]][cuDNN-url]
+
+CUDA 13.x and cuDNN 9.x are used only by the opt-in CUDA trial. macOS and
+normal CPU builds do not require them. See the [trial setup](docs/CUDA-TRIAL.md).
+
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 <!-- GETTING STARTED -->
@@ -262,6 +269,17 @@ also need the system packages on
    ```sh
    npm run build:desktop
    ```
+
+### Experimental NVIDIA AI (Linux x86_64)
+
+The opt-in CUDA trial requires an NVIDIA driver, **CUDA 13.x** runtime and
+**cuDNN 9.x** compatible with CUDA 13, in addition to the normal prerequisites.
+Run `npm run dev:desktop:cuda` to compile and launch it. Normal launches keep
+CPU inference. macOS does not build, load or expose CUDA.
+
+See the [CUDA trial guide](docs/CUDA-TRIAL.md) for installation links, exact
+commands, verification and CPU fallback, and the
+[memory experiment](docs/CUDA-BENCHMARK.md) for measured results.
 
 More on building, including how to build without the JPEG library, is in
 [How it works](docs/HOW-IT-WORKS.md#building-the-fast-jpeg-library).
@@ -417,3 +435,8 @@ Project Link: [https://github.com/NatePhotos/OpenCull](https://github.com/NatePh
 [Tailwind-url]: https://tailwindcss.com
 [ONNX-badge]: https://img.shields.io/badge/ONNX_Runtime-005CED?style=for-the-badge&logo=onnx&logoColor=white
 [ONNX-url]: https://onnxruntime.ai
+
+[CUDA-badge]: https://img.shields.io/badge/CUDA-76B900?style=for-the-badge&logo=nvidia&logoColor=white
+[CUDA-url]: https://developer.nvidia.com/cuda-toolkit
+[cuDNN-badge]: https://img.shields.io/badge/cuDNN-76B900?style=for-the-badge&logo=nvidia&logoColor=white
+[cuDNN-url]: https://developer.nvidia.com/cudnn
