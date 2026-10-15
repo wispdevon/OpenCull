@@ -42,3 +42,10 @@ Keyboard shortcuts are edited directly in the Keyboard tab. Home and workspace
 keyboard buttons open that same tab. Use responsive section cards, preserve
 key-conflict handling, cancel capture with Escape, and stop capture when leaving
 the tab or closing Settings. Do not open another modal for the editor.
+
+Experimental sections always come before ordinary sections in their Settings tab.
+Use the shared `experimental-section` class: red legend and border, with normal
+foreground labels and muted descriptions. Keep the word “Experimental” visible
+so colour is not the only status cue. The accent has separate light and dark
+values; retain the same spacing and typography as ordinary sections. New
+experimental options must also be included in settings import/export.

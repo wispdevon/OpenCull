@@ -4,7 +4,7 @@ import { useStore } from "@/lib/store";
 export function FaceOverlaySettings() {
   const outlines = useStore((s) => s.experimentalFaceOutlines);
   const spotlight = useStore((s) => s.experimentalFaceSpotlight);
-  return <fieldset className="space-y-3 rounded-lg border border-border p-4">
+  return <fieldset className="experimental-section space-y-3 rounded-lg border p-4">
     <legend className="px-1 text-sm font-semibold">Experimental Features</legend>
     {([
       ["experimentalFaceOutlines", outlines, "Detected face outlines", "Outline every detected face on the photo, including background faces. Follows crops, rotation and zoom."],
