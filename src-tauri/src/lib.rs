@@ -16,6 +16,7 @@ pub mod ingest;
 pub mod pool;
 pub mod preview;
 pub mod raw;
+pub mod review;
 pub mod scan;
 pub mod serve;
 pub mod sidecar;
@@ -138,6 +139,9 @@ pub fn run() {
             }
         })
         .invoke_handler(tauri::generate_handler![
+            review::review_save,
+            review::review_load,
+            commands::review_copy,
             commands::app_info,
             commands::report,
             commands::finish_self_test,

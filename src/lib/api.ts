@@ -115,7 +115,7 @@ export type Tier = "thumb" | "fit" | "screen" | "full";
 
 export interface Backend {
   appInfo(): Promise<AppInfo>;
-  openFolder(path: string, includeSubfolders: boolean, kinds: FileKinds): Promise<FolderReply>;
+  openFolder(path: string, includeSubfolders: boolean, kinds: FileKinds, members?: Scanned[]): Promise<FolderReply>;
   closeFolder(session: number): Promise<void>;
   loadMetadata(session: number, onEvent: (e: MetaEvent) => void): Promise<void>;
   prefetch(items: { path: string; version: string }[], size: number): Promise<void>;
@@ -209,7 +209,7 @@ const previewBase = /Windows|Android/.test(navigator.userAgent) ? "http://opencu
 
 const tauri: Backend = {
   appInfo: () => invoke("app_info"),
-  openFolder: (path, includeSubfolders, kinds) => invoke("open_folder", { path, includeSubfolders, kinds }),
+  openFolder: (path, includeSubfolders, kinds, members) => invoke("open_folder", { path, includeSubfolders, kinds, members }),
   closeFolder: (session) => invoke("close_folder", { session }),
   loadMetadata: (session, onEvent) => {
     const channel = new Channel<MetaEvent>();
