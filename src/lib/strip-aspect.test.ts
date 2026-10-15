@@ -12,3 +12,10 @@ it("uses the original layout until usable dimensions arrive", () => {
   expect(stripPhotoWidth({...photo,fullHeight:0},120,true)).toBe(180);
   expect(stripPhotoWidth({...photo,fullWidth:NaN},120,true)).toBe(180);
 });
+
+it("uses decoded JPEG proportions before metadata, then trusts the full photo geometry", () => {
+  expect(stripPhotoWidth({...photo,fullWidth:0,fullHeight:0},120,true,2/3)).toBe(80);
+  expect(stripPhotoWidth(photo,120,true,2/3)).toBe(180);
+  expect(stripPhotoWidth(undefined,120,false,2/3)).toBe(180);
+  expect(stripPhotoWidth(undefined,120,true,Infinity)).toBe(180);
+});

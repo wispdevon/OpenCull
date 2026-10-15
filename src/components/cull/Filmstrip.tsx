@@ -1,3 +1,4 @@
+import { previewAspect, usePreviewAspectRevision } from "@/lib/preview-aspect";
 import { memo, useMemo, useRef } from "react";
 
 import { bucket, THUMB_SIZES } from "@/lib/api";
@@ -69,7 +70,8 @@ export function Filmstrip({ only, height: fixedHeight, resizable = true }: { onl
   const height = fixedHeight ?? storedHeight;
   const thumbH = stripThumbHeight(height);
   const nativeAspect = useStore((s) => s.experimentalNativeFilmstrip);
-  const widths = useMemo(() => view.map((index) => stripPhotoWidth(photos[index], thumbH, nativeAspect)), [view, photos, thumbH, nativeAspect]);
+  const aspectRevision = usePreviewAspectRevision(nativeAspect);
+  const widths = useMemo(() => view.map((index) => stripPhotoWidth(photos[index], thumbH, nativeAspect, previewAspect(photos[index]))), [view, photos, thumbH, nativeAspect, aspectRevision]);
   const size = useStripThumbSize(height);
 
   // Frames of one group are drawn joined, on a shared backing. A group is a
