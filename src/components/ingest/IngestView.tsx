@@ -530,7 +530,7 @@ export function IngestView() {
 
         {/* Where to. */}
         <aside className="flex w-[280px] shrink-0 flex-col gap-4 bg-[#131318] p-4">
-          <label className="flex items-center justify-between gap-2 text-xs">Ignore videos<Switch aria-label="Ignore videos on card" checked={ignoreVideos} onCheckedChange={(on) => useStore.getState().set("ignoreVideos", on)} /></label>
+          <label className="flex items-center justify-between gap-2 text-xs">Ignore videos<Switch aria-label="Ignore videos on card" disabled={busy} checked={ignoreVideos} onCheckedChange={(on) => useStore.getState().set("ignoreVideos", on)} /></label>
           <Label>Destination</Label>
           <button type="button" onClick={() => void chooseDestination()} className="rounded-lg bg-white/[0.09] px-3 py-2.5 text-[11px] font-bold tracking-wide text-white hover:bg-white/[0.13]">
             {destination ? "CHANGE DESTINATION" : "CHOOSE DESTINATION FOLDER"}
