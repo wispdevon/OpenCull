@@ -19,6 +19,7 @@ pub mod raw;
 pub mod scan;
 pub mod serve;
 pub mod sidecar;
+pub mod settings;
 pub mod times;
 pub mod transfer;
 pub mod update;
@@ -97,6 +98,7 @@ pub fn run() {
                 // painting.
                 window.show().ok();
             }
+            app.manage(settings::Settings(std::sync::Mutex::new(settings::location(app.handle())?)));
             app.manage(launch);
 
             // Bring the cache back under its limit, well away from startup.
@@ -138,6 +140,8 @@ pub fn run() {
             }
         })
         .invoke_handler(tauri::generate_handler![
+            settings::config_load,
+            settings::config_set,
             commands::app_info,
             commands::report,
             commands::finish_self_test,
