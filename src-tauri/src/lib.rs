@@ -51,6 +51,13 @@ pub fn run() {
     }
     builder
         .setup(move |app| {
+            // The dev page is HTTP, while previews use a custom scheme.
+            // WebKitGTK otherwise rejects those cross-origin image requests.
+            #[cfg(all(target_os = "linux", dev))]
+            app.get_webview_window("main").expect("main window").with_webview(|webview| {
+                use webkit2gtk::WebViewExt;
+                webview.inner().set_cors_allowlist(&["opencull://localhost/*"]);
+            })?;
             // A self-test keeps its previews apart, so a run measures making
             // them rather than finding the last run's.
             let (dir, times_dir, faces_dir) = if launch.self_test {

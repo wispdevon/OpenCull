@@ -2691,6 +2691,7 @@ dependencies = [
  "tauri-plugin-window-state",
  "trash",
  "turbojpeg",
+ "webkit2gtk",
  "xxhash-rust",
  "zune-jpeg",
 ]
