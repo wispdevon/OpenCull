@@ -112,3 +112,12 @@ Existing panel defaults remain unchanged. These are personal values; standalone 
 - Stack placement lives under Layout in the combined app. Standalone branch uses Culling.
 - New standalone branches: feature/recent-sessions (depends on cull-before-ingest), feature/stack-filmstrip-layout, feature/experimental-filmstrip-aspect, feature/experimental-smooth-zoom.
 - Native macOS runtime remains unverified locally.
+
+
+## Interface scale and compact home follow-up
+
+- Interface scale uses native webview page zoom, with a saved 80–200% range and Reset. Located under Settings → Layout in the combined app. Native Linux inspection verified 150% (960×600 CSS viewport) and 200% (720×450), bounded Settings dialogs, no horizontal overflow or errors, and 200% retained after reload.
+- Typography uses clamped container-relative heading sizes with rem bounds and fixed fallbacks. Identity stays above the horizontal toolbar in both visual themes.
+- RapidRAW recent-folder contact sheets remain visible. Its session cards measured 304px versus 437px in the default preset at the same 1440px viewport; card layouts and toolbar hierarchy verified in browser runtime.
+- User rejected the monochrome mountain demo. demo/rapidraw-welcome is excluded from integration and the app continues to use its original opening page.
+- Frontend suite: 58 tests pass; combined production frontend build passes. Native macOS scaling has not been run locally.
