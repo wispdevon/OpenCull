@@ -21,6 +21,7 @@ pub mod review;
 pub mod scan;
 pub mod serve;
 pub mod sidecar;
+pub mod settings;
 pub mod times;
 pub mod transfer;
 pub mod update;
@@ -99,6 +100,7 @@ pub fn run() {
                 // painting.
                 window.show().ok();
             }
+            app.manage(settings::Settings(std::sync::Mutex::new(settings::location(app.handle())?)));
             app.manage(launch);
 
             // Bring the cache back under its limit, well away from startup.
@@ -143,6 +145,8 @@ pub fn run() {
             review::review_save,
             review::review_load,
             commands::review_copy,
+            settings::config_load,
+            settings::config_set,
             commands::app_info,
             commands::report,
             commands::finish_self_test,
