@@ -22,13 +22,13 @@ On `dev` or fork `main`, after the README's `npm ci` step:
 
 ```sh
 # Native desktop, CPU AI, all supported platforms:
-npm run dev:desktop
+npm run desktop
 
 # NVIDIA AI trial, Linux x86_64 only:
-npm run dev:desktop:cuda
+npm run desktop -- --cuda
 
 # NVIDIA AI plus the Linux NVIDIA webview rendering profile:
-OPENCULL_GRAPHICS=nvidia npm run dev:desktop:cuda
+npm run desktop -- --nvidia --cuda
 ```
 
 On the standalone CUDA feature branch the CPU command is `npm run tauri -- dev`; the CUDA command is the same as above.
@@ -44,7 +44,7 @@ Existing cached AI results may skip inference. For a fresh trial use a new folde
 ## Native checks
 
 ```sh
-npm run test:cuda-launcher
+node --test scripts/cuda-desktop.test.mjs scripts/dev-desktop.test.mjs
 cd src-tauri
 cargo test --lib --features cuda
 OPENCULL_AI=cuda cargo test --lib --features cuda concurrent_callers_share_cuda_models_and_match_cpu -- --ignored --nocapture

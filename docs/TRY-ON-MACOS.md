@@ -16,7 +16,7 @@ nvm install
 nvm use
 npm install --global npm@11.21.1
 npm ci
-npm run dev:desktop
+npm run desktop
 ```
 
 If Node 22.23.3 and npm 11.21.1 are already installed, omit the nvm and global npm steps. The first Rust compile can take several minutes. Keep the terminal open. This starts the Vite frontend and native Tauri backend together; it does not create an installer. A browser-only preview cannot ingest actual cards or exercise native image decoding.
@@ -33,10 +33,10 @@ macOS automatically uses the Homebrew libjpeg-turbo configuration. Do not set Li
 - Settings → Zoom → Experimental Features: eased click zoom. This affects motion curves, not the speed of CPU image decoding.
 - Select one recent item to reveal bulk controls. Deleting a session removes saved review history, never source photos.
 
-Use a copy of a small shoot for an initial trial. `npm run check` runs frontend tests/build and Rust tests. Update with `git pull --ff-only`, `npm ci`, then `npm run dev:desktop`.
+Use a copy of a small shoot for an initial trial. `npm run check` runs frontend tests/build and Rust tests. Update with `git pull --ff-only`, `npm ci`, then `npm run desktop`.
 
 ## Verification boundaries
 
-The combined snapshot before the CUDA addition passed macOS Apple-silicon CI tests, desktop development startup and build. The final branch's CI additionally starts `dev:desktop`, checks Vite and the native process, and observes them through startup. This is a startup smoke test, not a visual, card-reader or performance test on the recipient's Mac. Intel macOS is not covered by the Apple-silicon runner. See the latest integration Build workflow for the exact commit and result.
+The combined snapshot before the CUDA addition passed macOS Apple-silicon CI tests, desktop development startup and build. The final branch's CI additionally starts `desktop`, checks Vite and the native process, and observes them through startup. This is a startup smoke test, not a visual, card-reader or performance test on the recipient's Mac. Intel macOS is not covered by the Apple-silicon runner. See the latest integration Build workflow for the exact commit and result.
 
 The opt-in CUDA dependency is target-scoped to Linux x86_64. CI additionally checks the macOS dependency graph and tests a build with the `cuda` feature requested: the NVIDIA dependency must remain absent and inference stays on CPU. The README on fork `main` clones the default branch; this trial guide intentionally selects `dev`.
