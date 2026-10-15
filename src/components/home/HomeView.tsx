@@ -118,7 +118,7 @@ export function HomeView({ dropping }: { dropping: boolean }) {
         <button
           type="button"
           onClick={() => void chooseFolder()}
-          className={cn("flex items-center gap-2 rounded-[10px] px-[18px] py-2.5 text-[13px] font-semibold text-foreground shadow-[0_4px_8px_rgba(77,128,255,.4)]", GRADIENT)}
+          className={cn("flex items-center gap-2 rounded-[10px] px-[18px] py-2.5 text-[13px] font-semibold text-white shadow-[0_4px_8px_rgba(77,128,255,.4)]", GRADIENT)}
         >
           <FolderPlus className="size-4" /> Open Folder
         </button>
@@ -152,7 +152,7 @@ export function HomeView({ dropping }: { dropping: boolean }) {
             <Images className="size-16 text-[#5970ff]" strokeWidth={1.25} />
             <div className="text-xl font-semibold text-foreground">Open a folder to start culling</div>
             <p className="max-w-sm text-sm text-[var(--ui-text-808080)]">Choose a folder of photos, or drop one anywhere on this window. RAW files open straight from the previews your camera already made.</p>
-            <button type="button" onClick={() => void chooseFolder()} className={cn("mt-2 rounded-[10px] px-6 py-3 text-sm font-semibold text-foreground", GRADIENT)}>
+            <button type="button" onClick={() => void chooseFolder()} className={cn("mt-2 rounded-[10px] px-6 py-3 text-sm font-semibold text-white", GRADIENT)}>
               Open Folder
             </button>
           </div>
@@ -245,7 +245,7 @@ function FolderCard({
         >
           <div className="h-[150px]">{missing ? <Placeholder /> : <Cover path={path} />}</div>
           <div className="px-3.5 py-3">
-            <div className={cn("flex items-center gap-1.5 text-[13px] font-semibold", missing ? "text-[var(--ui-text-999999)]" : "text-white")}>
+            <div className={cn("flex items-center gap-1.5 text-[13px] font-semibold", missing ? "text-[var(--ui-text-999999)]" : "text-foreground")}>
               {missing && <FolderSearch className="size-3 shrink-0 text-[#f2b84d]" />}
               <span className="truncate">{baseName(path)}</span>
             </div>
