@@ -293,10 +293,14 @@ export function IngestView() {
 
   return (
     <div className="fixed inset-0 z-40 flex flex-col bg-[#17171c] text-white">
-      <header data-tauri-drag-region className={cn("flex h-[52px] shrink-0 items-center bg-[#14141a] px-5", platform === "macos" && "pl-[84px]")}>
-        <span data-tauri-drag-region className="flex-1 text-[15px] font-semibold">
-          Ingest from Card
-        </span>
+      <header data-tauri-drag-region className={cn("flex shrink-0 items-start gap-6 bg-[#14141a] px-5 py-5", platform === "macos" && "pl-[84px]")}>
+        <div data-tauri-drag-region className="min-w-0 flex-1">
+          <h1 data-tauri-drag-region className="text-2xl font-semibold leading-tight tracking-tight">Ingest from Card</h1>
+          <p className="mt-2 max-w-3xl text-sm leading-relaxed text-muted-foreground">
+            <strong className="font-semibold text-foreground">Review first.</strong>{" "}
+            Cull the card in the normal workspace. At the end, choose files to copy or import in place. Nothing is copied or deleted now.
+          </p>
+        </div>
         <button
           type="button"
           onClick={() => {
@@ -344,9 +348,9 @@ export function IngestView() {
               )
             ) : (
               <>
-                <Label className="px-2 pb-1 pt-1 text-[10px]">Memory Cards</Label>
+                <Label className="px-2 pb-1 pt-1 text-xs">Memory Cards</Label>
                 {cards.length === 0 ? <Hint>No memory cards detected</Hint> : cards.map((v) => <VolumeRow key={v.path} volume={v} selected={source === v.path} onClick={() => openVolume(v)} />)}
-                {drives.length > 0 && <Label className="px-2 pb-1 pt-4 text-[10px]">Drives</Label>}
+                {drives.length > 0 && <Label className="px-2 pb-1 pt-4 text-xs">Drives</Label>}
                 {drives.map((v) => (
                   <VolumeRow key={v.path} volume={v} selected={source === v.path} onClick={() => openVolume(v)} />
                 ))}
@@ -412,8 +416,6 @@ export function IngestView() {
 
         {/* Where to. */}
         <aside className="flex w-[280px] shrink-0 flex-col gap-4 bg-[#131318] p-4">
-          <Label>Review first</Label>
-          <p className="text-xs text-muted-foreground">Cull the card in the normal workspace. At the end, choose files to copy or import in place. Nothing is copied or deleted now.</p>
           <span className="flex-1" />
           <button
             type="button"
@@ -446,7 +448,7 @@ export function IngestView() {
 const Rule = () => <div className="h-px shrink-0 bg-white/[0.09]" />;
 
 function Label({ className, children }: { className?: string; children: ReactNode }) {
-  return <div className={cn("text-[11px] font-bold uppercase tracking-wider text-[#737373]", className)}>{children}</div>;
+  return <div className={cn("text-sm font-semibold text-muted-foreground", className)}>{children}</div>;
 }
 
 function Hint({ children }: { children: ReactNode }) {

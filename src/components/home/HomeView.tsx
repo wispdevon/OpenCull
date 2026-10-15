@@ -98,7 +98,7 @@ export function HomeView({ dropping }: { dropping: boolean }) {
     <div className="relative flex size-full flex-col bg-gradient-to-br from-[#12121a] to-[#1a1a26]">
       <header data-tauri-drag-region className={cn("flex shrink-0 items-center px-10 pb-6 pt-7", platform === "macos" && "pl-[78px]")}>
         <div data-tauri-drag-region className="flex-1">
-          <h1 className="bg-gradient-to-r from-white to-[#bfbfbf] bg-clip-text text-[28px] font-bold leading-tight tracking-tight text-transparent">OpenCull</h1>
+          <h1 className="bg-gradient-to-r from-white to-[#bfbfbf] bg-clip-text text-[32px] font-bold leading-tight tracking-tight text-transparent">OpenCull</h1>
           <p className="mt-1 text-[13px] text-[#808080]">Culling Software made for Photographers</p>
         </div>
         <button type="button" title="Keyboard Shortcuts" aria-label="Keyboard Shortcuts" onClick={() => useStore.getState().set("shortcutsOpen", true)} className="mr-1 rounded-lg p-2.5 text-[#8c8c8c] hover:bg-white/[0.07] hover:text-white">
@@ -159,7 +159,7 @@ export function HomeView({ dropping }: { dropping: boolean }) {
         ) : (
           <>
             <div className="mb-4 flex items-center gap-3">
-              <h2 className="flex-1 text-base font-semibold text-[#a6a6a6]">Recent Folders ({recents.length})</h2>
+              <h2 className="flex-1 text-lg font-semibold text-[#a6a6a6]">Recent Folders ({recents.length})</h2>
               <button type="button" disabled={selected.size === recents.length} onClick={() => setSelected(new Set(recents))} className="text-xs font-medium text-[#8c8c8c] disabled:text-[#4d4d4d]">
                 Select All
               </button>
