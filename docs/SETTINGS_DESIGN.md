@@ -21,6 +21,8 @@ geometry. All sizes below use rems so the saved interface scale applies.
   descriptions and controls 0.875rem with 1.5 line height. Use the shared
   foreground and muted-foreground tokens rather than opacity.
 - Controls: align switches with the setting title and reserve their width.
+  Panel titles reuse their toolbar icon (left panel, bottom filmstrip, right
+  face panel and info). Icons supplement the label and are hidden from screen readers.
   Text inputs and selects have a 2.5rem minimum height. Radio options wrap as
   complete label/control pairs. Long explanations wrap within the card.
 - Check the rendered result in all themes, on short and narrow windows and at
