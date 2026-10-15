@@ -1,0 +1,9 @@
+# NVIDIA graphics rendering
+
+Independent feature branch: feature/nvidia-gpu-acceleration. Uses the native graphics stack for webview compositing, photo transformations, WebGL and supported 2D canvas rendering. It does not implement CUDA image decoding or change ONNX inference. WebKit still decides which operations are accelerated.
+
+Linux: `npm run dev:desktop:nvidia` requests hardware compositing, enables WebGL and supported accelerated canvas, and removes inherited software/compositing/DMA-BUF-disable overrides before GTK initializes. `npm run dev:desktop:compatibility` retains the DMA-BUF workaround; `npm run dev:desktop:software` explicitly requests a software path for comparison. The ordinary desktop command remains automatic and changes no environment flags. Packaged binaries accept `--graphics=nvidia`, `--graphics=compatibility`, `--graphics=software`, or `OPENCULL_GRAPHICS`. Linux-only code and dependencies leave macOS/Windows native rendering unchanged.
+
+Settings → Storage → Graphics acceleration provides a renderer probe. An NVIDIA WebGL renderer is evidence for that context, not proof that every rendering operation is GPU accelerated. Verify native WebKit process GPU device use and frame timings as well. These profiles do not install drivers or edit system configuration. On hybrid systems, choose the discrete GPU through the system's normal offload launcher.
+
+Reference: https://docs.webkit.org/Ports/WebKitGTK%20and%20WPE%20WebKit/Graphics.html and the WebKitGTK HardwareAccelerationPolicy API. The NVIDIA profile requests Always; it does not claim a specific performance improvement. Compatibility remains available for driver/compositor issues.
