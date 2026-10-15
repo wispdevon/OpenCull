@@ -22,26 +22,28 @@ export async function checkLinuxFeatures(folder: string, scratch: string) {
   assert(document.fonts.check('14px "Space Grotesk"'), "Offline Space Grotesk did not load");
   say("native configuration and offline font loaded");
 
-  const items = await api.ingestSources([folder, folder], false);
+  const sources = Array.isArray(configured.selfTestSources) && configured.selfTestSources.every((p) => typeof p === "string") ? configured.selfTestSources as string[] : [folder];
+  const items = await api.ingestSources([...sources, sources[0]], false);
+  if (sources.length > 1) assert(items.some((p) => p.path !== p.display), "Separate RAW/JPEG cards did not produce paired frames");
   assert(new Set(items.map((p) => p.path)).size === items.length, "Overlapping sources duplicated a file");
   const stills = items.filter((p) => !isVideo(p.path));
   assert(stills.length >= 2, "Feature checks need two still images");
   const before = await api.pathsExist(stills.map((p) => p.path.replace(/\.[^./\\]+$/, ".xmp")));
-  const review = newReview([folder], stills.slice(0, 2));
-  await s().openFolder(folder, review);
+  const review = newReview(sources, stills.slice(0, 2));
+  await s().openFolder(sources[0], review);
   await until(() => s().metaProgress >= 1, "Card metadata did not finish");
   s().setFlag("reject", [0]); s().setRating(4, [1]);
   await saveReview(s().review!);
   const restored = await loadReview();
   assert(restored?.decisions[stills[0].path].flag === "reject", "Local rejection did not persist");
   assert(restored?.decisions[stills[1].path].rating === 4, "Local rating did not persist");
-  const copied = await copyReview([s().photos[1]], scratch, [folder], () => {});
+  const copied = await copyReview([s().photos[1]], scratch, sources, () => {});
   assert(copied.failed.length === 0 && copied.sidecarFailed.length === 0, "Selected card copy failed");
   assert(Object.keys(copied.completed).length === 1, "Import copied the wrong membership");
   const after = await api.pathsExist(stills.map((p) => p.path.replace(/\.[^./\\]+$/, ".xmp")));
   assert(JSON.stringify(before) === JSON.stringify(after), "Review wrote a sidecar onto the source");
   const chosen = { ...s().review!, items: [stills[1]], chosen: [stills[1].path], stage: "in-place" as const };
-  await s().openFolder(folder, chosen);
+  await s().openFolder(sources[0], chosen);
   await until(() => s().metaProgress >= 1, "In-place metadata did not finish");
   assert(s().photos.length === 1 && s().photos[0].rating === 4, "In-place import did not preserve selected membership and marks");
   say("card review, local decisions, selected copying, and in-place membership passed");
@@ -61,7 +63,7 @@ export async function checkLinuxFeatures(folder: string, scratch: string) {
   const video = items.find((p) => p.path.toLowerCase().endsWith(".mp4"));
   if (video) {
     s().set("ignoreVideos", false);
-    await s().openFolder(folder, newReview([folder], [video]));
+    await s().openFolder(sources[0], newReview(sources, [video]));
     await until(() => s().metaProgress >= 1, "Video metadata did not finish");
     const allowed = await invoke<string>("video_source", { path: video.path });
     const player = document.createElement("video");
