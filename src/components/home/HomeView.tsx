@@ -189,7 +189,7 @@ export function HomeView({ dropping }: { dropping: boolean }) {
                 </button>
               )}
             </div>
-            <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-4">
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,420px),1fr))] gap-6">
               {recents.map((path) => (
                 <FolderCard
                   key={path}
@@ -277,13 +277,13 @@ function FolderCard({
             selected ? "border-2 border-[#5999ff]" : "border-[var(--ui-line-383838)] hover:border-[#4d80ff]/60",
           )}
         >
-          <div className="h-[150px]">{missing ? <Placeholder /> : <Cover path={path} />}</div>
-          <div className="px-3.5 py-3">
-            <div className={cn("flex items-center gap-1.5 text-[13px] font-semibold", missing ? "text-[var(--ui-text-999999)]" : "text-foreground")}>
+          <div className="aspect-[16/10]">{missing ? <Placeholder /> : <Cover path={path} />}</div>
+          <div className="p-4">
+            <div className={cn("flex items-center gap-1.5 text-base font-semibold", missing ? "text-[var(--ui-text-999999)]" : "text-foreground")}>
               {missing && <FolderSearch className="size-3 shrink-0 text-[#f2b84d]" />}
               <span className="truncate">{baseName(path)}</span>
             </div>
-            <div className="mt-1 truncate text-[11px] text-[var(--ui-text-737373)]">{missing ? "Not where it was — click to find it" : path}</div>
+            <div className="mt-1.5 truncate text-xs text-[var(--ui-text-737373)]">{missing ? "Not where it was — click to find it" : path}</div>
           </div>
           <button
             type="button"
