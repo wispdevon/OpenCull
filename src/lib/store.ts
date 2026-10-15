@@ -90,6 +90,7 @@ interface State {
   updateFound: UpdateFound | null;
   /** The offer to install it is on screen. */
   updateOpen: boolean;
+  ignoreVideos: boolean;
   /** Move on to the next photo after marking one. Follows Caps Lock. */
   speedCull: boolean;
   /** The same, left on whatever Caps Lock is doing. */
@@ -346,6 +347,7 @@ const PERSISTED = [
   "showFilterBar",
   "filmstripHeight",
   "includeSubfolders",
+  "ignoreVideos",
   "fileKinds",
   "embedInJpeg",
   "askBeforeTrash",
@@ -683,6 +685,7 @@ export const useStore = create<Store>((set, get) => {
     stripResizing: false,
     panelResizing: false,
     includeSubfolders: load("includeSubfolders", false),
+    ignoreVideos: load("ignoreVideos", true),
     fileKinds: load<FileKinds>("fileKinds", "both"),
     // Off by default: rating should not rewrite original files unless asked.
     embedInJpeg: load("embedInJpeg", false),
@@ -777,7 +780,7 @@ export const useStore = create<Store>((set, get) => {
 
       let reply;
       try {
-        reply = await api.openFolder(path, includeSubfolders, fileKinds);
+        reply = await api.openFolder(path, includeSubfolders, fileKinds, get().ignoreVideos);
       } catch (e) {
         set({ session: null, loading: false, openError: String(e) });
         return;

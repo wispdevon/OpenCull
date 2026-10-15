@@ -17,6 +17,7 @@ import { ThumbImage } from "@/components/cull/Thumb";
 import { api, bucket, THUMB_SIZES, type IngestFolder, type IngestPolicy, type IngestProgress, type Volume } from "@/lib/api";
 import { load, save } from "@/lib/prefs";
 import { isMac } from "@/lib/shortcuts";
+import { Switch } from "@/components/ui/switch";
 import { useStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
 import type { Scanned } from "@/lib/types";
@@ -94,6 +95,7 @@ const SELECTED_ROW = "bg-[#4073f2]/45";
  * and the destination opens for culling.
  */
 export function IngestView() {
+  const ignoreVideos = useStore((s) => s.ignoreVideos);
   const startAt = useStore((s) => s.ingestFrom);
   const platform = useStore((s) => s.platform);
 
@@ -158,7 +160,7 @@ export function IngestView() {
     anchor.current = 0;
     setItems([]);
     setPhase({ is: "scanning" });
-    void api.ingestScan(path).then(
+    void api.ingestScan(path, ignoreVideos).then(
       (found) => {
         if (listing.current !== mine) return;
         setItems(found.map((f) => ({ ...f, captureMs: null, rating: 0 })));
@@ -178,7 +180,8 @@ export function IngestView() {
       },
       (e) => listing.current === mine && setPhase({ is: "failed", message: String(e) }),
     );
-  }, []);
+  }, [ignoreVideos]);
+  useEffect(() => { if (source) choose(source); }, [ignoreVideos]);
 
   /** Shows the folders inside `path`, one level further into the browser. */
   const goInto = useCallback((path: string, title: string, known?: IngestFolder[]) => {
@@ -195,7 +198,7 @@ export function IngestView() {
     }
     setChildren([]);
     setBrowsing(true);
-    void api.ingestBrowse(path).then(
+    void api.ingestBrowse(path, ignoreVideos).then(
       (found) => {
         if (browse.current !== mine) return;
         setChildren(found.folders);
@@ -220,7 +223,7 @@ export function IngestView() {
     if (isCameraMedia(folder.name)) return choose(folder.path);
     const mine = ++browse.current;
     setBrowsing(true);
-    void api.ingestBrowse(folder.path).then(
+    void api.ingestBrowse(folder.path, ignoreVideos).then(
       (found) => {
         if (browse.current !== mine) return;
         setBrowsing(false);
@@ -527,6 +530,7 @@ export function IngestView() {
 
         {/* Where to. */}
         <aside className="flex w-[280px] shrink-0 flex-col gap-4 bg-[#131318] p-4">
+          <label className="flex items-center justify-between gap-2 text-xs">Ignore videos<Switch aria-label="Ignore videos on card" checked={ignoreVideos} onCheckedChange={(on) => useStore.getState().set("ignoreVideos", on)} /></label>
           <Label>Destination</Label>
           <button type="button" onClick={() => void chooseDestination()} className="rounded-lg bg-white/[0.09] px-3 py-2.5 text-[11px] font-bold tracking-wide text-white hover:bg-white/[0.13]">
             {destination ? "CHANGE DESTINATION" : "CHOOSE DESTINATION FOLDER"}

@@ -224,7 +224,7 @@ const TIME_BUDGET: Duration = Duration::from_millis(1500);
 /// on screen before either — but the capture times are read here, by the
 /// short route, because the order of the folder depends on them.
 #[tauri::command]
-pub async fn open_folder(app: AppState<'_>, path: String, include_subfolders: bool, kinds: Option<scan::Kinds>) -> Result<FolderReply, String> {
+pub async fn open_folder(app: AppState<'_>, path: String, include_subfolders: bool, kinds: Option<scan::Kinds>, ignore_videos: Option<bool>) -> Result<FolderReply, String> {
     let kinds = kinds.unwrap_or_default();
     let folder = PathBuf::from(&path);
     if !folder.is_dir() {
@@ -234,7 +234,7 @@ pub async fn open_folder(app: AppState<'_>, path: String, include_subfolders: bo
     let scanned_folder = folder.clone();
     let (result, read) = tauri::async_runtime::spawn_blocking(move || {
         let folder = scanned_folder;
-        let result = scan::scan_folder_of(&folder, include_subfolders, kinds);
+        let result = scan::scan_folder_media(&folder, include_subfolders, kinds, !ignore_videos.unwrap_or(true));
         let known = shared.times.load(&folder);
         let deadline = Instant::now() + TIME_BUDGET;
 
@@ -246,7 +246,7 @@ pub async fn open_folder(app: AppState<'_>, path: String, include_subfolders: bo
                 .par_iter()
                 .map(|image| {
                     times::remembered(&known, image)
-                        .or_else(|| (Instant::now() < deadline).then(|| raw::capture_time(&image.path)))
+                        .or_else(|| (Instant::now() < deadline).then(|| if scan::is_video(&raw::extension(&image.path)) { None } else { raw::capture_time(&image.path) }))
                 })
                 .collect()
         });
@@ -309,6 +309,9 @@ pub enum MetaEvent {
 }
 
 fn read_meta(index: usize, image: &Scanned) -> Meta {
+    if scan::is_video(&raw::extension(&image.path)) {
+        return Meta { index, marks: xmp::read(&image.path, None), exif: Exif::default(), full_width: 0, full_height: 0, framing: framing::Framing::default(), framable: false };
+    }
     let owner = raw::probe(&image.path).ok();
     let sidecar = xmp::sidecar_text(&image.path);
     let marks = xmp::read_from(sidecar.as_deref(), owner.as_ref());
@@ -848,10 +851,10 @@ pub struct Browsed {
 
 /// What is inside a folder on a card or drive, for the source browser.
 #[tauri::command]
-pub async fn ingest_browse(path: String) -> Result<Browsed, String> {
+pub async fn ingest_browse(path: String, ignore_videos: Option<bool>) -> Result<Browsed, String> {
     tauri::async_runtime::spawn_blocking(move || {
         let path = Path::new(&path);
-        Browsed { folders: ingest::photo_folders(path), image_count: ingest::shallow_count(path) }
+        Browsed { folders: ingest::photo_folders_media(path, !ignore_videos.unwrap_or(true)), image_count: ingest::shallow_count_media(path, !ignore_videos.unwrap_or(true)) }
     })
     .await
     .map_err(|e| e.to_string())
@@ -859,8 +862,8 @@ pub async fn ingest_browse(path: String) -> Result<Browsed, String> {
 
 /// The photos a folder on a card has to offer.
 #[tauri::command]
-pub async fn ingest_scan(path: String) -> Result<Vec<Scanned>, String> {
-    tauri::async_runtime::spawn_blocking(move || ingest::scan(Path::new(&path))).await.map_err(|e| e.to_string())
+pub async fn ingest_scan(path: String, ignore_videos: Option<bool>) -> Result<Vec<Scanned>, String> {
+    tauri::async_runtime::spawn_blocking(move || ingest::scan_media(Path::new(&path), !ignore_videos.unwrap_or(true))).await.map_err(|e| e.to_string())
 }
 
 #[derive(Serialize, Clone)]
@@ -1092,4 +1095,16 @@ pub async fn set_cache_limit(app: AppState<'_>, limit: u64) -> Result<(), String
 pub async fn trim_cache(app: AppState<'_>, limit: u64) -> Result<u64, String> {
     let cache = app.previews.cache.clone();
     tauri::async_runtime::spawn_blocking(move || cache.trim(limit)).await.map_err(|e| e.to_string())
+}
+
+/// Grant only the requested video already belonging to an open session.
+#[tauri::command]
+pub fn video_source(handle: tauri::AppHandle, app: AppState, path: String) -> Result<String, String> {
+    use tauri::Manager;
+    let requested = PathBuf::from(path).canonicalize().map_err(|e| e.to_string())?;
+    if !scan::is_video(&raw::extension(&requested)) { return Err("Not a supported video container".into()); }
+    let sessions = app.sessions.lock().map_err(|e| e.to_string())?;
+    if !sessions.values().any(|s| s.images.iter().any(|p| p.path.canonicalize().ok().as_ref() == Some(&requested))) { return Err("Video is not in the selected session".into()); }
+    handle.asset_protocol_scope().allow_file(&requested).map_err(|e| e.to_string())?;
+    Ok(requested.to_string_lossy().into_owned())
 }

@@ -138,6 +138,7 @@ pub fn run() {
             }
         })
         .invoke_handler(tauri::generate_handler![
+            commands::video_source,
             commands::app_info,
             commands::report,
             commands::finish_self_test,
