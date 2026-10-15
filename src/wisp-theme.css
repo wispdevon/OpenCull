@@ -1,0 +1,110 @@
+/* Wisp: readable work surfaces; neutral photo pixels and unmistakable controls. */
+:root[data-visual-theme="wisp"] {
+  color-scheme: dark;
+  --background: #111827; --foreground: #f3f6ff;
+  --card: #1d293d; --card-foreground: #f3f6ff;
+  --popover: #162033; --popover-foreground: #f3f6ff;
+  --primary: #b7a6ff; --primary-foreground: #21173e;
+  --secondary: #2b3b55; --secondary-foreground: #f3f6ff;
+  --muted: #26364b; --muted-foreground: #bac8df;
+  --accent: #354866; --accent-foreground: #fff;
+  --border: #71839f; --input: #8c9db8; --ring: #c8bbff;
+  --destructive: #ffb0b9;
+  --home-from: #111827; --home-to: #111827;
+  --opencull-toolbar: #162033; --opencull-panel: #1d293d;
+  --opencull-strip: #162033; --opencull-cell: #26364b;
+  --opencull-accent: #b7a6ff; --opencull-select: #b7a6ff;
+  --ui-text-4d4d4d: #a4b4cf; --ui-text-666666: #bac8df;
+  --ui-text-737373: #bac8df; --ui-text-808080: #bac8df;
+  --ui-text-8c8c8c: #bac8df; --ui-text-999999: #c3cde0;
+  --ui-text-a6a6a6: #c3cde0; --ui-text-b3b3b3: #d4dcef;
+  --ui-text-bdbdbd: #d4dcef; --ui-text-bfbfbf: #d4dcef;
+  --ui-text-cccccc: #e5ebf7; --ui-text-d9d9d9: #f3f6ff; --ui-text-e6e6e6: #f3f6ff;
+  --ui-line-2e2e2e: #71839f; --ui-line-333333: #71839f; --ui-line-383838: #71839f;
+  --ui-line-3a3a44: #8c9db8; --ui-line-595959: #8c9db8; --ui-line-8c8c8c: #8c9db8;
+  --ui-surface-101014: #111827; --ui-surface-131318: #111827; --ui-surface-141414: #111827;
+  --ui-surface-14141a: #111827; --ui-surface-17171c: #162033; --ui-surface-1a1a21: #162033;
+  --ui-surface-1f1f1f: #1d293d; --ui-surface-262626: #26364b; --ui-surface-28282e: #26364b;
+  --ui-surface-292929: #2b3b55; --ui-surface-2a2a30: #2b3b55; --ui-surface-2e2e2e: #2b3b55;
+  --ui-surface-333333: #354866; --ui-surface-383838: #354866; --ui-surface-404040: #455b7a;
+  --ui-surface-4d4d4d: #455b7a; --ui-surface-595959: #566c8b; --ui-surface-666666: #566c8b;
+}
+/* Keep the photographic surround neutral in every preset. */
+:root[data-visual-theme="wisp"] { --opencull-canvas: #111; }
+:root[data-visual-theme="wisp"][data-theme="grey"] { --opencull-canvas: #767676; }
+:root[data-visual-theme="wisp"][data-theme="light"] {
+  color-scheme: light;
+  --background: #f3f4fa; --foreground: #1c2440;
+  --card: #fff; --card-foreground: #1c2440;
+  --popover: #f3f4fa; --popover-foreground: #1c2440;
+  --primary: #6445a8; --primary-foreground: #fff;
+  --secondary: #e3e8f5; --secondary-foreground: #1c2440;
+  --muted: #e3e8f5; --muted-foreground: #455674;
+  --accent: #d7dcef; --accent-foreground: #1c2440;
+  --border: #64728a; --input: #64728a; --ring: #6445a8; --destructive: #a61d38;
+  --home-from: #f3f4fa; --home-to: #f3f4fa;
+  --opencull-toolbar: #e3e8f5; --opencull-panel: #fff; --opencull-strip: #e3e8f5; --opencull-cell: #d7dcef;
+  --opencull-canvas: #e8e8e8;
+}
+:root[data-visual-theme="wisp"] .setting-row {
+  padding: 16px; gap: 24px; border: 1px solid var(--border); border-radius: 8px;
+  background: var(--card); color: var(--foreground);
+}
+:root[data-visual-theme="wisp"] .setting-title { font-size: 0.875rem; line-height: 1.4; font-weight: 600; color: var(--foreground); }
+:root[data-visual-theme="wisp"] .setting-detail { margin-top: 6px; font-size: 0.8125rem; line-height: 1.6; color: var(--muted-foreground); }
+:root[data-visual-theme="wisp"] fieldset { padding: 16px; border-color: var(--border); background: var(--card); color: var(--foreground); }
+:root[data-visual-theme="wisp"] [data-slot="tabs-list"] { gap: 4px; padding: 6px; background: var(--background); border: 1px solid var(--border); }
+:root[data-visual-theme="wisp"] [role="tab"] { min-height: 40px; border: 1px solid transparent; color: var(--muted-foreground); }
+:root[data-visual-theme="wisp"] [role="tab"][data-state="active"] { background: var(--secondary); color: var(--foreground); border-color: var(--ring); font-weight: 600; }
+:root[data-visual-theme="wisp"] :is(button,input,select,textarea,a):focus-visible { outline: 2px solid var(--ring); outline-offset: 3px; }
+:root[data-visual-theme="wisp"] :is(select,input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),textarea) { border: 1px solid var(--input); color: var(--foreground); background: var(--background); }
+:root[data-visual-theme="wisp"] [role="switch"] { border: 1px solid var(--input); background: var(--secondary); }
+:root[data-visual-theme="wisp"] [role="switch"][data-state="checked"] { background: var(--primary); }
+:root[data-visual-theme="wisp"] [data-slot="switch-thumb"] { background: var(--foreground); }
+:root[data-visual-theme="wisp"] [role="switch"][data-state="checked"] [data-slot="switch-thumb"] { background: var(--primary-foreground); }
+:root[data-visual-theme="wisp"] :is(input[type="checkbox"],input[type="radio"],input[type="range"]) { accent-color: var(--primary); }
+:root[data-visual-theme="wisp"] .home-open { background: var(--primary); color: var(--primary-foreground); box-shadow: none; }
+@media (forced-colors: active) {
+  :root[data-visual-theme="wisp"] :is(.setting-row,fieldset,[data-slot="tabs-list"]) { border-color: CanvasText; background: Canvas; color: CanvasText; }
+  :root[data-visual-theme="wisp"] [role="tab"][data-state="active"] { outline: 2px solid Highlight; }
+}
+
+:root[data-visual-theme="wisp"][data-theme="light"] {
+  --ui-text-4d4d4d: var(--muted-foreground);
+  --ui-text-666666: var(--muted-foreground);
+  --ui-text-737373: var(--muted-foreground);
+  --ui-text-808080: var(--muted-foreground);
+  --ui-text-8c8c8c: var(--muted-foreground);
+  --ui-text-999999: var(--muted-foreground);
+  --ui-text-a6a6a6: var(--muted-foreground);
+  --ui-text-b3b3b3: var(--foreground);
+  --ui-text-bdbdbd: var(--foreground);
+  --ui-text-bfbfbf: var(--foreground);
+  --ui-text-cccccc: var(--foreground);
+  --ui-text-d9d9d9: var(--foreground);
+  --ui-text-e6e6e6: var(--foreground);
+  --ui-line-2e2e2e: var(--border);
+  --ui-line-333333: var(--border);
+  --ui-line-383838: var(--border);
+  --ui-line-3a3a44: var(--border);
+  --ui-line-595959: var(--border);
+  --ui-line-8c8c8c: var(--border);
+  --ui-surface-101014: var(--secondary);
+  --ui-surface-131318: var(--secondary);
+  --ui-surface-141414: var(--secondary);
+  --ui-surface-14141a: var(--secondary);
+  --ui-surface-17171c: var(--secondary);
+  --ui-surface-1a1a21: var(--secondary);
+  --ui-surface-1f1f1f: var(--secondary);
+  --ui-surface-262626: var(--secondary);
+  --ui-surface-28282e: var(--secondary);
+  --ui-surface-292929: var(--secondary);
+  --ui-surface-2a2a30: var(--secondary);
+  --ui-surface-2e2e2e: var(--secondary);
+  --ui-surface-333333: var(--secondary);
+  --ui-surface-383838: var(--secondary);
+  --ui-surface-404040: var(--secondary);
+  --ui-surface-4d4d4d: var(--secondary);
+  --ui-surface-595959: var(--secondary);
+  --ui-surface-666666: var(--secondary);
+}

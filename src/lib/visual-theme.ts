@@ -1,7 +1,7 @@
-export type VisualTheme = "default" | "rapidraw";
+export type VisualTheme = "default" | "rapidraw" | "wisp";
 
 export function validVisualTheme(value: unknown): VisualTheme {
-  return value === "rapidraw" ? value : "default";
+  return value === "rapidraw" || value === "wisp" ? value : "default";
 }
 
 /** A preset supplies typography without overwriting the user's interface font. */
