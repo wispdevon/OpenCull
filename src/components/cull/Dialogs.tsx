@@ -1,3 +1,4 @@
+import { InterfaceScaleSettings } from "@/components/InterfaceScaleSettings";
 import { useEffect, useRef, useState } from "react";
 import { HardDrive, Keyboard, ScanFace, Star, ZoomIn, type LucideIcon } from "lucide-react";
 
@@ -169,7 +170,7 @@ export function SettingsDialog() {
   return (
     <Dialog open={open} onOpenChange={(o) => useStore.getState().set("settingsOpen", o)}>
       <DialogContent
-        className="sm:max-w-[600px]"
+        className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-[600px]"
         // Opens with nothing picked out: a ring round the first tab reads
         // as something being wrong with it.
         onOpenAutoFocus={(e) => {
@@ -268,7 +269,7 @@ function SettingsBody({ tab, onTab }: { tab: SettingsTab; onTab: (tab: SettingsT
 
   return (
     <Tabs value={tab} onValueChange={(to) => onTab(to as SettingsTab)}>
-      <TabsList>
+      <TabsList className="flex-wrap">
         {SETTINGS_TABS.map(([value, label, Icon]) => (
           <TabsTrigger key={value} value={value}>
             <Icon />
@@ -278,8 +279,9 @@ function SettingsBody({ tab, onTab }: { tab: SettingsTab; onTab: (tab: SettingsT
       </TabsList>
       {/* One height for every tab, so the window does not jump about as
           they are stepped through; a tab with more than fits scrolls. */}
-      <div className="h-[430px] overflow-x-hidden overflow-y-auto pr-1">
+      <div className="h-[min(430px,calc(100dvh-12rem))] min-h-24 overflow-x-hidden overflow-y-auto pr-1">
         <TabsContent value="culling" className="space-y-4">
+          <InterfaceScaleSettings />
           <Setting
             title="Speed cull"
             detail="Moves straight on to the next photo after you pick, reject or rate one. Its key — Caps Lock unless you change it — also turns it on, whatever is set here."
