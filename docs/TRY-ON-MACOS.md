@@ -26,8 +26,8 @@ macOS automatically uses the Homebrew libjpeg-turbo configuration. Do not set Li
 ## Things to try
 
 - Ingest from Card: navigate to a DCIM subfolder, add multiple cards to one review session, cull before copying, and resume through Recent Sessions.
-- Settings → Culling: choose Wisp, OpenCull or RapidRAW inspired design; choose colour mode and font. Wisp separates setting rows and active controls with stronger contrast.
-- Settings → Layout: interface scale (80–200%), default/remembered view, stack filmstrip placement. Drag each strip's top edge to resize; F hides both stack strips. Resize edges support arrow keys as well.
+- Settings → Design: choose Wisp, OpenCull or RapidRAW inspired design; choose colour mode, font and interface scale (80–200%). Wisp separates setting rows and active controls with stronger contrast.
+- Settings → Layout: default/remembered view, stack filmstrip placement. Drag each strip's top edge to resize; F hides both stack strips. Resize edges support arrow keys as well.
 - Settings → Culling → Experimental Features: native-aspect strips, including the stack overview; decoded JPEG dimensions allow early sizing before complete metadata.
 - Settings → Zoom → Experimental Features: eased click zoom. This affects motion curves, not the speed of CPU image decoding.
 - Select one recent item to reveal bulk controls. Deleting a session removes saved review history, never source photos.

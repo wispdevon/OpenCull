@@ -131,6 +131,37 @@
   font-style: normal;
   font-display: swap;
 }
+
+/* Settings use reading sizes, rather than the compact photo-overlay type scale.
+   Keep native font rasterization: forced grayscale smoothing can thin small type. */
+.settings-panel.settings-panel { font-size: 0.875rem; line-height: 1.5; }
+.settings-panel.settings-panel fieldset { padding: 1rem; }
+.settings-panel.settings-panel legend {
+  font-size: 1rem;
+  line-height: 1.5;
+  font-weight: 600;
+}
+.settings-panel.settings-panel :is(fieldset label, .setting-title) {
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  font-weight: 500;
+}
+.settings-panel.settings-panel fieldset label { flex-wrap: wrap; }
+.settings-panel.settings-panel :is(fieldset p, .setting-detail, fieldset label > span > span) {
+  font-size: 0.875rem;
+  line-height: 1.5;
+  font-weight: 400;
+  overflow-wrap: anywhere;
+}
+.settings-panel.settings-panel :is(select, input[type="text"], input:not([type]), button) {
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+.settings-panel.settings-panel :is(select, input[type="text"], input:not([type])) {
+  min-height: 2.5rem;
+  max-width: 100%;
+  min-width: 0;
+}
 /* Neutral interface roles, keeping the original dark values. */
 :root {
   --ui-line-2e2e2e: #2e2e2e;

@@ -81,8 +81,8 @@ larger UI headings, XDG configuration, remembered/default view modes, Wisp contr
 saved interface scaling, recent session deletion, resizable stack strips,
 experimental native-aspect strips and eased zoom, optional NVIDIA rendering profiles,
 and an opt-in Linux CUDA AI trial.
-Optional preferences are selectable in Settings; the RapidRAW design is under
-**Culling → Design theme**, and view/panel controls are under **Layout**.
+Optional preferences are selectable in Settings; themes, colour mode, font and interface scale are under
+**Design**; view/panel controls remain under **Layout**.
 Linux settings are created in `$XDG_CONFIG_HOME/opencull/config.json`, normally
 `~/.config/opencull/config.json`. No personal configuration file is required.
 macOS and Windows use Tauri's native application-config directory instead.
