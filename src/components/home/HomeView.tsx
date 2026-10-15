@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Circle, CircleCheck, FolderPlus, FolderSearch, Images, Keyboard, Settings, Trash2, X } from "lucide-react";
 
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from "@/components/ui/context-menu";
+import { useDesignTheme } from "@/components/VisualThemeSettings";
 import { CardIcon } from "@/components/ingest/IngestView";
 import { api, type Volume } from "@/lib/api";
 import { useStore } from "@/lib/store";
@@ -26,6 +27,7 @@ async function chooseFolder() {
 
 /** Where the app opens: the folders worked on lately, and a way to open another. */
 export function HomeView({ dropping }: { dropping: boolean }) {
+  const designTheme = useDesignTheme();
   const recents = useStore((s) => s.recents);
   const platform = useStore((s) => s.platform);
   const openError = useStore((s) => s.openError);
@@ -94,11 +96,14 @@ export function HomeView({ dropping }: { dropping: boolean }) {
   };
 
   return (
-    <div className="relative flex size-full flex-col bg-gradient-to-br from-[#12121a] to-[#1a1a26]">
-      <header data-tauri-drag-region className={cn("flex shrink-0 items-center px-10 pb-6 pt-7", platform === "macos" && "pl-[78px]")}>
-        <div data-tauri-drag-region className="flex-1">
+    <div className="home-view relative flex size-full flex-col bg-gradient-to-br from-[#12121a] to-[#1a1a26]">
+      {designTheme === "rapidraw" && <WelcomeArtwork path={recents.find((path) => !missing.has(path))} />}
+      <div className="home-content flex min-h-0 flex-1 flex-col">
+      <header data-tauri-drag-region className={cn("home-header flex shrink-0 items-center px-10 pb-6 pt-7", platform === "macos" && "pl-[78px]")}>
+        <div data-tauri-drag-region className="home-heading flex-1">
           <h1 className="bg-gradient-to-r from-white to-[#bfbfbf] bg-clip-text text-[28px] font-bold leading-tight tracking-tight text-transparent">OpenCull</h1>
           <p className="mt-1 text-[13px] text-[#808080]">Culling Software made for Photographers</p>
+          <p className="rapidraw-intro">{recents.length ? "Welcome back. Continue a session or bring in your next shoot." : "Your next great photograph starts with a closer look."}</p>
         </div>
         <button type="button" title="Keyboard Shortcuts" aria-label="Keyboard Shortcuts" onClick={() => useStore.getState().set("shortcutsOpen", true)} className="mr-1 rounded-lg p-2.5 text-[#8c8c8c] hover:bg-white/[0.07] hover:text-white">
           <Keyboard className="size-[18px]" />
@@ -109,14 +114,14 @@ export function HomeView({ dropping }: { dropping: boolean }) {
         <button
           type="button"
           onClick={() => useStore.setState({ ingestOpen: true, ingestFrom: null })}
-          className="mr-3 flex items-center gap-2 rounded-[10px] bg-[#2e2e2e] px-4 py-2.5 text-[13px] font-semibold text-white hover:bg-[#383838]"
+          className="home-ingest mr-3 flex items-center gap-2 rounded-[10px] bg-[#2e2e2e] px-4 py-2.5 text-[13px] font-semibold text-white hover:bg-[#383838]"
         >
           <CardIcon className="size-4 text-white" /> Ingest from Card
         </button>
         <button
           type="button"
           onClick={() => void chooseFolder()}
-          className={cn("flex items-center gap-2 rounded-[10px] px-[18px] py-2.5 text-[13px] font-semibold text-white shadow-[0_4px_8px_rgba(77,128,255,.4)]", GRADIENT)}
+          className={cn("home-open flex items-center gap-2 rounded-[10px] px-[18px] py-2.5 text-[13px] font-semibold text-white shadow-[0_4px_8px_rgba(77,128,255,.4)]", GRADIENT)}
         >
           <FolderPlus className="size-4" /> Open Folder
         </button>
@@ -144,9 +149,9 @@ export function HomeView({ dropping }: { dropping: boolean }) {
 
       {openError && <div className="mx-10 mb-4 rounded-lg bg-[#e64d4d]/15 px-4 py-2.5 text-[13px] text-[#f29999]">Could not open that folder: {openError}</div>}
 
-      <main className="flex-1 overflow-y-auto p-10 pt-4">
+      <main className="home-recents flex-1 overflow-y-auto p-10 pt-4">
         {recents.length === 0 ? (
-          <div className="flex flex-col items-center gap-5 pt-16 text-center">
+          <div className="home-empty flex flex-col items-center gap-5 pt-16 text-center">
             <Images className="size-16 text-[#5970ff]" strokeWidth={1.25} />
             <div className="text-xl font-semibold text-white">Open a folder to start culling</div>
             <p className="max-w-sm text-sm text-[#808080]">Choose a folder of photos, or drop one anywhere on this window. RAW files open straight from the previews your camera already made.</p>
@@ -192,6 +197,8 @@ export function HomeView({ dropping }: { dropping: boolean }) {
           </>
         )}
       </main>
+      <footer className="rapidraw-footer">Local photos. A clear view. Your best frames.</footer>
+      </div>
 
       {dropping && (
         <div className="pointer-events-none absolute inset-3 flex items-center justify-center rounded-2xl border-2 border-dashed border-brand bg-brand/10 text-lg font-semibold text-white">
@@ -200,6 +207,26 @@ export function HomeView({ dropping }: { dropping: boolean }) {
       )}
     </div>
   );
+}
+
+/** Uses only local session previews; original artwork fills the first-run state. */
+function WelcomeArtwork({ path }: { path?: string }) {
+  const [image, setImage] = useState<Scanned | null>(null);
+  useEffect(() => {
+    let stale = false;
+    setImage(null);
+    if (path) void api.folderCover(path).then(
+      (images) => { if (!stale) setImage(images[0] ?? null); },
+      () => {},
+    );
+    return () => { stale = true; };
+  }, [path]);
+  return <aside className="rapidraw-artwork" aria-label="Welcome artwork">
+    <img src={image ? api.url("thumb", image, 1600) : "/theme-landscape.svg"}
+      onError={() => { if (image) setImage(null); }}
+      alt={image ? "A photograph from your recent folder" : "Illustrated mountain ridges at dusk"} />
+    <span>{image ? "From your recent photographs" : "A little perspective"}</span>
+  </aside>;
 }
 
 function FolderCard({

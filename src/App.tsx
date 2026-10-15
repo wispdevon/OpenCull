@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useAppVisualTheme } from "@/components/VisualThemeSettings";
 
 import { CullingView } from "@/components/cull/CullingView";
 import { NoticeDialog, SettingsDialog, ShortcutsDialog, TrashDialog } from "@/components/cull/Dialogs";
@@ -12,6 +13,7 @@ import { installShortcuts, loadBindings, saveBindings, type Action, type Combo }
 import { useStore } from "@/lib/store";
 
 export default function App() {
+  useAppVisualTheme();
   const open = useStore((s) => s.session !== null);
   const ingesting = useStore((s) => s.ingestOpen);
   const [bindings, setBindings] = useState(loadBindings);
