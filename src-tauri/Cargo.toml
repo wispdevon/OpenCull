@@ -59,6 +59,9 @@ ndarray = "0.17.2"
 tauri-plugin-updater = "2"
 
 
+[target.'cfg(target_os = "linux")'.dependencies]
+webkit2gtk = { version = "2.0.2", features = ["v2_34"] }
+
 [dev-dependencies]
 # Only for `examples/bench.rs`, which measures it against the decoder the app
 # ships with. Kept so the comparison can be re-run rather than taken on trust.
