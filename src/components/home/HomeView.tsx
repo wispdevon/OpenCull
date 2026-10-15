@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import type { Scanned } from "@/lib/types";
 
 const GRADIENT = "bg-gradient-to-r from-[#4d80ff] to-[#804dff]";
+const HOME_ACTION = "inline-flex h-10 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-lg px-4 py-0 text-[13px] font-medium leading-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background";
 
 function baseName(path: string): string {
   const parts = path.split(/[\\/]/).filter(Boolean);
@@ -96,32 +97,38 @@ export function HomeView({ dropping }: { dropping: boolean }) {
 
   return (
     <div className="relative flex size-full flex-col bg-gradient-to-br from-[#12121a] to-[#1a1a26]">
-      <header data-tauri-drag-region className={cn("flex shrink-0 items-center px-10 pb-6 pt-7", platform === "macos" && "pl-[78px]")}>
-        <div data-tauri-drag-region className="flex-1">
+      <header data-tauri-drag-region className={cn("flex shrink-0 flex-wrap items-center gap-6 px-8 py-6", platform === "macos" && "pl-[78px]")}>
+        <div data-tauri-drag-region className="min-w-[220px] flex-1">
           <h1 className="bg-gradient-to-r from-white to-[#bfbfbf] bg-clip-text text-[32px] font-bold leading-tight tracking-tight text-transparent">OpenCull</h1>
           <p className="mt-1 text-[13px] text-[#808080]">Culling Software made for Photographers</p>
         </div>
-        <button type="button" title="Keyboard Shortcuts" aria-label="Keyboard Shortcuts" onClick={() => useStore.getState().set("shortcutsOpen", true)} className="mr-1 rounded-lg p-2.5 text-[#8c8c8c] hover:bg-white/[0.07] hover:text-white">
+        <div className="home-controls flex max-w-full flex-wrap items-center justify-end gap-4">
+        <div role="group" aria-label="Utility actions" className="home-utilities flex items-center gap-2">
+        <button type="button" title="Keyboard Shortcuts" aria-label="Keyboard Shortcuts" onClick={() => useStore.getState().set("shortcutsOpen", true)} className="flex size-10 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
           <Keyboard className="size-[18px]" />
         </button>
-        <button type="button" title="Settings" aria-label="Settings" onClick={() => useStore.getState().set("settingsOpen", true)} className="mr-3 rounded-lg p-2.5 text-[#8c8c8c] hover:bg-white/[0.07] hover:text-white">
+        <button type="button" title="Settings" aria-label="Settings" onClick={() => useStore.getState().set("settingsOpen", true)} className="flex size-10 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
           <Settings className="size-[18px]" />
         </button>
+        </div>
+        <div role="group" aria-label="Session actions" className="home-actions flex flex-wrap items-center gap-3">
         <button
           type="button"
           onClick={() => useStore.setState({ ingestOpen: true, ingestFrom: null })}
-          className="mr-3 flex items-center gap-2 rounded-[10px] bg-[#2e2e2e] px-4 py-2.5 text-[13px] font-semibold text-white hover:bg-[#383838]"
+          className={cn("home-ingest border border-border bg-secondary text-secondary-foreground hover:bg-accent", HOME_ACTION)}
         >
-          <CardIcon className="size-4 text-white" /> Ingest from Card
+          <CardIcon className="size-4 text-current" /> Ingest from Card
         </button>
-        <ResumeCardSession />
+        <ResumeCardSession className={cn(HOME_ACTION, "border-border bg-secondary text-secondary-foreground shadow-none hover:bg-accent")} />
         <button
           type="button"
           onClick={() => void chooseFolder()}
-          className={cn("flex items-center gap-2 rounded-[10px] px-[18px] py-2.5 text-[13px] font-semibold text-white shadow-[0_4px_8px_rgba(77,128,255,.4)]", GRADIENT)}
+          className={cn("home-open bg-brand text-white hover:brightness-110", HOME_ACTION)}
         >
           <FolderPlus className="size-4" /> Open Folder
         </button>
+        </div>
+        </div>
       </header>
 
       {arrived && (
