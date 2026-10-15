@@ -46,3 +46,37 @@ export function save(key: string, value: unknown): void {
     writes = writes.catch(() => {}).then(() => invoke<void>("config_set", { key, value })).catch(report);
   }
 }
+
+export function snapshotPreferences(): Record<string, unknown> {
+  const values: Record<string, unknown> = {};
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (!key?.startsWith(PREFIX)) continue;
+    try { values[key.slice(PREFIX.length)] = JSON.parse(localStorage.getItem(key)!); } catch { /* Ignore corrupt legacy entries. */ }
+  }
+  return { ...values, ...nativeValues };
+}
+
+/** Native imports are one atomic file update, before refreshing the local cache. */
+export async function applyPreferences(values: Record<string, unknown>): Promise<void> {
+  await writes;
+  if (nativeValues) {
+    await invoke("config_set_many", { values });
+    Object.assign(nativeValues, values);
+    for (const [key, value] of Object.entries(values)) {
+      try { localStorage.setItem(PREFIX + key, JSON.stringify(value)); } catch (error) { report(error); }
+    }
+    return;
+  }
+  if ("__TAURI_INTERNALS__" in window) throw new Error("Repair the native settings file before importing preferences.");
+  const before = Object.fromEntries(Object.keys(values).map((key) => [key, localStorage.getItem(PREFIX + key)]));
+  try {
+    for (const [key, value] of Object.entries(values)) localStorage.setItem(PREFIX + key, JSON.stringify(value));
+  } catch (error) {
+    for (const [key, value] of Object.entries(before)) {
+      if (value === null) localStorage.removeItem(PREFIX + key);
+      else localStorage.setItem(PREFIX + key, value);
+    }
+    throw error;
+  }
+}

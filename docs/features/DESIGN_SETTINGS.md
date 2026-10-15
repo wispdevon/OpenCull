@@ -1,7 +1,8 @@
 # Design settings
 
-The combined app groups Design theme, Appearance, Interface font and Interface
-scale under Settings → Design. Layout retains view modes, panels and filmstrip
+The combined app groups Appearance, Interface font and Interface scale under
+Settings → Design. Interface design (OpenCull, RapidRAW, Wisp) is selected from
+Settings → Design. Layout retains view modes, panels and filmstrip
 arrangement. Preference keys, defaults and live application are unchanged.
 
 `feature/settings-design-tab` is based on `dev` because these controls originate

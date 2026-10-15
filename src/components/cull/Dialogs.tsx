@@ -1,9 +1,11 @@
 import { ExperimentalFilmstripSettings } from "./ExperimentalFilmstripSettings";
 import { ExperimentalZoomSettings } from "./ExperimentalZoomSettings";
+import { HomeLayoutSettings } from "@/components/HomeLayoutSettings";
+import { SettingsTransfer } from "@/components/SettingsTransfer";
 import { InterfaceScaleSettings } from "@/components/InterfaceScaleSettings";
 import { GraphicsSettings } from "@/components/GraphicsSettings";
 import { useEffect, useRef, useState } from "react";
-import { HardDrive, Palette, PanelsTopLeft, Keyboard, ScanFace, Star, ZoomIn, type LucideIcon } from "lucide-react";
+import { ChartColumn, Funnel, HardDrive, Info, Palette, PanelBottom, PanelLeft, PanelRight, PanelsTopLeft, Keyboard, ScanFace, Star, ZoomIn, type LucideIcon } from "lucide-react";
 
 import {
   AlertDialog,
@@ -18,7 +20,6 @@ import {
 import { FontSettings } from "@/components/FontSettings";
 import { ThemeSettings } from "@/components/ThemeSettings";
 import { Button } from "@/components/ui/button";
-import { VisualThemeSettings } from "@/components/VisualThemeSettings";
 import { ViewModeSettings } from "@/components/ViewModeSettings";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
@@ -289,7 +290,7 @@ function SettingsBody({ tab, onTab, ...shortcutProps }: { tab: SettingsTab; onTa
           they are stepped through; a tab with more than fits scrolls. */}
       <div className="h-[min(560px,calc(100dvh-12rem))] min-h-0 overflow-x-hidden overflow-y-auto pr-1">
         <TabsContent value="design" className="flex flex-col gap-4">
-          <VisualThemeSettings />
+          <HomeLayoutSettings />
           <ThemeSettings />
           <FontSettings />
           <InterfaceScaleSettings />
@@ -297,12 +298,12 @@ function SettingsBody({ tab, onTab, ...shortcutProps }: { tab: SettingsTab; onTa
         <TabsContent value="layout" className="flex flex-col gap-4">
           <ViewModeSettings />
           {([
-            ["showFilmstrip", "Filmstrip"], ["showFaces", "Face panel"],
-            ["showExif", "EXIF panel"], ["showHistogram", "Histogram in EXIF panel"],
-            ["showInfo", "Information overlay"], ["showRatingBar", "Rating bar"],
-            ["showFilterBar", "Filter bar"],
-          ] as const).map(([key, title]) => (
-            <Setting key={key} title={title} detail="Also follows the existing toolbar and keyboard controls."
+            ["showFilmstrip", "Filmstrip", PanelBottom], ["showFaces", "Face panel", PanelRight],
+            ["showExif", "EXIF panel", PanelLeft], ["showHistogram", "Histogram in EXIF panel", ChartColumn],
+            ["showInfo", "Information overlay", Info], ["showRatingBar", "Rating bar", Star],
+            ["showFilterBar", "Filter bar", Funnel],
+          ] as const).map(([key, title, Icon]) => (
+            <Setting key={key} title={title} icon={<Icon aria-hidden="true" className="size-4 shrink-0 text-foreground" />} detail="Also follows the existing toolbar and keyboard controls."
               control={<Switch aria-label={title} checked={s[key]} onCheckedChange={(on) => set(key, on)} />} />
           ))}
           {([
@@ -466,6 +467,7 @@ function SettingsBody({ tab, onTab, ...shortcutProps }: { tab: SettingsTab; onTa
           />
         </TabsContent>
         <TabsContent value="storage" className="space-y-4">
+          <SettingsTransfer />
           <GraphicsSettings />
           <Setting
             title="Prepare previews ahead"
@@ -515,6 +517,7 @@ function SettingsBody({ tab, onTab, ...shortcutProps }: { tab: SettingsTab; onTa
           />
         </TabsContent>
         <TabsContent value="keyboard" className="space-y-4">
+          <Button variant="outline" onClick={() => useStore.setState({ settingsOpen: false, overviewOpen: true })}>Quick overview</Button>
           <ShortcutEditor {...shortcutProps} />
         </TabsContent>
       </div>
@@ -522,11 +525,11 @@ function SettingsBody({ tab, onTab, ...shortcutProps }: { tab: SettingsTab; onTa
   );
 }
 
-function Setting({ title, detail, control }: { title: string; detail: string; control: React.ReactNode }) {
+function Setting({ title, detail, control, icon }: { title: string; detail: string; control: React.ReactNode; icon?: React.ReactNode }) {
   return (
     <div className="setting-row flex items-start justify-between gap-6">
       <div>
-        <div className="setting-title text-[13px] font-medium text-foreground">{title}</div>
+        <div className="setting-title flex items-center gap-2 text-[13px] font-medium text-foreground">{icon}{title}</div>
         <div className="setting-detail mt-0.5 text-xs leading-relaxed text-[var(--ui-text-8c8c8c)]">{detail}</div>
       </div>
       <div className="shrink-0 pt-0.5">{control}</div>

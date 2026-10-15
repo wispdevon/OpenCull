@@ -1,4 +1,5 @@
 import { useInterfaceScale } from "@/components/InterfaceScaleSettings";
+import { FirstLaunchOverview } from "@/components/FirstLaunchOverview";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAppVisualTheme } from "@/components/VisualThemeSettings";
 
@@ -170,6 +171,7 @@ export default function App() {
       <ShipDialog />
       <NoticeDialog />
       <UpdateDialog />
+      <FirstLaunchOverview bindings={bindings} />
     </TooltipProvider>
   );
 }

@@ -3,7 +3,8 @@ import { useEffect, useRef, useState } from "react";
 import { Circle, CircleCheck, FolderPlus, FolderSearch, Images, Keyboard, Settings, Trash2, X } from "lucide-react";
 
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from "@/components/ui/context-menu";
-import { useDesignTheme } from "@/components/VisualThemeSettings";
+import { useHomeLayout } from "@/components/HomeLayoutSettings";
+import { useVisualTheme } from "@/components/VisualThemeSettings";
 import { RecentSessions, ResumeLatestSession } from "./RecentSessions";
 import { CardIcon } from "@/components/ingest/IngestView";
 import { api, type Volume } from "@/lib/api";
@@ -30,7 +31,8 @@ async function chooseFolder() {
 
 /** Where the app opens: the folders worked on lately, and a way to open another. */
 export function HomeView({ dropping }: { dropping: boolean }) {
-  const designTheme = useDesignTheme();
+  const designTheme = useVisualTheme((s) => s.theme);
+  const layout = useHomeLayout((s) => s.layout);
   const recents = useStore((s) => s.recents);
   const platform = useStore((s) => s.platform);
   const openError = useStore((s) => s.openError);
@@ -99,8 +101,8 @@ export function HomeView({ dropping }: { dropping: boolean }) {
   };
 
   return (
-    <div className="home-view relative flex size-full flex-col bg-gradient-to-br from-[var(--home-from)] to-[var(--home-to)]">
-      {designTheme === "rapidraw" && <WelcomeArtwork path={recents.find((path) => !missing.has(path))} />}
+    <div data-home-layout={layout} data-platform={platform} className="home-view relative flex size-full flex-col bg-gradient-to-br from-[var(--home-from)] to-[var(--home-to)]">
+      {(designTheme === "rapidraw" || designTheme === "wisp") && <WelcomeArtwork path={recents.find((path) => !missing.has(path))} />}
       <div className="home-content flex min-h-0 flex-1 flex-col">
       <header data-tauri-drag-region className={cn("home-header flex shrink-0 flex-wrap items-center gap-6 px-8 py-6", platform === "macos" && "pl-[78px]")}>
         <div data-tauri-drag-region className="home-heading min-w-[220px] flex-1">
@@ -116,6 +118,7 @@ export function HomeView({ dropping }: { dropping: boolean }) {
         <button type="button" title="Settings" aria-label="Settings" onClick={() => useStore.getState().set("settingsOpen", true)} className="flex size-10 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
           <Settings className="size-[18px]" />
         </button>
+
         </div>
         <div role="group" aria-label="Session actions" className="home-actions flex flex-wrap items-center gap-3">
         <button

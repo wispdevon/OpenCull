@@ -4,7 +4,7 @@ import { inTauri } from "@/lib/api";
 import { load, save } from "@/lib/prefs";
 import { INTERFACE_SCALES, validInterfaceScale } from "@/lib/interface-scale";
 
-const useScale = create<{ value: number; error: string; set: (value: number) => void }>((set) => ({
+export const useScale = create<{ value: number; error: string; set: (value: number) => void }>((set) => ({
   value: validInterfaceScale(load("interfaceScale", 1)), error: "",
   set(value) { set({ value: validInterfaceScale(value), error: "" }); },
 }));
