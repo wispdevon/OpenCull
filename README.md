@@ -33,6 +33,98 @@
   </p>
 </div>
 
+## Run this fork with all features
+
+The `dev` branch combines the approved features in this fork for testing on macOS, Linux and Windows.
+No manual merging or cherry-picking is needed. Individual feature branches
+remain available for selective upstream review; approved work is also merged into fork `main`.
+
+Install [Rust stable](https://rustup.rs) and the
+[native Tauri prerequisites](https://v2.tauri.app/start/prerequisites/) first:
+
+- **macOS:** install Xcode Command Line Tools (`xcode-select --install`), then
+  `brew install jpeg-turbo pkgconf`. Tauri automatically uses the macOS
+  `turbo-system` configuration.
+- **Linux:** install GTK/WebKitGTK prerequisites plus CMake and NASM (NASM is
+  needed on Intel/AMD). Tauri uses the Linux `turbo` configuration.
+- **Windows:** install the Visual Studio C++ and WebView2 prerequisites plus
+  CMake and NASM. Tauri uses the Windows `turbo` configuration.
+
+Then, using nvm (or your platform's Node version manager):
+
+```sh
+git clone --branch dev --single-branch https://github.com/wispdevon/OpenCull.git
+cd OpenCull
+nvm install
+nvm use
+npm install --global npm@11.21.1
+npm ci
+npm run dev:desktop
+```
+
+Without nvm, install Node 22.23.3 and npm 11.21.1 using your preferred version
+manager, or run the last two commands through the pinned runtime:
+
+```sh
+npx --yes --package=node@22.23.3 --package=npm@11.21.1 --call 'npm ci && npm run dev:desktop'
+```
+
+The desktop development command starts the frontend and native backend
+together, with live frontend reloads and incremental Rust recompilation.
+It does not create a production bundle or installers. The initial native
+compile can take several minutes. macOS needs no Linux rendering flags or CUDA libraries.
+
+All features are included: cull-before-import sessions, multiple card sources,
+specific card subfolders, configurable panels, video inclusion/playback,
+appearance modes, offline fonts, the optional RapidRAW inspired design,
+larger UI headings, XDG configuration, remembered/default view modes, Wisp contrast,
+saved interface scaling, recent session deletion, resizable stack strips,
+experimental native-aspect strips and eased zoom, optional NVIDIA rendering profiles,
+and an opt-in Linux CUDA AI trial.
+Optional preferences are selectable in Settings; the RapidRAW design is under
+**Culling → Design theme**, and view/panel controls are under **Layout**.
+Linux settings are created in `$XDG_CONFIG_HOME/opencull/config.json`, normally
+`~/.config/opencull/config.json`. No personal configuration file is required.
+macOS and Windows use Tauri's native application-config directory instead.
+The Linux video streaming workaround is compiled only on Linux; macOS keeps
+native asset-protocol playback. `dev:desktop` sets no Linux environment flags.
+
+For a Mac tester, use the [macOS trial guide](docs/TRY-ON-MACOS.md).
+NVIDIA rendering profiles and CUDA AI are Linux-only; macOS uses its native webview
+and CPU AI automatically. CUDA is excluded from macOS builds, even when the Cargo
+feature is requested.
+
+### Desktop commands
+
+| Command | Purpose | Platforms |
+|---|---|---|
+| `npm run dev:desktop` | Native desktop development with CPU AI | macOS, Linux, Windows |
+| `npm run dev:desktop:nvidia` | NVIDIA webview compositing profile; CPU AI | Linux |
+| `npm run dev:desktop:cuda` | Experimental NVIDIA AI inference | Linux x86_64 |
+| `OPENCULL_GRAPHICS=nvidia npm run dev:desktop:cuda` | NVIDIA rendering profile plus CUDA AI | Linux x86_64 |
+| `npm run dev:desktop:compatibility` | WebKit compatibility fallback | Linux |
+| `npm run dev:desktop:software` | Force software webview rendering | Linux |
+| `npm run dev` | Browser UI with demo data; no native file access | All |
+| `npm run build:web` | Type-check and build the frontend | All |
+| `npm run build:desktop` | Build desktop installers | All, with native prerequisites |
+| `npm run check` | Frontend tests/build and Rust tests | All, with native prerequisites |
+
+CUDA AI requires an NVIDIA GPU, a compatible driver, **CUDA 13.x** runtime
+libraries and **cuDNN 9.x** compatible with CUDA 13. CUDA/cuDNN are optional and
+are not needed on macOS or for normal CPU launches. See [CUDA setup and
+verification](docs/CUDA-TRIAL.md) and the [measured memory
+tradeoff](docs/CUDA-BENCHMARK.md). Rendering acceleration and AI acceleration
+are independent; CUDA does not move JPEG decoding to the GPU.
+
+For a desktop executable without installer packaging, run
+`npm run build:desktop -- --debug --no-bundle`. For a CUDA executable on Linux
+x86_64, add `--features cuda`; launch it with `OPENCULL_AI=cuda` to opt in.
+The default desktop build retains CPU AI.
+
+Run `npm run check` for automated checks. See the
+[feature and validation map](docs/features/VALIDATION.md) for individual PRs
+and platform limitations.
+
 <!-- TABLE OF CONTENTS -->
 <details>
   <summary>Table of Contents</summary>
@@ -116,6 +208,13 @@ system, reports are very welcome.
 * [![Tailwind CSS][Tailwind-badge]][Tailwind-url]
 * [![ONNX Runtime][ONNX-badge]][ONNX-url]
 
+**Optional NVIDIA AI acceleration — Linux x86_64 only:**
+
+[![CUDA][CUDA-badge]][CUDA-url] [![cuDNN][cuDNN-badge]][cuDNN-url]
+
+CUDA 13.x and cuDNN 9.x are used only by the opt-in CUDA trial. macOS and
+normal CPU builds do not require them. See the [trial setup](docs/CUDA-TRIAL.md).
+
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 <!-- GETTING STARTED -->
@@ -155,7 +254,7 @@ also need the system packages on
 
 1. Clone the repo
    ```sh
-   git clone https://github.com/NatePhotos/OpenCull.git
+   git clone --branch dev --single-branch https://github.com/wispdevon/OpenCull.git
    cd OpenCull
    ```
 2. Install the packages
@@ -171,6 +270,17 @@ also need the system packages on
    npm run build:desktop
    ```
 
+### Experimental NVIDIA AI (Linux x86_64)
+
+The opt-in CUDA trial requires an NVIDIA driver, **CUDA 13.x** runtime and
+**cuDNN 9.x** compatible with CUDA 13, in addition to the normal prerequisites.
+Run `npm run dev:desktop:cuda` to compile and launch it. Normal launches keep
+CPU inference. macOS does not build, load or expose CUDA.
+
+See the [CUDA trial guide](docs/CUDA-TRIAL.md) for installation links, exact
+commands, verification and CPU fallback, and the
+[memory experiment](docs/CUDA-BENCHMARK.md) for measured results.
+
 More on building, including how to build without the JPEG library, is in
 [How it works](docs/HOW-IT-WORKS.md#building-the-fast-jpeg-library).
 
@@ -185,9 +295,10 @@ The existing `npm run tauri dev` command remains available.
 `npm run dev` alone runs the browser UI with sample data, not native card access
 or file copying. `npm test` runs automated frontend and Rust library tests.
 
-On Linux, if WebKit exits with a Wayland protocol error or opens a blank window,
-try `WEBKIT_DISABLE_DMABUF_RENDERER=1 npm run dev:desktop`. This workaround only
-affects that invocation. Native GTK/WebKitGTK and the other
+On Linux with NVIDIA, try `npm run dev:desktop:nvidia` for the tested accelerated
+webview profile. `npm run dev:desktop:compatibility` retains the broad DMA-BUF
+workaround; `npm run dev:desktop:software` explicitly uses software rendering.
+These commands are Linux-only. Native GTK/WebKitGTK and the other
 [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/) are still needed.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
@@ -324,3 +435,8 @@ Project Link: [https://github.com/NatePhotos/OpenCull](https://github.com/NatePh
 [Tailwind-url]: https://tailwindcss.com
 [ONNX-badge]: https://img.shields.io/badge/ONNX_Runtime-005CED?style=for-the-badge&logo=onnx&logoColor=white
 [ONNX-url]: https://onnxruntime.ai
+
+[CUDA-badge]: https://img.shields.io/badge/CUDA-76B900?style=for-the-badge&logo=nvidia&logoColor=white
+[CUDA-url]: https://developer.nvidia.com/cuda-toolkit
+[cuDNN-badge]: https://img.shields.io/badge/cuDNN-76B900?style=for-the-badge&logo=nvidia&logoColor=white
+[cuDNN-url]: https://developer.nvidia.com/cudnn

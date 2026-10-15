@@ -12,17 +12,23 @@ pub mod editors;
 pub mod embed;
 pub mod faces;
 pub mod framing;
+pub mod graphics;
 pub mod ingest;
+pub mod multicard;
 pub mod pool;
 pub mod preview;
 pub mod raw;
+pub mod review;
 pub mod scan;
 pub mod serve;
 pub mod sidecar;
+pub mod settings;
 pub mod times;
 pub mod transfer;
 pub mod update;
 pub mod xmp;
+#[cfg(target_os = "linux")]
+pub mod video_stream;
 
 use std::sync::Arc;
 
@@ -34,6 +40,11 @@ use serve::Previews;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    let graphics = graphics::initialize();
+
+    if ai::acceleration::requested() {
+        eprintln!("[ai] CUDA requested; one shared model worker, CPU fallback on failure");
+    }
     let launch = Launch::from_args();
     let mut builder = tauri::Builder::default().plugin(tauri_plugin_opener::init()).plugin(tauri_plugin_dialog::init()).plugin(tauri_plugin_updater::Builder::new().build());
     if !launch.self_test {
@@ -45,6 +56,7 @@ pub fn run() {
         builder = builder.plugin(tauri_plugin_window_state::Builder::default().with_state_flags(StateFlags::all() & !StateFlags::VISIBLE).build());
     }
     builder
+        .manage(graphics)
         .setup(move |app| {
             // The dev page is HTTP, while previews use a custom scheme.
             // WebKitGTK otherwise rejects those cross-origin image requests.
@@ -53,6 +65,21 @@ pub fn run() {
                 use webkit2gtk::WebViewExt;
                 webview.inner().set_cors_allowlist(&["opencull://localhost/*"]);
             })?;
+            #[cfg(target_os = "linux")]
+            if graphics != graphics::Profile::Auto {
+                app.get_webview_window("main").expect("main window").with_webview(move |webview| {
+                    use webkit2gtk::{SettingsExt, WebViewExt};
+                    use webkit2gtk::glib::prelude::ObjectExt;
+                    if let Some(settings) = webview.inner().settings() {
+                        let policy = if graphics == graphics::Profile::Software { webkit2gtk::HardwareAccelerationPolicy::Never } else { webkit2gtk::HardwareAccelerationPolicy::Always };
+                        settings.set_hardware_acceleration_policy(policy);
+                        if graphics == graphics::Profile::Nvidia {
+                            settings.set_enable_webgl(true);
+                            if settings.find_property("enable-2d-canvas-acceleration").is_some() { settings.set_property("enable-2d-canvas-acceleration", true); }
+                        }
+                    }
+                })?;
+            }
             // A self-test keeps its previews apart, so a run measures making
             // them rather than finding the last run's.
             let (dir, times_dir, faces_dir) = if launch.self_test {
@@ -104,6 +131,7 @@ pub fn run() {
                 // painting.
                 window.show().ok();
             }
+            app.manage(settings::Settings(std::sync::Mutex::new(settings::location(app.handle())?)));
             app.manage(launch);
 
             // Bring the cache back under its limit, well away from startup.
@@ -145,6 +173,17 @@ pub fn run() {
             }
         })
         .invoke_handler(tauri::generate_handler![
+            review::review_save,
+            review::review_list,
+            review::review_remove,
+            review::review_load,
+            commands::review_copy,
+            settings::config_load,
+            settings::config_set,
+            commands::video_source,
+            graphics::graphics_info,
+
+            ai::acceleration::ai_acceleration_info,
             commands::app_info,
             commands::report,
             commands::finish_self_test,
@@ -175,6 +214,7 @@ pub fn run() {
             commands::ingest_volumes,
             commands::ingest_browse,
             commands::ingest_scan,
+            commands::ingest_sources,
             commands::ingest_details,
             commands::ingest_conflicts,
             commands::ingest_copy,

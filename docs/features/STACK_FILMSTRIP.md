@@ -1,0 +1,1 @@
+Settings → Culling → Stack filmstrip placement. Classic is the default. Keep normal filmstrip placement puts active stack frames in the shared full-width bottom filmstrip; the scene overview remains above. The existing show-filmstrip preference applies.

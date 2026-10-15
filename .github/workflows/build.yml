@@ -78,6 +78,26 @@ jobs:
 
       - run: npm ci
 
+      - name: CUDA launcher platform guards
+        run: npm run test:cuda-launcher
+
+      - name: macOS excludes CUDA even when the feature is requested
+        if: runner.os == 'macOS'
+        shell: bash
+        env:
+          OPENCULL_AI: cuda
+        run: |
+          cargo tree --manifest-path src-tauri/Cargo.toml --features cuda -e features > /tmp/opencull-features.txt
+          if grep -E 'opencull-cuda|ort feature "cuda"' /tmp/opencull-features.txt; then
+            echo "CUDA leaked into the macOS dependency graph"
+            exit 1
+          fi
+          cargo test --manifest-path src-tauri/Cargo.toml --lib --features cuda
+
+      - name: Compile the opt-in CUDA path on Linux
+        if: runner.os == 'Linux'
+        run: cargo check --manifest-path src-tauri/Cargo.toml --features cuda
+
       - name: Tests
         run: npm test
 
