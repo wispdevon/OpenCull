@@ -102,7 +102,7 @@ export function HomeView({ dropping }: { dropping: boolean }) {
       <div className="home-content flex min-h-0 flex-1 flex-col">
       <header data-tauri-drag-region className={cn("home-header flex shrink-0 items-center px-10 pb-6 pt-7", platform === "macos" && "pl-[78px]")}>
         <div data-tauri-drag-region className="home-heading flex-1">
-          <h1 className="bg-gradient-to-r from-foreground to-muted-foreground bg-clip-text text-[28px] font-bold leading-tight tracking-tight text-transparent">OpenCull</h1>
+          <h1 className="bg-gradient-to-r from-foreground to-muted-foreground bg-clip-text text-[32px] font-bold leading-tight tracking-tight text-transparent">OpenCull</h1>
           <p className="mt-1 text-[13px] text-[var(--ui-text-808080)]">Culling Software made for Photographers</p>
           <p className="rapidraw-intro">{recents.length ? "Welcome back. Continue a session or bring in your next shoot." : "Your next great photograph starts with a closer look."}</p>
         </div>
@@ -164,7 +164,7 @@ export function HomeView({ dropping }: { dropping: boolean }) {
         ) : (
           <>
             <div className="mb-4 flex items-center gap-3">
-              <h2 className="flex-1 text-base font-semibold text-[var(--ui-text-a6a6a6)]">Recent Folders ({recents.length})</h2>
+              <h2 className="flex-1 text-lg font-semibold text-[var(--ui-text-a6a6a6)]">Recent Folders ({recents.length})</h2>
               <button type="button" disabled={selected.size === recents.length} onClick={() => setSelected(new Set(recents))} className="text-xs font-medium text-[var(--ui-text-8c8c8c)] disabled:text-[var(--ui-text-4d4d4d)]">
                 Select All
               </button>

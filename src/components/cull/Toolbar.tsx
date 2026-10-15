@@ -99,7 +99,7 @@ export function Toolbar() {
       </Tool>
 
       <Divider className="ml-0 mr-2" />
-      <span data-tauri-drag-region className="flex min-w-0 max-w-[210px] shrink items-center gap-1.5 text-[13px] font-medium text-[var(--ui-text-bfbfbf)]" title={name}>
+      <h1 data-tauri-drag-region className="flex min-w-0 max-w-[210px] shrink items-center gap-1.5 text-base font-semibold text-[var(--ui-text-bfbfbf)]" title={name}>
         <Folder className="size-3.5 shrink-0 text-[var(--ui-text-808080)]" />
         <span className="truncate">{name}</span>
         {kinds !== "both" && (
@@ -107,7 +107,7 @@ export function Toolbar() {
             {kinds === "raw" ? "RAW only" : "JPEG only"}
           </span>
         )}
-      </span>
+      </h1>
       <Status />
 
       <Divider className="mx-2" />
