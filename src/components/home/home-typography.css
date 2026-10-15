@@ -1,0 +1,15 @@
+/* Keep the opening page's hierarchy proportional to its preview area. */
+.home-content { container-type: inline-size; }
+.home-heading h1 { font-size: 2.75rem; line-height: 1.12; letter-spacing: -0.025em; }
+.home-heading > p { font-size: 1rem; line-height: 1.5; }
+.home-recents h2 { font-size: 1.5rem; line-height: 1.25; }
+.home-recents { padding-top: 1.5rem; }
+@supports (font-size: 1cqi) {
+  .home-heading h1 { font-size: clamp(2.25rem, 1.75rem + 2cqi, 3.5rem); }
+  .home-heading > p { font-size: clamp(0.875rem, 0.75rem + 0.4cqi, 1.125rem); }
+  .home-recents h2 { font-size: clamp(1.375rem, 1rem + 1cqi, 2rem); }
+}
+@media (max-width: 40em) {
+  .home-header { padding: 1.5rem; }
+  .home-recents { padding: 1.5rem; }
+}

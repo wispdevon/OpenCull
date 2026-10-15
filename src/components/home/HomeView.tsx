@@ -1,3 +1,4 @@
+import "./home-typography.css";
 import { useEffect, useRef, useState } from "react";
 import { Circle, CircleCheck, FolderPlus, FolderSearch, Images, Keyboard, Settings, Trash2, X } from "lucide-react";
 
@@ -96,9 +97,9 @@ export function HomeView({ dropping }: { dropping: boolean }) {
   };
 
   return (
-    <div className="relative flex size-full flex-col bg-gradient-to-br from-[#12121a] to-[#1a1a26]">
-      <header data-tauri-drag-region className={cn("flex shrink-0 flex-wrap items-center gap-6 px-8 py-6", platform === "macos" && "pl-[78px]")}>
-        <div data-tauri-drag-region className="min-w-[220px] flex-1">
+    <div className="home-content home-view relative flex size-full flex-col bg-gradient-to-br from-[#12121a] to-[#1a1a26]">
+      <header data-tauri-drag-region className={cn("home-header flex shrink-0 flex-wrap items-center gap-6 px-8 py-6", platform === "macos" && "pl-[78px]")}>
+        <div data-tauri-drag-region className="home-heading min-w-[220px] flex-1">
           <h1 className="bg-gradient-to-r from-white to-[#bfbfbf] bg-clip-text text-[32px] font-bold leading-tight tracking-tight text-transparent">OpenCull</h1>
           <p className="mt-1 text-[13px] text-[#808080]">Culling Software made for Photographers</p>
         </div>
@@ -153,7 +154,7 @@ export function HomeView({ dropping }: { dropping: boolean }) {
 
       {openError && <div className="mx-10 mb-4 rounded-lg bg-[#e64d4d]/15 px-4 py-2.5 text-[13px] text-[#f29999]">Could not open that folder: {openError}</div>}
 
-      <main className="flex-1 overflow-y-auto p-10 pt-4">
+      <main className="home-recents flex-1 overflow-y-auto p-10 pt-4">
         {recents.length === 0 ? (
           <div className="flex flex-col items-center gap-5 pt-16 text-center">
             <Images className="size-16 text-[#5970ff]" strokeWidth={1.25} />
