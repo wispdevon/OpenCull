@@ -246,3 +246,6 @@
 :root[data-visual-theme="rapidraw"] .recent-sessions-grid > button > div:nth-child(2) { padding: 12px; }
 :root[data-visual-theme="rapidraw"] .recent-sessions-grid > button > div:nth-child(2) > div { font-size: 0.875rem; }
 :root[data-visual-theme="rapidraw"] .recent-sessions-grid p { font-size: 0.75rem; line-height: 1.5; }
+/* Let the welcome block breathe before the first row of photographs. */
+:root[data-visual-theme="rapidraw"] .home-content { padding-top: 40px; }
+:root[data-visual-theme="rapidraw"] .home-header { row-gap: 24px; padding-bottom: 32px; }
