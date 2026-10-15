@@ -226,3 +226,6 @@
 :root[data-visual-theme="rapidraw"] .home-header button[aria-label] { order: initial; padding: 0; width: 40px; height: 40px; }
 :root[data-visual-theme="rapidraw"] .home-recents { flex: 1 1 auto; max-height: none; min-height: 0; }
 :root[data-visual-theme="rapidraw"] .rapidraw-footer { margin-top: 16px; }
+:root[data-visual-theme="rapidraw"] .home-controls { gap: 8px; }
+:root[data-visual-theme="rapidraw"] .home-actions { gap: 8px; }
+:root[data-visual-theme="rapidraw"] .home-actions button { padding-inline: 12px; }
