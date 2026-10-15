@@ -223,6 +223,20 @@ export function HomeView({ dropping }: { dropping: boolean }) {
 /** Uses only local session previews; original artwork fills the first-run state. */
 function WelcomeArtwork({ path }: { path?: string }) {
   const [image, setImage] = useState<Scanned | null>(null);
+  const [sharp, setSharp] = useState<string | null>(null);
+  const fullUrl = image ? api.url("full", image) : null;
+  useEffect(() => {
+    let stale = false;
+    setSharp(null);
+    if (fullUrl) {
+      // Decode the largest camera preview before replacing the quick thumbnail.
+      // The thumb tier is capped at 1280px even when a larger size is requested.
+      const next = new Image();
+      next.src = fullUrl;
+      void next.decode().then(() => { if (!stale) setSharp(fullUrl); }, () => {});
+    }
+    return () => { stale = true; };
+  }, [fullUrl]);
   useEffect(() => {
     let stale = false;
     setImage(null);
@@ -233,7 +247,7 @@ function WelcomeArtwork({ path }: { path?: string }) {
     return () => { stale = true; };
   }, [path]);
   return <aside className="rapidraw-artwork" aria-label="Welcome artwork">
-    <img src={image ? api.url("thumb", image, 1600) : "/theme-landscape.svg"}
+    <img src={image ? sharp === fullUrl ? fullUrl! : api.url("thumb", image, 1280) : "/theme-landscape.svg"}
       onError={() => { if (image) setImage(null); }}
       alt={image ? "A photograph from your recent folder" : "Illustrated mountain ridges at dusk"} />
     <span>{image ? "From your recent photographs" : "A little perspective"}</span>
