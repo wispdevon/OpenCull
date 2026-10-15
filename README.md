@@ -86,6 +86,8 @@ design and switches between Spacious and Classic action placement.
 Colour mode, font and interface scale are under **Settings → Design**;
 view/panel controls remain under **Settings → Layout**.
 Keyboard shortcuts are edited directly in **Settings → Keyboard**.
+Back up or transfer preferences through **Settings → Storage → Settings backup**;
+imports can be reviewed before applying and reloading. Photos and history are excluded.
 See the [settings layout guidelines](docs/SETTINGS_DESIGN.md) and
 [Wisp design guidelines](docs/WISP_DESIGN.md) for spacing and contrast rules.
 Linux settings are created in `$XDG_CONFIG_HOME/opencull/config.json`, normally

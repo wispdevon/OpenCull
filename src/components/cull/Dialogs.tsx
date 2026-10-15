@@ -1,6 +1,7 @@
 import { ExperimentalFilmstripSettings } from "./ExperimentalFilmstripSettings";
 import { ExperimentalZoomSettings } from "./ExperimentalZoomSettings";
 import { HomeLayoutSettings } from "@/components/HomeLayoutSettings";
+import { SettingsTransfer } from "@/components/SettingsTransfer";
 import { InterfaceScaleSettings } from "@/components/InterfaceScaleSettings";
 import { GraphicsSettings } from "@/components/GraphicsSettings";
 import { useEffect, useRef, useState } from "react";
@@ -466,6 +467,7 @@ function SettingsBody({ tab, onTab, ...shortcutProps }: { tab: SettingsTab; onTa
           />
         </TabsContent>
         <TabsContent value="storage" className="space-y-4">
+          <SettingsTransfer />
           <GraphicsSettings />
           <Setting
             title="Prepare previews ahead"

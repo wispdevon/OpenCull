@@ -180,6 +180,8 @@ pub fn run() {
             commands::review_copy,
             settings::config_load,
             settings::config_set,
+            settings::config_set_many,
+            settings::config_export_file,
             commands::video_source,
             graphics::graphics_info,
 
