@@ -64,12 +64,8 @@ export async function checkLinuxFeatures(folder: string, scratch: string) {
     await s().openFolder(folder, newReview([folder], [video]));
     await until(() => s().metaProgress >= 1, "Video metadata did not finish");
     const allowed = await invoke<string>("video_source", { path: video.path });
-    const probeUrl = convertFileSrc(allowed);
-    const response = await fetch(probeUrl);
-    const blob = await response.blob();
-    say(`video delivery ${response.status}, ${response.headers.get("content-type")}, ${blob.size} bytes; native source ${probeUrl}`);
     const player = document.createElement("video");
-    say(`codec support MP4=${player.canPlayType('video/mp4; codecs="avc1.64001e"')} WebM=${player.canPlayType('video/webm; codecs="vp8"')}`); player.muted = true; player.preload = "auto"; player.src = URL.createObjectURL(blob); document.body.append(player);
+    say(`codec support MP4=${player.canPlayType('video/mp4; codecs="avc1.64001e"')} WebM=${player.canPlayType('video/webm; codecs="vp8"')}`); player.muted = true; player.preload = "auto"; player.src = allowed.startsWith("http://127.0.0.1:") ? allowed : convertFileSrc(allowed); document.body.append(player);
     try {
       await new Promise<void>((resolve, reject) => {
         const timeout = window.setTimeout(() => reject(new Error("Video metadata timed out")), 10_000);
