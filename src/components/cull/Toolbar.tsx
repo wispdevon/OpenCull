@@ -220,6 +220,8 @@ function Status() {
   const cached = useStore((s) => s.aiCached);
   const pending = useStore((s) => s.aiPending);
   const motionPending = useStore((s) => s.aiMotionPending);
+  const grouping = useStore((s) => s.aiGroupingBusy);
+  const groupingError = useStore((s) => s.aiGroupingError);
   const chip = "ml-3 flex shrink-0 items-center gap-1.5 rounded-full bg-black/40 px-2 py-1 text-[11px] font-medium";
 
   if (loading) {
@@ -232,6 +234,8 @@ function Status() {
   }
   if (total === 0) return null;
   if (progress < 1) return <Working label="Reading photo info…" fraction={progress} className={cn(chip, "text-[#66b3ff]")} title="Reading capture times, ratings and camera details" />;
+  if (groupingError) return <span role="status" className={cn(chip, "text-red-400")} title={groupingError}>Visual grouping unavailable</span>;
+  if (grouping > 0) return <span role="status" className={cn(chip, "text-[#66b3ff]")}><Loader2 className="size-3 animate-spin" />Grouping with MobileCLIP…</span>;
   // Never shown as finished while it is still going.
   if (analysing) return <Working label={pending === null ? "Checking AI cache…" : pending === 0 ? "Loading cached AI…" : motionPending === pending ? "Checking motion blur…" : "AI scanning…"} fraction={Math.min(0.99, analysed / total)} className={cn(chip, "text-[#66b3ff]")} title={`${cached.toLocaleString()} complete cached results; ${pending === null ? "checking for" : (pending - motionPending).toLocaleString()} new face analyses; ${motionPending.toLocaleString()} motion-only checks using cached faces. Stands aside while you move between photos.`} />;
   if (preparing > 0) {

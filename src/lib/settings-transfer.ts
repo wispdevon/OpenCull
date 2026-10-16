@@ -2,7 +2,7 @@ import { DEFAULTS } from "./shortcuts";
 import { INTERFACE_SCALES } from "./interface-scale";
 export const SETTINGS_FILE_LIMIT = 1024 * 1024;
 const booleanKeys = new Set([
-  "aiMotionBlur", "autoRateMotionBlur",
+  "aiMotionBlur", "autoRateMotionBlur", "aiMobileClipGrouping",
   "spaceZoomToFace",
   "experimentalFaceOutlines", "experimentalFaceSpotlight",
   "rememberViewMode", "sortAscending", "ingestSortAscending", "showExif", "showHistogram", "showFilmstrip", "showInfo", "showRatingBar", "showFilterBar", "experimentalNativeFilmstrip", "experimentalSmoothZoom", "experimentalTransitions", "experimentalHideFilmstripOnCrop", "includeSubfolders", "ignoreVideos", "embedInJpeg", "askBeforeTrash", "checkForUpdates", "warmAhead", "speedCullAlways", "keepZoom", "instantZoom", "rgbHistogram", "aiEnabled", "aiAdvanced", "showBackgroundFaces", "aiPause", "smartGroups", "showFaces", "visualThemeFont",

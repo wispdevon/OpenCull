@@ -1,6 +1,7 @@
 import { InterfaceMotionSettings } from "./InterfaceMotionSettings";
 import { ExperimentalFilmstripSettings } from "./ExperimentalFilmstripSettings";
 import { FaceOverlaySettings } from "./FaceOverlaySettings";
+import { MobileClipSettings } from "./MobileClipSettings";
 import { MotionBlurSettings } from "./MotionBlurSettings";
 import { ExperimentalZoomSettings } from "./ExperimentalZoomSettings";
 import { HomeLayoutSettings } from "@/components/HomeLayoutSettings";
@@ -449,6 +450,7 @@ function SettingsBody({ tab, onTab, ...shortcutProps }: { tab: SettingsTab; onTa
           />
         </TabsContent>
         <TabsContent value="ai" className="space-y-4">
+          <MobileClipSettings />
           <FaceOverlaySettings />
           <MotionBlurSettings />
           <Setting

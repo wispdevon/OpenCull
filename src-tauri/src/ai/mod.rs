@@ -11,6 +11,7 @@ pub mod eyes;
 pub mod finder;
 pub mod focus;
 pub mod motion;
+pub mod mobileclip;
 pub mod judge;
 pub mod key;
 pub mod onnx;

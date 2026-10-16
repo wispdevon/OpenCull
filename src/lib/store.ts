@@ -155,6 +155,10 @@ interface State {
    * few seconds on — as well as the frames of one press of the shutter.
    */
   smartGroups: boolean;
+  aiMobileClipGrouping: boolean;
+  groupingRevision: number;
+  aiGroupingBusy: number;
+  aiGroupingError: string | null;
   /** How many photos have been analysed, and whether analysis is still going. */
   aiDone: number;
   aiRunning: boolean;
@@ -416,6 +420,7 @@ const PERSISTED = [
   "showBackgroundFaces",
   "aiPause",
   "smartGroups",
+  "aiMobileClipGrouping",
   "showFaces",
   "facePanelWidth",
   "recents",
@@ -662,8 +667,9 @@ export const useStore = create<Store>((set, get) => {
    * best" of three frames out of seven.
    */
   function compareRuns(touched: number[]) {
-    const { photos, ai, session, smartGroups } = get();
-    if (!session) return;
+    const { photos, ai, session, smartGroups, groupingRevision, aiMobileClipGrouping, aiEnabled } = get();
+    const mobileClip = aiMobileClipGrouping && aiEnabled;
+    if (!session || get().metaProgress < 1) return;
     if (runs?.session !== session.id) {
       const list = runsOf(photos).filter((run) => run.length >= 2);
       const of = new Map<number, number>();
@@ -673,12 +679,14 @@ export const useStore = create<Store>((set, get) => {
     const { list, of } = runs;
     const ready = [...new Set(touched.map((i) => of.get(i)).filter((at) => at !== undefined))].map((at) => list[at]).filter((run) => run.every((i) => ai[i] !== undefined));
     if (ready.length === 0) return;
+    if (mobileClip) set((s) => ({ aiGroupingBusy: s.aiGroupingBusy + 1 }));
+    const live = () => { const s = get(); return s.session?.id === session!.id && s.groupingRevision === groupingRevision && s.aiMobileClipGrouping === aiMobileClipGrouping && s.aiEnabled === aiEnabled && s.smartGroups === smartGroups; };
     void api
-      .aiCompare(ready.map((run) => run.map((i) => ({ ...ai[i]!, time: photos[i].captureMs, burst: photos[i].group, upright: uprightOf(photos[i]) }))), smartGroups)
+      .aiCompare(ready.map((run) => run.map((i) => ({ ...ai[i]!, index: i, time: photos[i].captureMs, burst: photos[i].group, upright: uprightOf(photos[i]) }))), smartGroups, { session: session.id, revision: groupingRevision, mobileClip })
       .then((marked) => {
         const now = get();
         // A folder since closed, or the setting changed while this was asked.
-        if (now.session?.id !== session.id || now.smartGroups !== smartGroups) return;
+        if (!live()) return;
         const compared = now.compared.slice();
         const ranks = now.ranks.slice();
         const poses = now.poses.slice();
@@ -699,9 +707,10 @@ export const useStore = create<Store>((set, get) => {
             poses[index] = size.get(pose)! > 1 ? -1 - first.get(pose)! : null;
           });
         });
-        set({ compared, ranks, poses });
+        set({ compared, ranks, poses, aiGroupingError: null });
       })
-      .catch(() => {});
+      .catch((error: unknown) => { if (mobileClip && live()) set({ aiGroupingError: String(error) }); })
+      .finally(() => { if (mobileClip && live()) set((s) => ({ aiGroupingBusy: Math.max(0,s.aiGroupingBusy-1) })); });
   }
 
   function rememberPosition() {
@@ -781,6 +790,10 @@ export const useStore = create<Store>((set, get) => {
     ranks: [],
     poses: [],
     smartGroups: load("smartGroups", true),
+    aiMobileClipGrouping: load("aiMobileClipGrouping", false),
+    groupingRevision: 0,
+    aiGroupingBusy: 0,
+    aiGroupingError: null,
     aiDone: 0,
     aiCached: 0,
     aiPending: null,
@@ -919,6 +932,7 @@ export const useStore = create<Store>((set, get) => {
         recents,
         metaProgress: photos.length === 0 ? 1 : 0,
         ai: [],
+        aiGroupingBusy: 0, aiGroupingError: null,
         compared: [],
         ranks: [],
         poses: [],
@@ -977,7 +991,7 @@ export const useStore = create<Store>((set, get) => {
       if (!session) return;
       rememberPosition();
       if (session.id >= 0) void api.closeFolder(session.id);
-      set({ session: null, review: null, loading: false, photos: [], order: [], view: [], current: -1, selected: new Set(), trashPending: null, cropOpen: false, warmRemaining: 0, ai: [], compared: [], ranks: [], poses: [], aiDone: 0, aiCached: 0, aiPending: null, aiRunning: false, faceZoom: null, hoveredFace: null });
+      set({ session: null, review: null, loading: false, photos: [], order: [], view: [], current: -1, selected: new Set(), trashPending: null, cropOpen: false, warmRemaining: 0, aiGroupingBusy: 0, aiGroupingError: null, ai: [], compared: [], ranks: [], poses: [], aiDone: 0, aiCached: 0, aiPending: null, aiRunning: false, faceZoom: null, hoveredFace: null });
     },
 
     reloadForSubfolders() {
@@ -1186,8 +1200,10 @@ export const useStore = create<Store>((set, get) => {
     zoomCommand: (kind) => set((s) => ({ zoom: { kind, nonce: s.zoom.nonce + 1 } })),
 
     regroup() {
-      const { ai } = get();
-      set({ compared: [], ranks: [], poses: [] });
+      const { ai, session, smartGroups, groupingRevision, aiMobileClipGrouping, aiEnabled } = get();
+      const revision = groupingRevision + 1;
+      set({ compared: [], ranks: [], poses: [], groupingRevision: revision, aiGroupingBusy: 0, aiGroupingError: null });
+      if (session) void api.aiCompare([], smartGroups, { session: session.id, revision, mobileClip: aiMobileClipGrouping && aiEnabled }).catch(() => {});
       compareRuns(ai.flatMap((result, index) => (result === undefined ? [] : [index])));
     },
 

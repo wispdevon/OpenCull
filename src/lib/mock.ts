@@ -179,6 +179,8 @@ export const mock: Backend = {
         }),
       ),
     ),
+  mobileClipStatus: async () => ({ ready: false, bytes: 45_543_630, model: "MobileCLIP-S0" }),
+  mobileClipInstall: async () => { throw new Error("Model downloads are available in the desktop app."); },
   aiLookAt: () => later(undefined),
   aiStop: () => later(undefined),
   aiSetYield: () => later(undefined),

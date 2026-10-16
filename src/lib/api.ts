@@ -155,7 +155,9 @@ export interface Backend {
    * taken one soon after another, in the order they were shot; the backend
    * finds the poses in it — or, without `poses`, only the bursts.
    */
-  aiCompare(runs: RunFrame[][], poses: boolean): Promise<Compared[][]>;
+  aiCompare(runs: RunFrame[][], poses: boolean, options?: { session: number; revision: number; mobileClip: boolean }): Promise<Compared[][]>;
+  mobileClipStatus(): Promise<{ ready: boolean; bytes: number; model: string }>;
+  mobileClipInstall(): Promise<{ ready: boolean; bytes: number; model: string }>;
   aiStop(): Promise<void>;
   /** Whether analysis stands aside while the photographer moves between photos. */
   aiSetYield(on: boolean): Promise<void>;
@@ -240,7 +242,9 @@ const tauri: Backend = {
     events.onmessage = onEvent;
     return invoke("ai_scan", { session, order, advanced, motionBlur, events });
   },
-  aiCompare: (runs, poses) => invoke("ai_compare", { runs, poses }),
+  aiCompare: (runs, poses, options) => invoke("ai_compare", { runs, poses, ...options }),
+  mobileClipStatus: () => invoke("mobileclip_status"),
+  mobileClipInstall: () => invoke("mobileclip_install"),
   aiLookAt: (order) => invoke("ai_look_at", { order }),
   aiStop: () => invoke("ai_stop"),
   aiSetYield: (on) => invoke("ai_set_yield", { on }),

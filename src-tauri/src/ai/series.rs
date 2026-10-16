@@ -124,6 +124,11 @@ fn same_pose(a: &Record, b: &Record) -> bool {
 /// pose against each other. Without `across_presses` a pose is a burst and
 /// nothing more.
 pub fn compare_run(frames: &[Frame], across_presses: bool) -> Vec<Compared> {
+    compare_run_visual(frames, across_presses, None)
+}
+
+/// Optional visual embeddings replace face geometry, while retaining time and orientation limits.
+pub fn compare_run_visual(frames: &[Frame], across_presses: bool, visual: Option<&[Vec<f32>]>) -> Vec<Compared> {
     let mut out: Vec<Compared> = Vec::with_capacity(frames.len());
     let mut start = 0;
     let mut pose = 0;
@@ -135,7 +140,11 @@ pub fn compare_run(frames: &[Frame], across_presses: bool) -> Vec<Compared> {
             // The camera turned between them — even, rarely, within a press.
             let turned = matches!((a.upright, b.upright), (Some(a), Some(b)) if a != b);
             let within_span = matches!((frames[start].time, b.time), (Some(t0), Some(t1)) if (t1 - t0).abs() <= POSE_GAP_MS);
-            !turned && within_span && (one_press || (across_presses && soon && same_pose(a.record, b.record) && same_pose(frames[start].record, b.record)))
+            let alike = if let Some(v) = visual {
+                super::mobileclip::matching(v.get(at-1).map(Vec::as_slice), v.get(at).map(Vec::as_slice))
+                    && super::mobileclip::matching(v.get(start).map(Vec::as_slice), v.get(at).map(Vec::as_slice))
+            } else { same_pose(a.record, b.record) && same_pose(frames[start].record, b.record) };
+            !turned && within_span && if visual.is_some() { alike && (one_press || (across_presses && soon)) } else { one_press || (across_presses && soon && alike) }
         };
         if !joined {
             let records: Vec<&Record> = frames[start..at].iter().map(|f| f.record).collect();
@@ -397,6 +406,33 @@ mod tests {
 
     fn run(frames: &[(Record, f64, Option<u32>)]) -> Vec<Compared> {
         compare_run(&frames.iter().map(|(record, time, burst)| Frame { record, time: Some(*time), burst: *burst, upright: None }).collect::<Vec<_>>(), true)
+    }
+
+    #[test]
+    fn visual_grouping_vetoes_unrelated_burst_frames_and_can_join_without_faces() {
+        let r = frame(vec![]);
+        let frames = [0.,200.,400.].map(|time| Frame {record:&r,time:Some(time),burst:Some(1),upright:Some(true)});
+        let feature = |x: usize| { let mut v=vec![0.;512]; v[x]=1.;v };
+        let visual = vec![feature(0),feature(0),feature(1)];
+        assert_eq!(compare_run(&frames,true).iter().map(|f| f.pose).collect::<Vec<_>>(),[0,0,0]);
+        assert_eq!(compare_run_visual(&frames,true,Some(&visual)).iter().map(|f| f.pose).collect::<Vec<_>>(),[0,0,1]);
+        let no_burst = frames.map(|f| Frame {burst:None,..f});
+        assert_eq!(compare_run_visual(&no_burst,true,Some(&visual)).iter().map(|f| f.pose).collect::<Vec<_>>(),[0,0,1]);
+        assert_eq!(compare_run_visual(&no_burst,false,Some(&visual)).iter().map(|f| f.pose).collect::<Vec<_>>(),[0,1,2]);
+        assert_eq!(compare_run_visual(&frames,true,Some(&[])).iter().map(|f| f.pose).collect::<Vec<_>>(),[0,1,2]);
+    }
+    #[test]
+    fn visual_groups_cannot_drift_from_anchor_or_cross_time_and_orientation_limits() {
+        let r=frame(vec![]);
+        let feature = |angle:f32| {let mut v=vec![0.;512];v[0]=angle.cos();v[1]=angle.sin();v};
+        let visual=vec![feature(0.),feature(0.2),feature(0.4)];
+        let frames=[0.,200.,400.].map(|time| Frame {record:&r,time:Some(time),burst:Some(1),upright:Some(true)});
+        assert_eq!(compare_run_visual(&frames,true,Some(&visual)).iter().map(|f| f.pose).collect::<Vec<_>>(),[0,0,1]);
+        let same=vec![feature(0.);3];
+        let mut changed=frames;changed[2].time=Some(4000.);
+        assert_eq!(compare_run_visual(&changed,true,Some(&same))[2].pose,1);
+        changed=frames;changed[2].upright=Some(false);
+        assert_eq!(compare_run_visual(&changed,true,Some(&same))[2].pose,1);
     }
 
     #[test]
