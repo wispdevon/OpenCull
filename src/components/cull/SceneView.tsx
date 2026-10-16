@@ -1,15 +1,15 @@
+import { MotionRegion } from "./InterfaceMotion";
 import { previewAspect, usePreviewAspectRevision } from "@/lib/preview-aspect";
 import { stripPhotoWidth } from "@/lib/strip-aspect";
 import { useMemo } from "react";
-import { Check } from "lucide-react";
 
-import { groupOf, useStore } from "@/lib/store";
+import { filmstripVisible, groupOf, useStore } from "@/lib/store";
 import { sceneFrames } from "@/lib/scene-frames";
 import { cn } from "@/lib/utils";
 import { Filmstrip, FilmstripResizeHandle } from "./Filmstrip";
 import { Loupe } from "./Loupe";
 import { useStrip } from "./strip";
-import { FramedThumb } from "./Thumb";
+import { FlagBadge, FramedThumb } from "./Thumb";
 
 interface Scene {
   number: number;
@@ -32,7 +32,7 @@ export function SceneView() {
   const photos = useStore((s) => s.photos);
   const current = useStore((s) => s.current);
   const height = useStore((s) => s.filmstripHeight);
-  const showFilmstrip = useStore((s) => s.showFilmstrip);
+  const showFilmstrip = useStore(filmstripVisible);
   const poses = useStore((s) => s.poses);
 
   const frames = useMemo(() => sceneFrames(view, current, (i) => groupOf({ photos, poses }, i)),
@@ -43,9 +43,9 @@ export function SceneView() {
       <div className="min-h-0 flex-1">
         <Loupe />
       </div>
-      {showFilmstrip && <div className="border-t border-[var(--ui-line-333333)]">
+      <MotionRegion open={showFilmstrip}><div className="border-t border-[var(--ui-line-333333)]">
         <Filmstrip only={frames} height={height} resizable={true} />
-      </div>}
+      </div></MotionRegion>
     </div>
   );
 }
@@ -119,6 +119,7 @@ function SceneCard({ scene, active, width, height, native }: { scene: Scene; act
   // Marked all the way through: every frame has a flag, a rating or a colour.
   const complete = useStore((s) => scene.frames.every((i) => s.photos[i].rating > 0 || s.photos[i].color !== "none" || s.photos[i].flag !== "none"));
   if (!first) return null;
+  const rejected = first.flag === "reject";
 
   return (
     <button
@@ -134,9 +135,9 @@ function SceneCard({ scene, active, width, height, native }: { scene: Scene; act
       {scene.frames.length > 1 && (
         <span className="absolute bottom-1 right-1 rounded bg-black/60 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-[#73b8ff]">×{scene.frames.length}</span>
       )}
-      {complete && (
-        <span className="absolute right-1 top-1 rounded-full bg-[#33cc66] p-0.5">
-          <Check className="size-2.5 text-black" strokeWidth={4} />
+      {(rejected || complete) && (
+        <span className="absolute right-1 top-1 flex">
+          <FlagBadge flag={rejected ? "reject" : "pick"} small title={rejected ? "Rejected preview photo" : "All photos in group reviewed"} />
         </span>
       )}
     </button>

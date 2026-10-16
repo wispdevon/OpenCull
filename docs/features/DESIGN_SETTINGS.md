@@ -1,9 +1,9 @@
 # Design settings
 
 The combined app groups Appearance, Interface font and Interface scale under
-Settings → Design. Interface design (OpenCull, RapidRAW, Wisp) is selected from
-Settings → Design. Layout retains view modes, panels and filmstrip
-arrangement. Preference keys, defaults and live application are unchanged.
+Settings → Design. Wisp is an Appearance theme; Home layout independently controls
+the featured image. Layout retains view modes, panels and filmstrip
+arrangement. Legacy interface-design preferences migrate to theme and featured-image settings.
 
 `feature/settings-design-tab` is based on `dev` because these controls originate
 from several independently retained feature branches.

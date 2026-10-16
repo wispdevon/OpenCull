@@ -3,7 +3,7 @@ import { useStore } from "@/lib/store";
 
 export function ExperimentalFilmstripSettings() {
   const enabled = useStore((s) => s.experimentalNativeFilmstrip);
-  return <fieldset className="space-y-3 rounded-lg border border-border p-4">
+  return <fieldset className="experimental-section space-y-3 rounded-lg border p-4">
     <legend className="px-1 text-sm font-semibold">Experimental Features</legend>
     <label className="setting-toggle-row flex items-start justify-between gap-4">
       <span className="setting-copy"><span className="setting-label block">Native-aspect filmstrip</span>

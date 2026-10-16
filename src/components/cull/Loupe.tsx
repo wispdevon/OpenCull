@@ -1,3 +1,4 @@
+import { PhotoTransition } from "./InterfaceMotion";
 import { isVideo } from "@/lib/media";
 import { VideoPlayer } from "./VideoPlayer";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
@@ -6,6 +7,7 @@ import { Flag, Loader2, X } from "lucide-react";
 import { api, bucket, FIT_SIZES } from "@/lib/api";
 import * as fmt from "@/lib/format";
 import { framingKey, magnified, placement, shownSize, uprightToShown } from "@/lib/framing";
+import { faceZoomTarget, firstVisibleFace, highestScoringFace } from "@/lib/face-target";
 import { hold, holdFull, isHeld } from "@/lib/held";
 import { load, save } from "@/lib/prefs";
 import { isMac } from "@/lib/shortcuts";
@@ -15,6 +17,7 @@ import { COLORS, type Photo } from "@/lib/types";
 import { useStripThumbSize } from "./Filmstrip";
 import { CropView } from "./Crop";
 import { PhotoMenu } from "./PhotoMenu";
+import { FaceOverlays } from "./FaceOverlays";
 
 /** Zoom and pan: how many times larger than fit, and how far off centre. */
 interface Zoom {
@@ -128,9 +131,9 @@ export function Loupe() {
   return (
     <div className="relative size-full overflow-hidden bg-canvas">
       {photo && isVideo(photo.path) ? <VideoPlayer key={photo.path} path={photo.path} /> : photo && cropping ? (
-        <CropView photo={photo} />
+        <PhotoTransition identity={`${photo.display}:${photo.version}:crop`}><CropView photo={photo} /></PhotoTransition>
       ) : photo ? (
-        <Canvas photo={photo} />
+        <PhotoTransition identity={`${photo.display}:${photo.version}:view`}><Canvas photo={photo} /></PhotoTransition>
       ) : (
         <div className="flex size-full flex-col items-center justify-center gap-2 text-sm text-[var(--ui-text-666666)]">
           {loading && <Loader2 className="size-4 animate-spin" />}
@@ -364,9 +367,9 @@ function Canvas({ photo }: { photo: Photo }) {
    * `point` to the middle of the frame. Brought to the middle, not held under
    * the pointer: held there, what was aimed at ends up off in a corner.
    */
-  const zoomInOn = (point: { x: number; y: number }) => {
+  const zoomInOn = (point: { x: number; y: number }, face = false) => {
     const scale = lastLevel > 1.01 ? level(lastLevel) : actual;
-    glideTo(tight({ scale, x: -point.x * scale, y: -point.y * scale }), GLIDE.in);
+    glideTo(tight(face ? faceZoomTarget(point, scale, box.h) : { scale, x: -point.x * scale, y: -point.y * scale }), GLIDE.in);
   };
   const backToFit = () => shrinkTo(FIT, GLIDE.out);
 
@@ -397,13 +400,19 @@ function Canvas({ photo }: { photo: Photo }) {
     if (command.nonce === seen.current) return;
     seen.current = command.nonce;
     const z = now.current;
-    if (command.kind === "centre") {
-      // The middle of the photo and back, whatever was looked at before.
+    if (command.kind === "centre" || command.kind === "face") {
+      // Separate centre and face commands; preserve saved shortcut bindings.
       if (z.scale > 1.001) {
         rememberLevel(z.scale);
         backToFit();
       } else {
-        zoomInOn({ x: 0, y: 0 });
+        const s = useStore.getState();
+        const faces = s.ai[photo.index]?.faces ?? [];
+        const face = command.kind === "face" && s.aiEnabled
+          ? (s.spaceZoomToFace ? highestScoringFace(faces, photo) : null) ?? firstVisibleFace(faces, photo)
+          : null;
+        const at = face ? uprightToShown(photo, { x: face.x + face.w / 2, y: face.y + face.h / 2 }) : { x: 0.5, y: 0.5 };
+        zoomInOn({ x: (at.x - 0.5) * shown.w, y: (at.y - 0.5) * shown.h }, face !== null);
       }
       return;
     }
@@ -437,8 +446,8 @@ function Canvas({ photo }: { photo: Photo }) {
     const at = uprightToShown(photo, faceZoom);
     const point = { x: (Math.min(1, Math.max(0, at.x)) - 0.5) * shown.w, y: (Math.min(1, Math.max(0, at.y)) - 0.5) * shown.h };
     const z = now.current;
-    if (z.scale > 1.001) glideTo(tight({ scale: z.scale, x: -point.x * z.scale, y: -point.y * z.scale }), GLIDE.in);
-    else zoomInOn(point);
+    if (z.scale > 1.001) glideTo(tight(faceZoomTarget(point, z.scale, box.h)), GLIDE.in);
+    else zoomInOn(point, true);
   }, [faceZoom]);
 
   const zoomed = zoom.scale > 1.001;
@@ -721,6 +730,7 @@ function Canvas({ photo }: { photo: Photo }) {
               />
             )}
             </div>
+            <FaceOverlays photo={photo} />
           </div>
         )}
         {marquee && <MarqueeBox marquee={marquee} frame={box} />}

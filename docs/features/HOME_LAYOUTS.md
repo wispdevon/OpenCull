@@ -10,7 +10,7 @@ rather than clipping. The `homeLayout` preference is stored through shared
 preferences, independently of the design theme and colour mode. Invalid or
 missing values use Spacious. macOS window-control clearance is preserved.
 
-Interface design selects: OpenCull, RapidRAW inspired or Wisp.
-RapidRAW's included-font checkbox is available there as well. These reuse the
-existing visual-theme preferences; no migration is required. Design settings retain appearance mode, interface font and scale as separate controls.
-Theme and home-layout choices are shown directly in Design settings, including while culling.
+Home layout includes “Show a featured image on home page”, independently of
+Appearance → Theme (Dark, Light, 18% grey or Wisp), font and scale. This retains
+the former RapidRAW split homepage without an interface-design selector. Legacy
+preferences migrate automatically; theme and home choices remain available while culling.

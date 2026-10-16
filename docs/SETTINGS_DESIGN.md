@@ -42,3 +42,21 @@ Keyboard shortcuts are edited directly in the Keyboard tab. Home and workspace
 keyboard buttons open that same tab. Use responsive section cards, preserve
 key-conflict handling, cancel capture with Escape, and stop capture when leaving
 the tab or closing Settings. Do not open another modal for the editor.
+
+Experimental sections always come before ordinary sections in their Settings tab.
+Use the shared `experimental-section` class: red legend and border, with normal
+foreground labels and muted descriptions. Keep the word “Experimental” visible
+so colour is not the only status cue. The accent has separate light and dark
+values; retain the same spacing and typography as ordinary sections. New
+experimental options must also be included in settings import/export.
+
+Appearance places Ranking colours beside Theme, wrapping to a full row when
+space is limited. Keep the classic blue–grey–red palette as the default. The
+optional red–green palette makes rank 1 green, intermediate frames yellow and
+the lowest rank red. Preserve numeric ranks and problem labels. Pick/Reject
+status uses the same green tick/red cross circles in grid, filmstrip and group
+previews; reviewed-group ticks retain their distinct accessible label.
+
+Appearance and home layout are independent. Wisp is a Theme alongside Dark, Light and 18% grey; do not add a separate interface-design selector. Home layout owns “Show a featured image on home page”. Keep Theme and Ranking colours on separate rows. Ranking choices show palette dots with accessible names and a radio selection indicator. Retain numeric ranks so colour is never the only cue. Legacy settings imports migrate without resetting other preferences.
+
+Panel visibility switches belong in one shared section with compact divided rows. Keep their icons and labels; put toolbar/keyboard guidance once above the list rather than repeating it below every switch.

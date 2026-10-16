@@ -2668,7 +2668,7 @@ dependencies = [
 
 [[package]]
 name = "opencull"
-version = "0.4.1"
+version = "0.5.0"
 dependencies = [
  "fast_image_resize",
  "jpeg-decoder",
@@ -2682,8 +2682,11 @@ dependencies = [
  "png 0.18.1",
  "rayon",
  "regex",
+ "reqwest",
+ "rustls",
  "serde",
  "serde_json",
+ "sha2",
  "tauri",
  "tauri-build",
  "tauri-plugin-dialog",
@@ -2701,6 +2704,7 @@ dependencies = [
 name = "opencull-cuda"
 version = "0.1.0"
 dependencies = [
+ "libloading",
  "ort",
 ]
 

@@ -1,7 +1,7 @@
+import { useHomeAppearance } from "@/components/HomeLayoutSettings";
 import { useInterfaceScale } from "@/components/InterfaceScaleSettings";
 import { FirstLaunchOverview } from "@/components/FirstLaunchOverview";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useAppVisualTheme } from "@/components/VisualThemeSettings";
 
 import { useAppFont } from "@/components/FontSettings";
 import { useAppTheme } from "@/components/ThemeSettings";
@@ -20,7 +20,7 @@ import { useStore } from "@/lib/store";
 export default function App() {
   useAppFont();
   useAppTheme();
-  useAppVisualTheme();
+  useHomeAppearance();
   useInterfaceScale();
   const open = useStore((s) => s.session !== null);
   const ingesting = useStore((s) => s.ingestOpen);

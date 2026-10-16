@@ -1,4 +1,8 @@
+import { InterfaceMotionSettings } from "./InterfaceMotionSettings";
 import { ExperimentalFilmstripSettings } from "./ExperimentalFilmstripSettings";
+import { FaceOverlaySettings } from "./FaceOverlaySettings";
+import { MobileClipSettings } from "./MobileClipSettings";
+import { MotionBlurSettings } from "./MotionBlurSettings";
 import { ExperimentalZoomSettings } from "./ExperimentalZoomSettings";
 import { HomeLayoutSettings } from "@/components/HomeLayoutSettings";
 import { SettingsTransfer } from "@/components/SettingsTransfer";
@@ -271,8 +275,8 @@ function SettingsBody({ tab, onTab, ...shortcutProps }: { tab: SettingsTab; onTa
     }
   };
 
-  const toggle = (key: "speedCullAlways" | "showRatingBar" | "keepZoom" | "instantZoom" | "rgbHistogram" | "warmAhead" | "aiEnabled" | "aiAdvanced" | "showBackgroundFaces" | "aiPause" | "smartGroups" | "embedInJpeg" | "checkForUpdates") => (
-    <Switch checked={s[key]} onCheckedChange={(on) => set(key, on)} />
+  const toggle = (key: "spaceZoomToFace" | "speedCullAlways" | "showRatingBar" | "keepZoom" | "instantZoom" | "rgbHistogram" | "warmAhead" | "aiEnabled" | "aiAdvanced" | "showBackgroundFaces" | "aiPause" | "smartGroups" | "embedInJpeg" | "checkForUpdates", label?: string) => (
+    <Switch aria-label={label} checked={s[key]} onCheckedChange={(on) => set(key, on)} />
   );
   const boxKey = isMac ? "⌘ Command" : "Ctrl";
 
@@ -290,6 +294,7 @@ function SettingsBody({ tab, onTab, ...shortcutProps }: { tab: SettingsTab; onTa
           they are stepped through; a tab with more than fits scrolls. */}
       <div className="h-[min(560px,calc(100dvh-12rem))] min-h-0 overflow-x-hidden overflow-y-auto pr-1">
         <TabsContent value="design" className="flex flex-col gap-4">
+          <InterfaceMotionSettings />
           <HomeLayoutSettings />
           <ThemeSettings />
           <FontSettings />
@@ -297,15 +302,23 @@ function SettingsBody({ tab, onTab, ...shortcutProps }: { tab: SettingsTab; onTa
         </TabsContent>
         <TabsContent value="layout" className="flex flex-col gap-4">
           <ViewModeSettings />
-          {([
-            ["showFilmstrip", "Filmstrip", PanelBottom], ["showFaces", "Face panel", PanelRight],
-            ["showExif", "EXIF panel", PanelLeft], ["showHistogram", "Histogram in EXIF panel", ChartColumn],
-            ["showInfo", "Information overlay", Info], ["showRatingBar", "Rating bar", Star],
-            ["showFilterBar", "Filter bar", Funnel],
-          ] as const).map(([key, title, Icon]) => (
-            <Setting key={key} title={title} icon={<Icon aria-hidden="true" className="size-4 shrink-0 text-foreground" />} detail="Also follows the existing toolbar and keyboard controls."
-              control={<Switch aria-label={title} checked={s[key]} onCheckedChange={(on) => set(key, on)} />} />
-          ))}
+          <fieldset className="rounded-md border border-border">
+            <legend className="px-1">Panels and overlays</legend>
+            <p className="mb-2 text-sm text-muted-foreground">Show or hide these here, or use the toolbar and keyboard shortcuts.</p>
+            <div className="divide-y divide-border">
+              {([
+                ["showFilmstrip", "Filmstrip", PanelBottom], ["showFaces", "Face panel", PanelRight],
+                ["showExif", "EXIF panel", PanelLeft], ["showHistogram", "Histogram in EXIF panel", ChartColumn],
+                ["showInfo", "Information overlay", Info], ["showRatingBar", "Rating bar", Star],
+                ["showFilterBar", "Filter bar", Funnel],
+              ] as const).map(([key, title, Icon]) => (
+                <div key={key} className="flex min-h-11 items-center justify-between gap-4 py-2">
+                  <label htmlFor={`panel-${key}`} className="flex items-center gap-2"><Icon aria-hidden="true" className="size-4 shrink-0" />{title}</label>
+                  <Switch id={`panel-${key}`} checked={s[key]} onCheckedChange={on => set(key, on)} />
+                </div>
+              ))}
+            </div>
+          </fieldset>
           {([
             ["filmstripHeight", "Filmstrip height", 80, 300],
             ["exifPanelWidth", "EXIF panel width", 160, 640],
@@ -318,9 +331,9 @@ function SettingsBody({ tab, onTab, ...shortcutProps }: { tab: SettingsTab; onTa
           ))}
         </TabsContent>
         <TabsContent value="culling" className="space-y-4">
+          <ExperimentalFilmstripSettings />
           <Setting title="Ignore videos" detail="Hide video files when opening folders and ingesting cards. Turn off to include playback where the system supports the codec."
             control={<Switch aria-label="Ignore videos" checked={s.ignoreVideos} onCheckedChange={(on) => { set("ignoreVideos", on); useStore.getState().reloadForSubfolders(); }} />} />
-          <ExperimentalFilmstripSettings />
           <Setting
             title="Speed cull"
             detail="Moves straight on to the next photo after you pick, reject or rate one. Its key — Caps Lock unless you change it — also turns it on, whatever is set here."
@@ -424,6 +437,11 @@ function SettingsBody({ tab, onTab, ...shortcutProps }: { tab: SettingsTab; onTa
         <TabsContent value="zoom" className="space-y-4">
           <ExperimentalZoomSettings />
           <Setting
+            title="Prefer highest-scoring face"
+            detail="Face zoom targets the sharpest scored main subject when enabled; otherwise it uses the first visible main subject. With no detected face, it uses the centre. Press again to return to fit. Follows Zoom to face if you rebind Space."
+            control={toggle("spaceZoomToFace", "Prefer highest-scoring face")}
+          />
+          <Setting
             title="Keep zoom between photos"
             detail="Holds the zoom and the spot you are looking at as you move through a folder, so focus can be checked on the same face across a burst. Turn off to return to the whole frame on every photo."
             control={toggle("keepZoom")}
@@ -440,6 +458,9 @@ function SettingsBody({ tab, onTab, ...shortcutProps }: { tab: SettingsTab; onTa
           />
         </TabsContent>
         <TabsContent value="ai" className="space-y-4">
+          <MobileClipSettings />
+          <FaceOverlaySettings />
+          <MotionBlurSettings />
           <Setting
             title="OpenCull AI"
             detail="Finds the faces in each photo and judges them: eyes shut, looking away, how sharp, and who the photo is about. From that it marks each photo and ranks the frames of a burst, or of the same pose shot again. Runs on this computer; nothing is sent anywhere."
