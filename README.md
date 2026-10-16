@@ -36,8 +36,9 @@
 ## Run this fork with all features
 
 The `dev` branch combines the approved features in this fork for testing on macOS, Linux and Windows.
-No manual merging or cherry-picking is needed. Individual feature branches
-remain available for selective upstream review; approved work is also merged into fork `main`.
+No manual merging or cherry-picking is needed. New work happens directly on `dev`;
+`main` is updated only for approved releases. Earlier work branches are preserved
+as [archive tags](docs/BRANCH_ARCHIVE.md).
 
 Install [Rust stable](https://rustup.rs) and the
 [native Tauri prerequisites](https://v2.tauri.app/start/prerequisites/) first:

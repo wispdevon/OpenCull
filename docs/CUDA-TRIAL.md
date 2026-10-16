@@ -2,7 +2,7 @@
 
 CUDA is experimental and available only on **Linux x86_64** in this fork. macOS, Windows, ARM and ordinary CPU builds exclude the CUDA runtime dependency. macOS has no CUDA option; use its normal desktop development command.
 
-The combined, cross-platform test branch is `dev`. The same changes are merged into the fork's `main` when approved. `feature/cuda-inference` contains the independent CUDA change for selective review; all other feature branches are retained.
+The combined, cross-platform test branch is `dev`. The same changes are merged into the fork's `main` when approved. Earlier CUDA work is preserved in [archive tags](BRANCH_ARCHIVE.md); new development happens directly on `dev`.
 
 ## Requirements
 

@@ -4,13 +4,12 @@ OpenCull is an offline photo-culling desktop application: React/TypeScript in `s
 
 ## Branches and review
 
-- Implement one feature per short-lived `feature/<description>` branch. Use `fix/`, `docs/`, or `chore/` for other work. Never implement directly on `main`.
-- Independent features start from current `upstream/main` so the original maintainer can select them independently. Default PR target is `wispdevon/OpenCull:main`; submit upstream only when requested.
-- Fetch before choosing a base. Keep upstream synchronization in a separate PR. Do not bundle other feature commits into a standalone feature branch.
-- Combine features only on a separate `integration/` branch. Document integration-only fixes there, including conflict resolutions.
-- Inspect Git status first. Preserve unrelated edits and use separate worktrees when another branch is dirty or work runs concurrently. Never reset or stash someone else's work.
-- Keep commits and PRs focused; separate unrelated refactoring, formatting, dependency changes, and lockfile changes. Review staged diffs before committing.
-- Do not force-push shared branches. Resolve conflicts deliberately and rerun affected checks. Merge only when requested; remove merged feature branches after completion.
+- Work directly on `dev`. Do not create feature branches or worktrees unless the user explicitly asks.
+- Keep `main` as the release branch; merge or publish to it only when requested.
+- Commit focused, verified changes on `dev`; do not mix unrelated formatting or dependency work.
+- Inspect Git status first and preserve unrelated edits. Never reset or stash someone else's work.
+- Existing work branches are archived under `archive/<date>/...` tags before their local or origin branch names are removed. Preserve distinct local and remote tips. Never delete `dev`, `main`, or upstream refs as part of cleanup.
+- Do not force-push shared branches. Resolve conflicts deliberately and rerun affected checks.
 
 ## Verification
 
