@@ -185,6 +185,8 @@ The optional Linux CUDA build also uses [NVIDIA CUDA][CUDA-url] and
 
 ## Development and checks
 
+For curated branches and their prerequisites, see [Pulling complete ideas](docs/IDEA-BUNDLES.md). Original feature branches remain available.
+
 Run these from the repository root with the requirements above installed:
 
 ```sh
