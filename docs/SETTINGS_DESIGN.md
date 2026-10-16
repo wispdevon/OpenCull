@@ -56,3 +56,7 @@ optional red–green palette makes rank 1 green, intermediate frames yellow and
 the lowest rank red. Preserve numeric ranks and problem labels. Pick/Reject
 status uses the same green tick/red cross circles in grid, filmstrip and group
 previews; reviewed-group ticks retain their distinct accessible label.
+
+Appearance and home layout are independent. Wisp is a Theme alongside Dark, Light and 18% grey; do not add a separate interface-design selector. Home layout owns “Show a featured image on home page”. Keep Theme and Ranking colours on separate rows. Ranking choices show palette dots with accessible names and a radio selection indicator. Retain numeric ranks so colour is never the only cue. Legacy settings imports migrate without resetting other preferences.
+
+Panel visibility switches belong in one shared section with compact divided rows. Keep their icons and labels; put toolbar/keyboard guidance once above the list rather than repeating it below every switch.

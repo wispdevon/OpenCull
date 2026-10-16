@@ -302,15 +302,23 @@ function SettingsBody({ tab, onTab, ...shortcutProps }: { tab: SettingsTab; onTa
         </TabsContent>
         <TabsContent value="layout" className="flex flex-col gap-4">
           <ViewModeSettings />
-          {([
-            ["showFilmstrip", "Filmstrip", PanelBottom], ["showFaces", "Face panel", PanelRight],
-            ["showExif", "EXIF panel", PanelLeft], ["showHistogram", "Histogram in EXIF panel", ChartColumn],
-            ["showInfo", "Information overlay", Info], ["showRatingBar", "Rating bar", Star],
-            ["showFilterBar", "Filter bar", Funnel],
-          ] as const).map(([key, title, Icon]) => (
-            <Setting key={key} title={title} icon={<Icon aria-hidden="true" className="size-4 shrink-0 text-foreground" />} detail="Also follows the existing toolbar and keyboard controls."
-              control={<Switch aria-label={title} checked={s[key]} onCheckedChange={(on) => set(key, on)} />} />
-          ))}
+          <fieldset className="rounded-md border border-border">
+            <legend className="px-1">Panels and overlays</legend>
+            <p className="mb-2 text-sm text-muted-foreground">Show or hide these here, or use the toolbar and keyboard shortcuts.</p>
+            <div className="divide-y divide-border">
+              {([
+                ["showFilmstrip", "Filmstrip", PanelBottom], ["showFaces", "Face panel", PanelRight],
+                ["showExif", "EXIF panel", PanelLeft], ["showHistogram", "Histogram in EXIF panel", ChartColumn],
+                ["showInfo", "Information overlay", Info], ["showRatingBar", "Rating bar", Star],
+                ["showFilterBar", "Filter bar", Funnel],
+              ] as const).map(([key, title, Icon]) => (
+                <div key={key} className="flex min-h-11 items-center justify-between gap-4 py-2">
+                  <label htmlFor={`panel-${key}`} className="flex items-center gap-2"><Icon aria-hidden="true" className="size-4 shrink-0" />{title}</label>
+                  <Switch id={`panel-${key}`} checked={s[key]} onCheckedChange={on => set(key, on)} />
+                </div>
+              ))}
+            </div>
+          </fieldset>
           {([
             ["filmstripHeight", "Filmstrip height", 80, 300],
             ["exifPanelWidth", "EXIF panel width", 160, 640],

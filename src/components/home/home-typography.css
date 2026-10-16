@@ -16,15 +16,15 @@
 .home-heading { flex: 1 0 100%; min-width: 0; }
 .home-controls { flex: 1 0 100%; justify-content: flex-start; }
 /* The original design always uses the whole window, including after switching from a split preset. */
-:root:not([data-visual-theme="rapidraw"]):not([data-visual-theme="wisp"]) .home-view { display: flex; inline-size: 100%; block-size: 100%; max-inline-size: none; }
-:root:not([data-visual-theme="rapidraw"]):not([data-visual-theme="wisp"]) .home-content { inline-size: 100%; min-inline-size: 0; align-self: stretch; }
+:root:not([data-home-featured="true"]) .home-view { display: flex; inline-size: 100%; block-size: 100%; max-inline-size: none; }
+:root:not([data-home-featured="true"]) .home-content { inline-size: 100%; min-inline-size: 0; align-self: stretch; }
 
 /* One shared gutter and deliberate space between identity, actions and history. */
-:root:not([data-visual-theme="rapidraw"]):not([data-visual-theme="wisp"]) .home-header {
+:root:not([data-home-featured="true"]) .home-header {
   padding: 2rem clamp(1.25rem, 3vw, 3rem);
   row-gap: 2rem;
 }
-:root:not([data-visual-theme="rapidraw"]):not([data-visual-theme="wisp"]) .home-recents {
+:root:not([data-home-featured="true"]) .home-recents {
   padding: 1rem clamp(1.25rem, 3vw, 3rem) 2rem;
 }
 :root .home-view .home-utilities { flex-wrap: wrap; gap: 0.75rem; }
@@ -40,5 +40,5 @@
 }
 /* Keep macOS traffic-light clearance even with the shared page gutter. */
 @media (min-width: 40em) {
-  :root:not([data-visual-theme="rapidraw"]):not([data-visual-theme="wisp"]) .home-view[data-platform="macos"] .home-header { padding-left: max(78px, 3rem); }
+  :root:not([data-home-featured="true"]) .home-view[data-platform="macos"] .home-header { padding-left: max(78px, 3rem); }
 }

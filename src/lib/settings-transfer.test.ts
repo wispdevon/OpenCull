@@ -10,7 +10,7 @@ describe("portable settings", () => {
   });
   it("ships the portable Wisp culling preset without source paths", () => {
     const values = parseSettingsImport(JSON.stringify(wisp));
-    expect(values).toMatchObject({ visualTheme: "wisp", theme: "grey", font: { choice: "space-grotesk", family: "" }, interfaceScale: 1.25, experimentalNativeFilmstrip: true, experimentalSmoothZoom: true, aiAdvanced: true, speedCullAlways: true });
+    expect(values).toMatchObject({ theme: "wisp", showFeaturedImage: true, font: { choice: "space-grotesk", family: "" }, interfaceScale: 1.25, experimentalNativeFilmstrip: true, experimentalSmoothZoom: true, aiAdvanced: true, speedCullAlways: true });
     expect(values).not.toHaveProperty("recents"); expect(values).not.toHaveProperty("ingestDestination");
     expect(Object.keys(values).some((key) => key.startsWith("position.") || key.startsWith("session."))).toBe(false);
   });

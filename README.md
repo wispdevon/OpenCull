@@ -81,15 +81,16 @@ larger UI headings, XDG configuration, remembered/default view modes, Wisp contr
 saved interface scaling, recent session deletion, resizable stack strips,
 experimental native-aspect strips and eased zoom, optional NVIDIA rendering profiles,
 and an opt-in Linux CUDA AI trial.
-**Settings → Design** selects OpenCull, RapidRAW or Wisp interface
-design and switches between Spacious and Classic action placement.
+**Settings → Design** selects Dark, Light, 18% grey or Wisp themes,
+Spacious or Classic action placement, and an independent featured home image.
 Colour mode, font and interface scale are under **Settings → Design**;
 view/panel controls remain under **Settings → Layout**.
 Keyboard shortcuts are edited directly in **Settings → Keyboard**.
 Back up or transfer preferences through **Settings → Storage → Settings backup**;
 imports can be reviewed before applying and reloading. Photos and history are excluded.
-Wisp applies the included RapidRAW inspired preset: 18% grey photo surround,
-contrasting controls, Space Grotesk, 125% scale, and the saved culling options.
+Wisp uses an 18% grey photo surround and contrasting controls. The included
+[Wisp settings preset](src/lib/presets/wisp.json) can also be imported to apply
+Space Grotesk, 125% scale and the saved culling options.
 New profiles receive a quick workflow and keyboard overview; reopen it from
 **Settings → Keyboard → Quick overview**.
 Optional [face-target Space zoom](docs/features/FACE_ZOOM.md) is under **Settings → Zoom**.
@@ -97,7 +98,7 @@ Optional [face-target Space zoom](docs/features/FACE_ZOOM.md) is under **Setting
 AI results are [cached across sessions](docs/features/AI_CACHE.md), including reopening the same photos through a card or subfolder. The toolbar distinguishes cached results from new analysis.
 Optional [interface transitions](docs/features/INTERFACE_MOTION.md) and [crop workspace controls](docs/features/CROP_WORKSPACE.md) are available in Design and Zoom settings.
 Experimental [motion-blur detection](docs/features/MOTION_BLUR.md) adds a filterable label, reduces grouping rank, and can give unrated photos one star and Reject while preserving existing ratings and explicit picks.
-Settings → Design → Appearance includes **Ranking colours**: keep blue–grey–red or choose red–green (green is best). Pick and Reject thumbnail badges match the green tick/red cross in group previews.
+Settings → Design → Appearance includes **Ranking colours**: choose between the displayed blue/white/red and green/yellow/red palettes (best rank first). Pick and Reject thumbnail badges match the green tick/red cross in group previews.
 See the [settings layout guidelines](docs/SETTINGS_DESIGN.md) and
 [Wisp design guidelines](docs/WISP_DESIGN.md) for spacing and contrast rules.
 Linux settings are created in `$XDG_CONFIG_HOME/opencull/config.json`, normally

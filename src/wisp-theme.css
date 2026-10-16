@@ -1,5 +1,5 @@
 /* Wisp: readable work surfaces; neutral photo pixels and unmistakable controls. */
-:root[data-visual-theme="wisp"] {
+:root[data-theme="wisp"] {
   color-scheme: dark;
   --background: #111827; --foreground: #f3f6ff;
   --card: #1d293d; --card-foreground: #f3f6ff;
@@ -30,8 +30,8 @@
   --ui-surface-4d4d4d: #455b7a; --ui-surface-595959: #566c8b; --ui-surface-666666: #566c8b;
 }
 /* Keep the photographic surround neutral in every preset. */
-:root[data-visual-theme="wisp"] { --opencull-canvas: #111; }
-:root[data-visual-theme="wisp"][data-theme="grey"] {
+:root[data-theme="wisp"] { --opencull-canvas: #111; }
+:root[data-theme="wisp"] {
   --background: #171717; --card: #292929; --popover: #222;
   --secondary: #3d3d3d; --muted: #292929; --muted-foreground: #d0d0d0;
   --accent: #484848; --border: #858585; --input: #999;
@@ -39,49 +39,36 @@
   --opencull-canvas: #767676; --opencull-toolbar: #222;
   --opencull-panel: #292929; --opencull-strip: #171717; --opencull-cell: #444;
 }
-:root[data-visual-theme="wisp"][data-theme="light"] {
-  color-scheme: light;
-  --background: #f3f4fa; --foreground: #1c2440;
-  --card: #fff; --card-foreground: #1c2440;
-  --popover: #f3f4fa; --popover-foreground: #1c2440;
-  --primary: #6445a8; --primary-foreground: #fff;
-  --secondary: #e3e8f5; --secondary-foreground: #1c2440;
-  --muted: #e3e8f5; --muted-foreground: #455674;
-  --accent: #d7dcef; --accent-foreground: #1c2440;
-  --border: #64728a; --input: #64728a; --ring: #6445a8; --destructive: #a61d38;
-  --home-from: #f3f4fa; --home-to: #f3f4fa;
-  --opencull-toolbar: #e3e8f5; --opencull-panel: #fff; --opencull-strip: #e3e8f5; --opencull-cell: #d7dcef;
-  --opencull-canvas: #e8e8e8;
-}
-:root[data-visual-theme="wisp"] .setting-row {
+
+:root[data-theme="wisp"] .setting-row {
   gap: 24px; border: 1px solid var(--border); border-radius: 8px;
   background: var(--card); color: var(--foreground);
 }
-:root[data-visual-theme="wisp"] .setting-title { color: var(--foreground); }
-:root[data-visual-theme="wisp"] .setting-detail { color: var(--muted-foreground); }
-:root[data-visual-theme="wisp"] fieldset { border-color: var(--border); background: var(--card); color: var(--foreground); }
-:root[data-visual-theme="wisp"] [data-slot="tabs-list"] { gap: 4px; padding: 6px; background: var(--background); border: 1px solid var(--border); }
-:root[data-visual-theme="wisp"] [role="tab"] { min-height: 40px; border: 1px solid transparent; color: var(--muted-foreground); }
-:root[data-visual-theme="wisp"] [role="tab"][data-state="active"] { background: var(--secondary); color: var(--foreground); border-color: var(--ring); font-weight: 600; }
-:root[data-visual-theme="wisp"] :is(button,input,select,textarea,a):focus-visible { outline: 2px solid var(--ring); outline-offset: 3px; }
-:root[data-visual-theme="wisp"] :is(select,input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),textarea) { border: 1px solid var(--input); color: var(--foreground); background: var(--background); }
-:root[data-visual-theme="wisp"] [role="switch"] { border: 1px solid var(--input); background: var(--secondary); }
-:root[data-visual-theme="wisp"] [role="switch"][data-state="checked"] { background: var(--primary); }
-:root[data-visual-theme="wisp"] [data-slot="switch-thumb"] { background: var(--foreground); }
-:root[data-visual-theme="wisp"] [role="switch"][data-state="checked"] [data-slot="switch-thumb"] { background: var(--primary-foreground); }
-:root[data-visual-theme="wisp"] :is(input[type="checkbox"],input[type="radio"],input[type="range"]) { accent-color: var(--primary); }
-:root[data-visual-theme="wisp"] .home-open { background: var(--primary); color: var(--primary-foreground); box-shadow: none; }
+:root[data-theme="wisp"] .setting-title { color: var(--foreground); }
+:root[data-theme="wisp"] .setting-detail { color: var(--muted-foreground); }
+:root[data-theme="wisp"] fieldset { border-color: var(--border); background: var(--card); color: var(--foreground); }
+:root[data-theme="wisp"] [data-slot="tabs-list"] { gap: 4px; padding: 6px; background: var(--background); border: 1px solid var(--border); }
+:root[data-theme="wisp"] [role="tab"] { min-height: 40px; border: 1px solid transparent; color: var(--muted-foreground); }
+:root[data-theme="wisp"] [role="tab"][data-state="active"] { background: var(--secondary); color: var(--foreground); border-color: var(--ring); font-weight: 600; }
+:root[data-theme="wisp"] :is(button,input,select,textarea,a):focus-visible { outline: 2px solid var(--ring); outline-offset: 3px; }
+:root[data-theme="wisp"] :is(select,input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),textarea) { border: 1px solid var(--input); color: var(--foreground); background: var(--background); }
+:root[data-theme="wisp"] [role="switch"] { border: 1px solid var(--input); background: var(--secondary); }
+:root[data-theme="wisp"] [role="switch"][data-state="checked"] { background: var(--primary); }
+:root[data-theme="wisp"] [data-slot="switch-thumb"] { background: var(--foreground); }
+:root[data-theme="wisp"] [role="switch"][data-state="checked"] [data-slot="switch-thumb"] { background: var(--primary-foreground); }
+:root[data-theme="wisp"] :is(input[type="checkbox"],input[type="radio"],input[type="range"]) { accent-color: var(--primary); }
+:root[data-theme="wisp"] .home-open { background: var(--primary); color: var(--primary-foreground); box-shadow: none; }
 
 /* Metadata is reading content: distinguish hierarchy by size, weight and surfaces,
    rather than dimming small type against the panel. */
-:root[data-visual-theme="wisp"] .metadata-section {
+:root[data-theme="wisp"] .metadata-section {
   padding: 1rem;
   border: 1px solid var(--border);
   border-radius: 0.5rem;
   background: var(--background);
 }
-:root[data-visual-theme="wisp"] .metadata-rule { display: none; }
-:root[data-visual-theme="wisp"] .metadata-heading {
+:root[data-theme="wisp"] .metadata-rule { display: none; }
+:root[data-theme="wisp"] .metadata-heading {
   padding-bottom: 0.5rem;
   border-bottom: 1px solid var(--border);
   color: var(--foreground);
@@ -90,13 +77,13 @@
   font-weight: 600;
   text-transform: none;
 }
-:root[data-visual-theme="wisp"] .metadata-label {
+:root[data-theme="wisp"] .metadata-label {
   color: var(--muted-foreground);
   font-size: 0.8125rem;
   line-height: 1.5;
   text-transform: none;
 }
-:root[data-visual-theme="wisp"] .metadata-value {
+:root[data-theme="wisp"] .metadata-value {
   margin-top: 0.25rem;
   color: var(--foreground);
   font-size: 0.875rem;
@@ -104,56 +91,16 @@
   white-space: normal;
   overflow-wrap: anywhere;
 }
-:root[data-visual-theme="wisp"] .metadata-row { gap: 0.75rem; }
-:root[data-visual-theme="wisp"] .metadata-icon { width: 1rem; flex-shrink: 0; }
-:root[data-visual-theme="wisp"] :is(.metadata-icon, .metadata-label) svg {
+:root[data-theme="wisp"] .metadata-row { gap: 0.75rem; }
+:root[data-theme="wisp"] .metadata-icon { width: 1rem; flex-shrink: 0; }
+:root[data-theme="wisp"] :is(.metadata-icon, .metadata-label) svg {
   width: 0.875rem;
   height: 0.875rem;
   flex-shrink: 0;
   color: var(--primary);
 }
-:root[data-visual-theme="wisp"] .metadata-badge { min-width: 0; border-color: var(--border); background: var(--secondary); }
+:root[data-theme="wisp"] .metadata-badge { min-width: 0; border-color: var(--border); background: var(--secondary); }
 @media (forced-colors: active) {
-  :root[data-visual-theme="wisp"] :is(.setting-row,fieldset,.metadata-section,.metadata-badge,[data-slot="tabs-list"]) { border-color: CanvasText; background: Canvas; color: CanvasText; }
-  :root[data-visual-theme="wisp"] [role="tab"][data-state="active"] { outline: 2px solid Highlight; }
-}
-
-:root[data-visual-theme="wisp"][data-theme="light"] {
-  --ui-text-4d4d4d: var(--muted-foreground);
-  --ui-text-666666: var(--muted-foreground);
-  --ui-text-737373: var(--muted-foreground);
-  --ui-text-808080: var(--muted-foreground);
-  --ui-text-8c8c8c: var(--muted-foreground);
-  --ui-text-999999: var(--muted-foreground);
-  --ui-text-a6a6a6: var(--muted-foreground);
-  --ui-text-b3b3b3: var(--foreground);
-  --ui-text-bdbdbd: var(--foreground);
-  --ui-text-bfbfbf: var(--foreground);
-  --ui-text-cccccc: var(--foreground);
-  --ui-text-d9d9d9: var(--foreground);
-  --ui-text-e6e6e6: var(--foreground);
-  --ui-line-2e2e2e: var(--border);
-  --ui-line-333333: var(--border);
-  --ui-line-383838: var(--border);
-  --ui-line-3a3a44: var(--border);
-  --ui-line-595959: var(--border);
-  --ui-line-8c8c8c: var(--border);
-  --ui-surface-101014: var(--secondary);
-  --ui-surface-131318: var(--secondary);
-  --ui-surface-141414: var(--secondary);
-  --ui-surface-14141a: var(--secondary);
-  --ui-surface-17171c: var(--secondary);
-  --ui-surface-1a1a21: var(--secondary);
-  --ui-surface-1f1f1f: var(--secondary);
-  --ui-surface-262626: var(--secondary);
-  --ui-surface-28282e: var(--secondary);
-  --ui-surface-292929: var(--secondary);
-  --ui-surface-2a2a30: var(--secondary);
-  --ui-surface-2e2e2e: var(--secondary);
-  --ui-surface-333333: var(--secondary);
-  --ui-surface-383838: var(--secondary);
-  --ui-surface-404040: var(--secondary);
-  --ui-surface-4d4d4d: var(--secondary);
-  --ui-surface-595959: var(--secondary);
-  --ui-surface-666666: var(--secondary);
+  :root[data-theme="wisp"] :is(.setting-row,fieldset,.metadata-section,.metadata-badge,[data-slot="tabs-list"]) { border-color: CanvasText; background: Canvas; color: CanvasText; }
+  :root[data-theme="wisp"] [role="tab"][data-state="active"] { outline: 2px solid Highlight; }
 }
