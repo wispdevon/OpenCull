@@ -21,12 +21,12 @@ geometry rules. The toggle participates in Storage settings import/export.
    selection and scaled decoder (libjpeg-turbo when built with turbo).
 5. At most four decode workers prepare four inputs at a time. Centre crop,
    bilinear resize to 256×256, RGB floats in [0,1], no mean/std normalization.
-   One shared CUDA worker processes prepared inputs when launched with
-   `npm run desktop -- --cuda`; otherwise one CPU session uses two threads.
+   One shared CUDA worker processes prepared inputs when `npm run desktop`
+   detects a compatible CUDA runtime; otherwise one CPU session uses two threads.
    CPU model loading is lazy, so cache hits and CUDA inference do not initialize
    an unnecessary CPU session.
-6. Store normalized 512-value embeddings. Select **Loose (>0.85)**, **Normal (>0.90, default)**, or
-   **Tight (>0.93)** in Settings. At similarity strictly above that cutoff, compare
+6. Store normalized 512-value embeddings. Select **Loose (>0.70)**, **Normal (>0.80, default)**, or
+   **Tight (>0.90)** in Settings. At similarity strictly above that cutoff, compare
    against both the preceding frame and group anchor to avoid chaining different
    compositions. Time span remains at most three seconds; orientation changes
    split groups. A visual mismatch can split even a single shutter burst.

@@ -12,7 +12,7 @@ pub const MODEL_URL: &str = "https://huggingface.co/Xenova/mobileclip_s0/resolve
 #[serde(rename_all = "lowercase")]
 pub enum Grouping { Loose, #[default] Normal, Tight }
 impl Grouping {
-    pub fn threshold(self) -> f32 { match self { Self::Loose => 0.85, Self::Normal => 0.90, Self::Tight => 0.93 } }
+    pub fn threshold(self) -> f32 { match self { Self::Loose => 0.70, Self::Normal => 0.80, Self::Tight => 0.90 } }
 }
 const MODEL_FILE: &str = "mobileclip-s0-vision-v1.onnx";
 const DIM: usize = 512;
@@ -229,6 +229,7 @@ pub fn cache_bytes(root: &Path) -> u64 {
         assert!(!matching(Some(&a), Some(&b), Grouping::Normal));
     }
     #[test] fn grouping_presets_use_strict_similarity_cutoffs() {
+        assert_eq!([Grouping::Loose.threshold(),Grouping::Normal.threshold(),Grouping::Tight.threshold()],[0.70,0.80,0.90]);
         let mut a=vec![0.;DIM];a[0]=1.;
         for mode in [Grouping::Loose,Grouping::Normal,Grouping::Tight] {
             let threshold=mode.threshold();
@@ -239,7 +240,7 @@ pub fn cache_bytes(root: &Path) -> u64 {
         }
         let mut b=vec![0f32;DIM];b[0]=0.88690656;b[1]=(1.-b[0]*b[0]).sqrt();
         assert!(matching(Some(&a),Some(&b),Grouping::Loose));
-        assert!(!matching(Some(&a),Some(&b),Grouping::Normal));
+        assert!(matching(Some(&a),Some(&b),Grouping::Normal));
         assert!(!matching(Some(&a),Some(&b),Grouping::Tight));
     }
     #[test] fn preprocessing_centre_crops_scales_rgb_and_keeps_channels_in_order() {
@@ -263,7 +264,7 @@ pub fn cache_bytes(root: &Path) -> u64 {
         let visual = model.embeddings(&[(&a,"test-v1"),(&b,"test-v1")], &cache, || true).unwrap();
         let (av,bv) = (&visual[0],&visual[1]);
         eprintln!("two real embeddings: {:?}; similarity {:?}", start.elapsed(), similarity(&av,&bv));
-        assert!(!matching(Some(&av),Some(&bv), Grouping::Normal));
+        assert!(!matching(Some(&av),Some(&bv), Grouping::Tight));
         assert_eq!(model.computed,2);
         if super::super::acceleration::requested() {
             assert!(super::super::acceleration::enabled(), "CUDA silently fell back: {:?}",super::super::acceleration::failure());

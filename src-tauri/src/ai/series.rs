@@ -425,7 +425,7 @@ mod tests {
     fn visual_groups_cannot_drift_from_anchor_or_cross_time_and_orientation_limits() {
         let r=frame(vec![]);
         let feature = |angle:f32| {let mut v=vec![0.;512];v[0]=angle.cos();v[1]=angle.sin();v};
-        let visual=vec![feature(0.),feature(0.2),feature(0.4)];
+        let visual=vec![feature(0.),feature(0.25),feature(0.5)];
         let frames=[0.,200.,400.].map(|time| Frame {record:&r,time:Some(time),burst:Some(1),upright:Some(true)});
         assert_eq!(compare_run_visual(&frames,true,Some(&visual),super::super::mobileclip::Grouping::Tight).iter().map(|f| f.pose).collect::<Vec<_>>(),[0,0,1]);
         let same=vec![feature(0.);3];
