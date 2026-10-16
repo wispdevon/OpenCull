@@ -299,7 +299,7 @@ export function uprightOf(photo: Photo): boolean | null {
  * pose. The backend holds the same figure and does the deciding; this only
  * settles how much it is sent at once.
  */
-const RUN_GAP_MS = 20_000;
+const RUN_GAP_MS = 3_000;
 
 /**
  * The folder cut into runs of photos taken one soon after another, each in
