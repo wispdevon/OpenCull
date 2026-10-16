@@ -17,7 +17,8 @@ name = "opencull_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [features]
-# Opt-in NVIDIA AI runtime; the dependency is excluded from macOS/Windows.
+# Optional NVIDIA AI runtime; detected by the desktop launcher on Linux x86_64.
+# The dependency is excluded from macOS/Windows.
 cuda = ["dep:opencull-cuda"]
 # The JPEG work — decoding a camera's preview and writing a smaller one — can
 # be done by libjpeg-turbo instead of the pure-Rust decoder and encoder.

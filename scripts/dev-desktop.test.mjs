@@ -38,3 +38,12 @@ test("foreign servers and unreachable occupied ports report a clear error before
   await assert.rejects(reuseFrontend(["dev"], async () => new Response('<title>Other app</title>')), /another server/);
   await assert.rejects(reuseFrontend(["dev"], async () => { throw new DOMException("Timed out", "TimeoutError"); }), /could not be checked/);
 });
+
+test("automatic CUDA follows detection only on supported targets and respects CPU overrides", () => {
+  assert.deepEqual(desktopSpec("linux", "x64", {}, [], true).args, ["dev", "--features", "cuda"]);
+  assert.equal(desktopSpec("linux", "x64", {}, [], true).env.OPENCULL_AI, "auto");
+  assert.deepEqual(desktopSpec("linux", "x64", {}, ["--cpu"], true), {args:["dev"],env:{OPENCULL_AI:"cpu"}});
+  assert.deepEqual(desktopSpec("linux", "x64", {OPENCULL_AI:"cpu"}, [], true).args, ["dev"]);
+  for (const [platform, arch] of [["darwin","arm64"],["win32","x64"],["linux","arm64"]]) assert.deepEqual(desktopSpec(platform,arch,{},[],true).args,["dev"]);
+  assert.throws(()=>desktopSpec("linux","x64",{},["--cuda","--cpu"],true),/Choose one/);
+});

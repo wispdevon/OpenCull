@@ -118,9 +118,10 @@ Use one checkout and switch branches with Git when needed. Feature branches rema
 
 | Command | Purpose | Platforms |
 |---|---|---|
-| `npm run desktop` | Native desktop development with CPU AI | macOS, Linux, Windows |
-| `npm run desktop -- --nvidia` | NVIDIA webview compositing profile; CPU AI | Linux |
-| `npm run desktop -- --cuda` | Experimental NVIDIA AI inference | Linux x86_64 |
+| `npm run desktop` | Native desktop development; automatic CUDA on supported Linux | macOS, Linux, Windows |
+| `npm run desktop -- --nvidia` | NVIDIA webview compositing profile; automatic AI backend | Linux |
+| `npm run desktop -- --cpu` | Force CPU AI | All |
+| `npm run desktop -- --cuda` | Force experimental NVIDIA AI inference | Linux x86_64 |
 | `npm run desktop -- --nvidia --cuda` | NVIDIA rendering profile plus CUDA AI | Linux x86_64 |
 | `npm run desktop -- --compatibility` | WebKit compatibility fallback | Linux |
 | `npm run desktop -- --software` | Force software webview rendering | Linux |
@@ -139,7 +140,7 @@ are independent; CUDA does not move JPEG decoding to the GPU.
 For a desktop executable without installer packaging, run
 `npm run build:desktop -- --debug --no-bundle`. For a CUDA executable on Linux
 x86_64, add `--features cuda`; launch it with `OPENCULL_AI=cuda` to opt in.
-The default desktop build retains CPU AI.
+`npm run build:desktop` also detects CUDA on Linux x86_64 and includes it when available. CUDA-enabled executables detect a usable device and runtime at launch; otherwise they use CPU. Use `npm run desktop -- --cpu` or `OPENCULL_AI=cpu` to force CPU. Direct `npm run tauri -- build` builds keep their explicit feature selection.
 
 Run `npm run check` for automated checks. See the
 [feature and validation map](docs/features/VALIDATION.md) for individual PRs
@@ -300,7 +301,7 @@ In **Settings → AI → MobileCLIP grouping**, download the 45.5 MB model once,
 then enable **Group by visual similarity**. It splits different compositions
 using local image embeddings, reuses cached previews and analysis, and can be
 switched off to restore time/face-position grouping. On Linux x86_64, launch
-`npm run desktop -- --cuda` to share the CUDA worker with face analysis;
+`npm run desktop` automatically shares the CUDA worker with face analysis when a compatible NVIDIA GPU and runtime are detected;
 Settings shows the current backend and reports GPU memory failures.
 The preference is included
 in Storage settings import/export. See [processing order and model details](docs/features/MOBILECLIP_GROUPING.md).
@@ -309,8 +310,10 @@ in Storage settings import/export. See [processing order and model details](docs
 
 The opt-in CUDA trial requires an NVIDIA driver, **CUDA 13.x** runtime and
 **cuDNN 9.x** compatible with CUDA 13, in addition to the normal prerequisites.
-Run `npm run desktop -- --cuda` to compile and launch it. Normal launches keep
-CPU inference. macOS does not build, load or expose CUDA.
+Run `npm run desktop` to detect and enable CUDA automatically. The launcher checks
+the NVIDIA driver and CUDA/cuDNN libraries; the native runtime verifies device
+initialization and falls back to CPU if loading or inference fails. `--cuda`
+forces a CUDA build; `--cpu` forces CPU AI. macOS does not build, load or expose CUDA.
 
 See the [CUDA trial guide](docs/CUDA-TRIAL.md) for installation links, exact
 commands, verification and CPU fallback, and the

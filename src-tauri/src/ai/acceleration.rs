@@ -1,17 +1,31 @@
-//! Opt-in inference selection. Rendering is configured independently.
+//! Automatic inference selection. Rendering is configured independently.
 use std::sync::{Mutex, atomic::{AtomicBool, Ordering}};
 
 static FAILED: AtomicBool = AtomicBool::new(false);
 static FAILURE: Mutex<Option<String>> = Mutex::new(None);
 
-fn requested_on(platform: &str, arch: &str, compiled: bool, requested: Option<&str>) -> bool {
-    platform == "linux" && arch == "x86_64" && compiled && requested == Some("cuda")
+fn requested_on(platform: &str, arch: &str, compiled: bool, requested: Option<&str>, detected: bool) -> bool {
+    platform == "linux" && arch == "x86_64" && compiled && match requested { Some("cuda") => true, None | Some("auto") => detected, _ => false }
 }
 
+fn detected() -> bool {
+    #[cfg(all(feature = "cuda", target_os = "linux", target_arch = "x86_64"))]
+    {
+        static DETECTED: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+        *DETECTED.get_or_init(|| match opencull_cuda::detect() {
+            Ok(()) => { eprintln!("[ai] Automatic CUDA: compatible NVIDIA device and runtime detected"); true }
+            Err(reason) => { eprintln!("[ai] Automatic CPU: {reason}"); false }
+        })
+    }
+    #[cfg(not(all(feature = "cuda", target_os = "linux", target_arch = "x86_64")))]
+    { false }
+}
 pub fn requested() -> bool {
+    let request = std::env::var("OPENCULL_AI").ok();
+    let automatic = request.as_deref().is_none_or(|value| value == "auto");
     requested_on(std::env::consts::OS, std::env::consts::ARCH,
         cfg!(all(feature = "cuda", target_os = "linux", target_arch = "x86_64")),
-        std::env::var("OPENCULL_AI").ok().as_deref())
+        request.as_deref(), automatic && detected())
 }
 pub fn enabled() -> bool { requested() && !FAILED.load(Ordering::Acquire) }
 
@@ -38,11 +52,15 @@ pub fn failure_kind(reason: &str) -> &'static str {
         assert_eq!(failure_kind("CUDA failure 46: CUDA-capable devices are busy or unavailable"),"unavailable");
         assert_eq!(failure_kind("CUDA provider library could not be loaded"),"runtime");
     }
-    #[test] fn cuda_requires_opt_in_supported_target_and_build() {
+    #[test] fn cuda_auto_detection_respects_supported_target_build_and_overrides() {
         if !cfg!(all(feature = "cuda", target_os = "linux", target_arch = "x86_64")) {
             assert!(ai_acceleration_info().is_none());
         }
-        assert!(requested_on("linux", "x86_64", true, Some("cuda")));
+        assert!(requested_on("linux", "x86_64", true, Some("cuda"), false));
+        assert!(requested_on("linux", "x86_64", true, None, true));
+        assert!(requested_on("linux", "x86_64", true, Some("auto"), true));
+        assert!(!requested_on("linux", "x86_64", true, Some("cpu"), true));
+        assert!(!requested_on("linux", "x86_64", true, Some("auto"), false));
         for (os, arch, compiled, request) in [
             ("macos", "aarch64", true, Some("cuda")),
             ("macos", "x86_64", true, Some("cuda")),
@@ -51,7 +69,7 @@ pub fn failure_kind(reason: &str) -> &'static str {
             ("linux", "x86_64", false, Some("cuda")),
             ("linux", "x86_64", true, None),
             ("linux", "x86_64", true, Some("cpu")),
-        ] { assert!(!requested_on(os, arch, compiled, request)); }
+        ] { assert!(!requested_on(os, arch, compiled, request, false)); }
     }
 }
 
