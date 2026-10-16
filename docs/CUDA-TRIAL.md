@@ -64,3 +64,12 @@ OPENCULL_AI=cuda cargo run --features cuda --example ai_backend -- /path/to/phot
 The explicit GPU test compares all four models with CPU results at batches of one and eight across four concurrent callers. The read-only example prints three actual photo-analysis timings and any CPU fallback. Neither writes photos or marks. Default tests do not require NVIDIA hardware.
 
 See [CUDA memory experiment](CUDA-BENCHMARK.md) for the measured tradeoff. Benchmark results are not a guarantee of whole-app performance or memory usage on another machine.
+
+## Linux installers
+
+Linux release installers include the matching ONNX CUDA and shared provider
+libraries beside the executable, as required by the statically linked runtime.
+The host supplies NVIDIA drivers, CUDA 13 and cuDNN 9; installers do not bundle
+those system runtimes. The desktop build wrapper applies `tauri.cuda.conf.json`
+when CUDA is selected, including debug package paths. Direct Tauri packaging
+uses `--features cuda --config src-tauri/tauri.cuda.conf.json` for release builds.

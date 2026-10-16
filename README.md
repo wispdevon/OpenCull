@@ -13,7 +13,8 @@
   <h1>OpenCull</h1>
   <p>Private, fast photo culling for photographers.</p>
   <p>
-    <a href="#try-this-fork">Run this fork</a> ·
+    <a href="https://github.com/wispdevon/OpenCull/releases/latest">Download</a> ·
+    <a href="#try-this-fork">Run from source</a> ·
     <a href="docs/HOW-IT-WORKS.md">How it works</a> ·
     <a href="https://github.com/NatePhotos/OpenCull">Original project</a>
   </p>
@@ -218,8 +219,8 @@ this fork, use [wispdevon/OpenCull issues][issues-url].
 
 <p align="right"><a href="#readme-top">Back to top</a></p>
 
-[release-shield]: https://img.shields.io/github/v/release/NatePhotos/OpenCull?include_prereleases&style=for-the-badge
-[release-url]: https://github.com/NatePhotos/OpenCull/releases
+[release-shield]: https://img.shields.io/github/v/release/wispdevon/OpenCull?include_prereleases&style=for-the-badge
+[release-url]: https://github.com/wispdevon/OpenCull/releases
 [build-shield]: https://img.shields.io/github/actions/workflow/status/wispdevon/OpenCull/build.yml?branch=main&style=for-the-badge
 [build-url]: https://github.com/wispdevon/OpenCull/actions/workflows/build.yml
 [issues-shield]: https://img.shields.io/github/issues/wispdevon/OpenCull.svg?style=for-the-badge

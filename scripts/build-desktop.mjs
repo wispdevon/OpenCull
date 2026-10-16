@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { desktopSpec } from "./dev-desktop.mjs";
+import { cudaBundleSpec } from "./cuda-bundle.mjs";
 import { detectCuda } from "./detect-cuda.mjs";
 
 await import("./check-node.mjs");
@@ -9,7 +10,7 @@ try {
   const initial = desktopSpec(process.platform, process.arch, process.env, args);
   const automatic = !initial.env.OPENCULL_AI || initial.env.OPENCULL_AI === "auto";
   const detection = automatic ? detectCuda(process.platform, process.arch, process.env) : { available: false };
-  const spec = desktopSpec(process.platform, process.arch, process.env, args, detection.available);
+  const spec = cudaBundleSpec(process.platform, desktopSpec(process.platform, process.arch, process.env, args, detection.available));
   spec.args[0] = "build";
   if (process.platform === "linux" && process.arch === "x64") console.log(`[ai] Desktop build: ${spec.args.includes("cuda") ? "CUDA enabled" : "CPU"}`);
   const cli = fileURLToPath(new URL("../node_modules/@tauri-apps/cli/tauri.js", import.meta.url));

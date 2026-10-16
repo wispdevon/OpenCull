@@ -1,7 +1,7 @@
 # Builds OpenCull for macOS, Windows and Linux, and runs its tests on each.
 #
 # On every change to main it proves the app still builds everywhere, and
-# keeps the installers with the run. On a version tag (v0.2.0) it also puts
+# keeps the installers with the run. On a version tag (v0.5.0) it also puts
 # them on a draft release, to be looked over and published by hand.
 name: Build
 
@@ -23,6 +23,9 @@ jobs:
   build:
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
+    env:
+      ORT_CUDA_VERSION: "13"
+      LINUXDEPLOY_EXCLUDED_LIBRARIES: "libcuda.so*;libcudart.so*;libcublas*.so*;libcurand.so*;libcudnn*.so*;libnvrtc*.so*;libnvidia*.so*"
     permissions:
       contents: write
     strategy:
@@ -94,7 +97,7 @@ jobs:
           fi
           cargo test --manifest-path src-tauri/Cargo.toml --lib --features cuda
 
-      - name: Compile the opt-in CUDA path on Linux
+      - name: Compile the CUDA path on Linux
         if: runner.os == 'Linux'
         run: cargo check --manifest-path src-tauri/Cargo.toml --features cuda
 
@@ -124,14 +127,42 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
         with:
-          args: ${{ steps.updates.outputs.args }}
+          args: ${{ steps.updates.outputs.args }} ${{ runner.os == 'Linux' && '--features cuda --config src-tauri/tauri.cuda.conf.json' || '' }}
           # Of the two Windows installers, the one an update falls back on.
           updaterJsonPreferNsis: true
           tagName: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || '' }}
           releaseName: OpenCull ${{ github.ref_name }}
           releaseBody: See the README for what works, what does not yet, and how to open the app the first time.
           releaseDraft: true
-          prerelease: true
+          prerelease: false
+
+      - name: Verify Linux CUDA provider packaging
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          python - <<'PYCODE'
+          import pathlib, subprocess, tarfile, io
+          root = pathlib.Path('src-tauri/target/release/bundle')
+          required = {'libonnxruntime_providers_cuda.so', 'libonnxruntime_providers_shared.so'}
+          packages = list((root / 'deb').glob('*.deb'))
+          assert packages, 'No Debian installer was produced'
+          for package in packages:
+              data = subprocess.check_output(['ar', 'p', str(package), 'data.tar.gz'])
+              with tarfile.open(fileobj=io.BytesIO(data), mode='r:gz') as archive:
+                  found = {pathlib.PurePosixPath(member.name).name for member in archive.getmembers()
+                           if pathlib.PurePosixPath(member.name).parent.as_posix().lstrip('./') == 'usr/bin' and member.size > 0}
+                  assert required <= found, f'Missing provider in {package}'
+          images = list((root / 'appimage').glob('*.AppImage'))
+          assert images, 'No AppImage was produced'
+          import tempfile
+          for image in images:
+              with tempfile.TemporaryDirectory() as directory:
+                  subprocess.run([str(image.resolve()), '--appimage-extract'], cwd=directory,
+                                 check=True, stdout=subprocess.DEVNULL)
+                  for name in required:
+                      assert (pathlib.Path(directory) / 'squashfs-root/usr/bin' / name).stat().st_size > 0
+          print('CUDA and shared provider files verified in Debian and AppImage installers')
+          PYCODE
 
       - name: Keep the installers
         uses: actions/upload-artifact@v4
