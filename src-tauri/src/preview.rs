@@ -193,12 +193,14 @@ pub fn decode_upright(path: &Path, long_edge: u32) -> Result<Upright, String> {
 /// A 640px thumbnail may be too short on panoramic images, so require a
 /// 256px short edge. Prefer 1280px previews to reduce recompression changes.
 pub fn grouping_pixels(path: &Path, version: &str, cache: &crate::cache::Cache) -> Result<Upright, String> {
-    for tier in [Tier::Thumb(1280), Tier::Thumb(640)] {
+    for tier in [Tier::Thumb(1280), Tier::Thumb(640), Tier::Screen, Tier::Fit(1600), Tier::Fit(2400), Tier::Fit(3400)] {
         let key = cache.path_for(path, version, &tier.label());
         if let Some(bytes) = cache.get(&key) {
             if dimensions(&bytes).is_some_and(|(w,h)| w.min(h) >= 256) {
                 if let Ok(p) = decode_jpeg(&bytes, 512) {
-                    // Generated cached previews already have upright pixels.
+                    // Generated previews are upright; lifted camera Screen
+                    // JPEGs retain EXIF orientation, so apply it exactly once.
+                    let p = orient(p, jpeg::own_orientation(&bytes).unwrap_or(1));
                     return Ok(Upright { rgb: p.data, width: p.width, height: p.height });
                 }
             }
@@ -546,6 +548,23 @@ mod tests {
         cache.put(&key,b"broken preview");
         assert!(grouping_pixels(&missing,"v1",&cache).is_err());
         std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn grouping_reuses_screen_and_fit_caches_and_applies_exif_orientation_once() {
+        for (name,tier,orientation) in [("screen",Tier::Screen,6),("fit1600",Tier::Fit(1600),1),("fit2400",Tier::Fit(2400),1),("fit3400",Tier::Fit(3400),1)] {
+            let root = std::env::temp_dir().join(format!("opencull-grouping-{name}-{}",std::process::id()));
+            let cache = crate::cache::Cache::new(root.clone());
+            let source = root.join("missing-original.RW2");
+            let bytes = encode(Pixels {data:vec![80;768*512*3],width:768,height:512,icc:None},90).unwrap().bytes;
+            let bytes = jpeg::set_orientation(bytes,orientation);
+            let key = cache.path_for(&source,"v1",&tier.label());
+            cache.put(&key,&bytes);
+            let image = grouping_pixels(&source,"v1",&cache).unwrap();
+            assert_eq!(image.height>image.width,orientation==6,"{name}");
+            assert!(grouping_pixels(&source,"changed",&cache).is_err());
+            std::fs::remove_dir_all(root).unwrap();
+        }
     }
 
     #[test]

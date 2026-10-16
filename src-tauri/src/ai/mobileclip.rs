@@ -113,7 +113,7 @@ impl Model {
         Ok(Self { root: root.into(), session: None, memory: HashMap::new(), recent: VecDeque::new(), computed: 0, cached: 0 })
     }
     fn key(path: &Path, version: &str) -> String {
-        format!("{:032x}", xxhash_rust::xxh3::xxh3_128(format!("{MODEL_SHA}\0preprocess-v3-preview256\0{}\0{version}", path.to_string_lossy()).as_bytes()))
+        format!("{:032x}", xxhash_rust::xxh3::xxh3_128(format!("{MODEL_SHA}\0preprocess-v4-screen-fit\0{}\0{version}", path.to_string_lossy()).as_bytes()))
     }
     fn remember(&mut self, key: String, vector: Vec<f32>) -> Vec<f32> {
         if self.memory.len() >= RAM_ENTRIES { if let Some(old) = self.recent.pop_front() { self.memory.remove(&old); } }

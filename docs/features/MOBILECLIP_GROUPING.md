@@ -14,7 +14,9 @@ geometry rules. The toggle participates in Storage settings import/export.
 3. Look for MobileCLIP embeddings in a bounded RAM cache, then the disk cache.
    Keys include source path, file version, model SHA and preprocessing version.
 4. For misses, reuse existing 1280px thumbnails, then 640px thumbnails with a
-   short edge of at least 256px. These are already upright. Do not generate a
+   short edge of at least 256px, then cached Screen and Fit 1600/2400/3400
+   JPEGs. Lifted camera Screen JPEGs have their EXIF orientation applied once;
+   generated previews already have upright pixels. Do not generate a
    JPEG just to decode it again. Otherwise use the existing embedded-preview
    selection and scaled decoder (libjpeg-turbo when built with turbo).
 5. At most four decode workers prepare four inputs at a time. Centre crop,
@@ -111,3 +113,24 @@ exhaustion. Other provider failures show **GPU acceleration failed**. Supported
 CUDA builds report current backend/failure state; CPU-only and unsupported
 platforms show no CUDA error. Status updates while the page is open, so a
 failure after startup cannot leave the settings claiming CUDA is active.
+
+
+A live audit of the 1993-photo session found cached Screen and Fit previews for
+1992 photos (mean 177.5/206.5KiB), while only one photo had an eligible cached
+640/1280px thumbnail. The initial implementation checked only thumbnail tiers,
+forcing large source reads from the SATA HDD despite the available NVMe cache.
+Screen and Fit tiers are now included, with tests that reuse each tier while
+the original source is absent and verify EXIF rotation. This preprocessing
+policy uses a new cache version to avoid mixing old and new representations.
+
+Native follow-up with the same 1861 comparison photos and zero embedding-cache
+hits in both passes: the sum of eight grouping-batch times fell from 170.748s
+to 10.614s (16.1×). The 235-photo batch fell from 22.426s to 1.949s. A four-second
+sample saved 700 embeddings (175/s), reading 110MiB through file reads and
+107.45MiB physically, versus the earlier 41 embeddings and 382.3MiB physical
+reads. This is the measured benefit of the existing small NVMe preview JPEGs
+versus large SATA source reads; it excludes opening/metadata time and is not an
+isolated decoder benchmark. CUDA remained enabled with no fallback, and all
+1993 face results were restored from cache. In the runtime log, `cached` refers
+to embeddings, not preview JPEG hits: zero cached embeddings is compatible with
+reusing cached JPEGs to compute new embeddings.
