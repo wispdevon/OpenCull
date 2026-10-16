@@ -160,7 +160,7 @@ jobs:
                   subprocess.run([str(image.resolve()), '--appimage-extract'], cwd=directory,
                                  check=True, stdout=subprocess.DEVNULL)
                   for name in required:
-                      assert (pathlib.Path(directory) / 'squashfs-root/usr/bin' / name).stat().st_size > 0
+                      assert (pathlib.Path(directory) / 'squashfs-root/usr' / name).stat().st_size > 0
           print('CUDA and shared provider files verified in Debian and AppImage installers')
           PYCODE
 
