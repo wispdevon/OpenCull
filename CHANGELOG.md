@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.1
+
+- Rebuild Linux CUDA installers for investigation of provider-library loading failures.
+- Keep CPU fallback available when CUDA initialization fails.
+
 ## 0.5.0
 
 ### Review and grouping
