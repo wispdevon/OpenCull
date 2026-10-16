@@ -298,7 +298,10 @@ also need the system packages on
 In **Settings → AI → MobileCLIP grouping**, download the 45.5 MB model once,
 then enable **Group by visual similarity**. It splits different compositions
 using local image embeddings, reuses cached previews and analysis, and can be
-switched off to restore time/face-position grouping. The preference is included
+switched off to restore time/face-position grouping. On Linux x86_64, launch
+`npm run desktop -- --cuda` to share the CUDA worker with face analysis;
+Settings shows the current backend and reports GPU memory failures.
+The preference is included
 in Storage settings import/export. See [processing order and model details](docs/features/MOBILECLIP_GROUPING.md).
 
 ### Experimental NVIDIA AI (Linux x86_64)

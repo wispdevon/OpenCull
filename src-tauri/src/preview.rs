@@ -191,12 +191,12 @@ pub fn decode_upright(path: &Path, long_edge: u32) -> Result<Upright, String> {
 
 /// Reuse a sufficiently detailed existing preview without making another JPEG.
 /// A 640px thumbnail may be too short on panoramic images, so require a
-/// 384px short edge. Prefer 1280px previews to reduce recompression changes.
+/// 256px short edge. Prefer 1280px previews to reduce recompression changes.
 pub fn grouping_pixels(path: &Path, version: &str, cache: &crate::cache::Cache) -> Result<Upright, String> {
     for tier in [Tier::Thumb(1280), Tier::Thumb(640)] {
         let key = cache.path_for(path, version, &tier.label());
         if let Some(bytes) = cache.get(&key) {
-            if dimensions(&bytes).is_some_and(|(w,h)| w.min(h) >= 384) {
+            if dimensions(&bytes).is_some_and(|(w,h)| w.min(h) >= 256) {
                 if let Ok(p) = decode_jpeg(&bytes, 512) {
                     // Generated cached previews already have upright pixels.
                     return Ok(Upright { rgb: p.data, width: p.width, height: p.height });
@@ -537,8 +537,8 @@ mod tests {
         let root = std::env::temp_dir().join(format!("opencull-grouping-preview-{}",std::process::id()));
         let cache = crate::cache::Cache::new(root.clone());
         let missing = root.join("source-not-present.jpg");
-        let bytes = encode(Pixels {data:vec![80;768*512*3],width:768,height:512,icc:None},90).unwrap().bytes;
-        let key=cache.path_for(&missing,"v1",&Tier::Thumb(1280).label());
+        let bytes = encode(Pixels {data:vec![80;640*359*3],width:640,height:359,icc:None},90).unwrap().bytes;
+        let key=cache.path_for(&missing,"v1",&Tier::Thumb(640).label());
         cache.put(&key,&bytes);
         let image=grouping_pixels(&missing,"v1",&cache).unwrap();
         assert!(image.width>=512 && image.height>=256);

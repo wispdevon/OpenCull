@@ -14,12 +14,15 @@ geometry rules. The toggle participates in Storage settings import/export.
 3. Look for MobileCLIP embeddings in a bounded RAM cache, then the disk cache.
    Keys include source path, file version, model SHA and preprocessing version.
 4. For misses, reuse existing 1280px thumbnails, then 640px thumbnails with a
-   short edge of at least 384px. These are already upright. Do not generate a
+   short edge of at least 256px. These are already upright. Do not generate a
    JPEG just to decode it again. Otherwise use the existing embedded-preview
    selection and scaled decoder (libjpeg-turbo when built with turbo).
-5. At most two decode workers prepare two inputs at a time. Centre crop,
+5. At most four decode workers prepare four inputs at a time. Centre crop,
    bilinear resize to 256×256, RGB floats in [0,1], no mean/std normalization.
-   One CPU ONNX session with two inference threads processes prepared inputs.
+   One shared CUDA worker processes prepared inputs when launched with
+   `npm run desktop -- --cuda`; otherwise one CPU session uses two threads.
+   CPU model loading is lazy, so cache hits and CUDA inference do not initialize
+   an unnecessary CPU session.
 6. Store normalized 512-value embeddings. At cosine similarity ≥0.95, compare
    against both the preceding frame and group anchor to avoid chaining different
    compositions. Time span remains at most three seconds; orientation changes
@@ -43,8 +46,13 @@ Downloads require an explicit button press and are checked before installation
 and model loading. Photographs and embeddings stay local. The model is stored
 under the app cache's `mobileclip-s0` directory; weights are not committed.
 See [Apple's MobileCLIP project](https://github.com/apple-aiml-research/ml-mobileclip)
-for model terms and architecture. This path currently uses CPU inference, even
-when face analysis uses the optional CUDA worker.
+for model terms and architecture. On Linux x86_64 CUDA builds, MobileCLIP shares the existing bounded worker
+with face analysis. Small shape/control operations remain on CPU as assigned
+by ONNX Runtime; model compute uses CUDA. Face models retain their strict
+CUDA-only placement checks. Failures report a CPU fallback, and AI settings
+show the available inference backend. macOS and ordinary CPU builds do not
+load CUDA. GPU transfers remain included; cached embeddings bypass both
+backends.
 
 ## Measured decisions
 
@@ -52,8 +60,8 @@ On a Ryzen 5 7500F, eight local JPEGs, five timed passes each, the standalone
 Python/libjpeg-turbo harness measured median decode+preprocessing of 139.8ms at
 full resolution, 51.7ms at 1/8 scale, 1.32ms from an existing 512px JPEG preview,
 and 0.16ms loading a disk embedding. Eight-photo scaled decoding took 424ms with
-one worker, 216ms with two, and 114ms with four. Two workers leave more CPU for
-interactive previews. These are warm-filesystem standalone results, not native
+one worker, 216ms with two, and 114ms with four. Four bounded decode workers use the fastest measured batch configuration;
+background work still yields to interactive preview requests. These are warm-filesystem standalone results, not native
 app latency promises. Preview creation is excluded from reuse measurements.
 
 FP32 inference measured 21.2ms with two threads versus 46.0ms for the quantized
@@ -70,3 +78,36 @@ A repeat request used two cached embeddings and zero inferences; switching off
 restored the baseline. Stale revisions were rejected and AI cache clearing
 retained the model. Native batch logs measured 272ms for two new embeddings and
 38µs for the two RAM-cache hits (excluding command transport and model startup).
+
+CUDA follow-up on the same Ryzen 5 7500F / RTX 3060 Ti, eight photos × five
+passes, five warmups, fresh processes and transfers included: FP32 CPU (two
+threads) median 24.69ms, p95 26.74ms; CUDA median 6.44ms, p95 8.01ms (3.8× faster
+inference). CUDA process peak RSS was 1106MiB versus CPU 157MiB, with 218MiB
+VRAM reported after warmup. These include Python/runtime overhead, not whole-app
+RAM, and exclude image decoding. Model setup and the first CUDA inference cost
+334ms + 519ms in this run; cached embeddings do not incur inference. Smaller
+workspace/heuristic variants measured 5.73–5.89ms, but order/clock variation
+prevents claiming those small differences as a win; the existing shared-worker
+provider settings are retained.
+
+An untimed provider profile confirmed CUDA Conv/MatMul execution; the CPU
+operations were integer shape/control work. The first combined GPU test failed
+while other applications filled almost all VRAM; after stopping the requested
+Spotiverse process, roughly 5.3GiB was available for retesting. CUDA failures
+remain visible and fall back safely rather than claiming GPU execution.
+
+The initial thumbnail reuse guard excluded 640×359 images despite their short
+edge exceeding the model's 256px input. It now accepts short edges ≥256px,
+with a regression test for that exact size. Changing this preprocessing policy
+versions the embeddings, so older representations are not silently reused.
+
+## Visible GPU failures
+
+A CUDA allocation failure displays **Not enough GPU memory (VRAM)** in the
+workspace and AI settings, explains CPU fallback, and offers technical details.
+It can be dismissed without blocking photo navigation. Device-busy failures
+have a distinct **GPU busy or unavailable** message: they do not prove VRAM
+exhaustion. Other provider failures show **GPU acceleration failed**. Supported
+CUDA builds report current backend/failure state; CPU-only and unsupported
+platforms show no CUDA error. Status updates while the page is open, so a
+failure after startup cannot leave the settings claiming CUDA is active.

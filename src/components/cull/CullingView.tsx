@@ -1,3 +1,4 @@
+import { AiAccelerationError } from "./AiAccelerationError";
 import { MotionRegion } from "./InterfaceMotion";
 import { FolderSearch, Images } from "lucide-react";
 
@@ -50,6 +51,7 @@ export function CullingView() {
     <div className="flex size-full flex-col bg-canvas">
       <ReviewBar />
       <Toolbar />
+      <AiAccelerationError />
       <div className="flex min-h-0 flex-1">
         {empty ? (
           <EmptyFolder />

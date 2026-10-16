@@ -1,3 +1,4 @@
+import { AiAccelerationError } from "./AiAccelerationError";
 import { useEffect, useState } from "react";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
@@ -9,19 +10,22 @@ export function MobileClipSettings() {
   const ai = useStore((s) => s.aiEnabled);
   const groupingError = useStore((s) => s.aiGroupingError);
   const [ready, setReady] = useState(false);
+  const [backend, setBackend] = useState<string>("CPU");
   const [checking, setChecking] = useState(true);
   const [downloading, setDownloading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
     let live = true;
-    void api.mobileClipStatus().then((s) => { if (live) setReady(s.ready); })
-      .catch((e: unknown) => { if (live) setError(String(e)); })
+    const refresh = () => api.mobileClipStatus().then((s) => { if (live) { setReady(s.ready); setBackend(s.backend); } });
+    void refresh().catch((e: unknown) => { if (live) setError(String(e)); })
       .finally(() => { if (live) setChecking(false); });
-    return () => { live = false; };
+    // A CUDA error can switch the shared worker to CPU after this page opens.
+    const timer = window.setInterval(() => { void refresh().catch(() => {}); }, 3000);
+    return () => { live = false; window.clearInterval(timer); };
   }, []);
   async function download() {
     setDownloading(true); setError(null);
-    try { setReady((await api.mobileClipInstall()).ready); }
+    try { const s = await api.mobileClipInstall(); setReady(s.ready); setBackend(s.backend); }
     catch (e) { setError(String(e)); }
     finally { setDownloading(false); }
   }
@@ -34,8 +38,9 @@ export function MobileClipSettings() {
       </div>
       <Switch id="mobileclip-grouping" aria-labelledby="mobileclip-label" aria-describedby="mobileclip-hint mobileclip-status" checked={enabled} disabled={!enabled && (!ai || !ready || checking || downloading || !inTauri)} onCheckedChange={(on) => useStore.getState().set("aiMobileClipGrouping", on)} />
     </div>
-    <p id="mobileclip-status" role="status" className="setting-hint text-muted-foreground">{!inTauri ? "Available in the desktop app." : checking ? "Checking model…" : downloading ? "Downloading model…" : !ai ? "Enable OpenCull AI to use visual grouping." : ready ? "MobileCLIP-S0 is installed. Embeddings are cached between sessions." : "Download the 45.5 MB model once, then enable visual grouping."}</p>
+    <p id="mobileclip-status" role="status" className="setting-hint text-muted-foreground">{!inTauri ? "Available in the desktop app." : checking ? "Checking model…" : downloading ? "Downloading model…" : !ai ? "Enable OpenCull AI to use visual grouping." : ready ? `MobileCLIP-S0 is installed · ${backend} inference. Embeddings are cached between sessions.` : "Download the 45.5 MB model once, then enable visual grouping."}</p>
     {inTauri && <Button variant="outline" disabled={checking || downloading} onClick={() => void download()}>{downloading ? "Downloading…" : ready ? "Download model again" : "Download MobileCLIP model (45.5 MB)"}</Button>}
+    <AiAccelerationError />
     {(error || groupingError) && <p role="alert" className="text-sm text-red-400">{error || groupingError}</p>}
   </fieldset>;
 }

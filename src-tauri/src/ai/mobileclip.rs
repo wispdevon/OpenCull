@@ -1,7 +1,7 @@
-//! Optional MobileCLIP-S0 image embeddings. One CPU session, bounded RAM,
+//! Optional MobileCLIP-S0 image embeddings. One shared session, bounded RAM,
 //! versioned disk features; model installation never sends photographs out.
 use std::{collections::{HashMap, VecDeque}, fs, io::Write, path::{Path, PathBuf}, sync::{Mutex, OnceLock}, time::Duration};
-use ort::{session::Session, value::TensorRef};
+use ort::session::Session;
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 
@@ -17,9 +17,9 @@ static INSTALLING: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct Status { pub ready: bool, pub bytes: u64, pub model: &'static str }
+pub struct Status { pub ready: bool, pub bytes: u64, pub model: &'static str, pub backend: &'static str }
 pub fn status(root: &Path) -> Status {
-    Status { ready: fs::metadata(root.join(MODEL_FILE)).is_ok_and(|m| m.len() == MODEL_BYTES), bytes: MODEL_BYTES, model: "MobileCLIP-S0" }
+    Status { ready: fs::metadata(root.join(MODEL_FILE)).is_ok_and(|m| m.len() == MODEL_BYTES), bytes: MODEL_BYTES, model: "MobileCLIP-S0", backend: if super::acceleration::enabled() { "CUDA" } else { "CPU" } }
 }
 fn verified(path: &Path) -> Result<(), String> {
     let bytes = fs::read(path).map_err(|_| "Download the MobileCLIP model in Settings → AI first.".to_string())?;
@@ -100,7 +100,7 @@ fn pixels(rgb: &[u8], width: u32, height: u32) -> Result<Vec<f32>, String> {
 
 pub struct Model {
     root: PathBuf,
-    session: Session,
+    session: Option<Session>,
     memory: HashMap<String, Vec<f32>>,
     recent: VecDeque<String>,
     pub computed: usize,
@@ -110,11 +110,10 @@ impl Model {
     fn open(root: &Path) -> Result<Self, String> {
         let path = root.join(MODEL_FILE);
         verified(&path)?;
-        let session = super::onnx::builder()?.with_intra_threads(2).map_err(|e| e.to_string())?.commit_from_file(path).map_err(|e| e.to_string())?;
-        Ok(Self { root: root.into(), session, memory: HashMap::new(), recent: VecDeque::new(), computed: 0, cached: 0 })
+        Ok(Self { root: root.into(), session: None, memory: HashMap::new(), recent: VecDeque::new(), computed: 0, cached: 0 })
     }
     fn key(path: &Path, version: &str) -> String {
-        format!("{:032x}", xxhash_rust::xxh3::xxh3_128(format!("{MODEL_SHA}\0preprocess-v2-preview1280\0{}\0{version}", path.to_string_lossy()).as_bytes()))
+        format!("{:032x}", xxhash_rust::xxh3::xxh3_128(format!("{MODEL_SHA}\0preprocess-v3-preview256\0{}\0{version}", path.to_string_lossy()).as_bytes()))
     }
     fn remember(&mut self, key: String, vector: Vec<f32>) -> Vec<f32> {
         if self.memory.len() >= RAM_ENTRIES { if let Some(old) = self.recent.pop_front() { self.memory.remove(&old); } }
@@ -130,28 +129,44 @@ impl Model {
         Some(self.remember(key.into(), v))
     }
     fn infer(&mut self, key: String, input: Vec<f32>) -> Result<Vec<f32>, String> {
-        let tensor = TensorRef::from_array_view(([1usize, 3, 256, 256], input.as_slice())).map_err(|e| e.to_string())?;
-        let results = self.session.run(ort::inputs!["pixel_values" => tensor]).map_err(|e| e.to_string())?;
-        let (shape, values) = results["image_embeds"].try_extract_tensor::<f32>().map_err(|e| e.to_string())?;
-        if shape.iter().copied().collect::<Vec<_>>() != [1, DIM as i64] { return Err("Unexpected MobileCLIP output shape.".into()); }
-        let vector = normalized(values.to_vec())?;
-        drop(results);
+        let inputs = vec![("pixel_values".to_owned(),vec![1,3,256,256],input)];
+        let outputs = vec!["image_embeds".to_owned()];
+        #[cfg(all(feature="cuda",target_os="linux",target_arch="x86_64"))]
+        let (inputs, gpu) = if super::acceleration::enabled() {
+            let reply = super::cuda::run_file(self.root.join(MODEL_FILE),inputs,outputs.clone())?;
+            match reply.result { Ok(out) => (Vec::new(),Some(out)), Err(_) => (reply.inputs,None) }
+        } else { (inputs,None) };
+        #[cfg(not(all(feature="cuda",target_os="linux",target_arch="x86_64")))]
+        let gpu: Option<Vec<(Vec<usize>,Vec<f32>)>> = None;
+        let result = if let Some(out) = gpu { out } else {
+            if self.session.is_none() {
+                self.session = Some(super::onnx::builder()?.with_intra_threads(2).map_err(|e| e.to_string())?
+                    .commit_from_file(self.root.join(MODEL_FILE)).map_err(|e| e.to_string())?);
+                eprintln!("[mobileclip] CPU model ready (2 inference threads)");
+            }
+            super::onnx::evaluate(self.session.as_mut().unwrap(),&inputs,&outputs,
+                |out| out.iter().map(|(shape,data)| (shape.clone(),data.to_vec())).collect::<Vec<_>>())?
+        };
+        let (shape,values) = result.into_iter().next().ok_or("Missing MobileCLIP embedding.")?;
+        if shape != [1,DIM] { return Err("Unexpected MobileCLIP output shape.".into()); }
+        let vector = normalized(values)?;
         let file = self.root.join("embeddings").join(format!("{key}.json"));
         fs::create_dir_all(file.parent().unwrap()).map_err(|e| e.to_string())?;
         let temp = file.with_extension(format!("tmp{}", std::process::id()));
         fs::write(&temp, serde_json::to_vec(&vector).map_err(|e| e.to_string())?).map_err(|e| e.to_string())?;
         if fs::rename(&temp, &file).is_err() { let _ = fs::remove_file(&temp); }
         self.computed += 1;
+        if self.computed % 32 == 0 { eprintln!("[mobileclip] {} new embeddings saved, {} cache hits",self.computed,self.cached); }
         Ok(self.remember(key, vector))
     }
-    /// Cache before decoding. Two bounded workers prepare misses, then a single
+    /// Cache before decoding. Four bounded workers prepare misses, then a single
     /// model session performs inference; no full-folder RGB buffers accumulate.
     pub fn embeddings(&mut self, paths: &[(&Path, &str)], cache: &crate::cache::Cache, wanted: impl Fn() -> bool + Sync) -> Result<Vec<Vec<f32>>, String> {
         use rayon::prelude::*;
         static DECODERS: OnceLock<rayon::ThreadPool> = OnceLock::new();
-        let pool = DECODERS.get_or_init(|| rayon::ThreadPoolBuilder::new().num_threads(2).thread_name(|i| format!("mobileclip-decode-{i}")).build().expect("decoder pool"));
+        let pool = DECODERS.get_or_init(|| rayon::ThreadPoolBuilder::new().num_threads(4).thread_name(|i| format!("mobileclip-decode-{i}")).build().expect("decoder pool"));
         let mut out = Vec::with_capacity(paths.len());
-        for chunk in paths.chunks(2) {
+        for chunk in paths.chunks(4) {
             if !wanted() { return Err("Grouping cancelled.".into()); }
             let work = chunk.iter().map(|(path,version)| {
                 let key = Self::key(path,version);
@@ -231,6 +246,10 @@ pub fn cache_bytes(root: &Path) -> u64 {
         eprintln!("two real embeddings: {:?}; similarity {:?}", start.elapsed(), similarity(&av,&bv));
         assert!(!matching(Some(&av),Some(&bv)));
         assert_eq!(model.computed,2);
+        if super::super::acceleration::requested() {
+            assert!(super::super::acceleration::enabled(), "CUDA silently fell back: {:?}",super::super::acceleration::failure());
+            assert!(model.session.is_none(), "CPU MobileCLIP session was opened");
+        }
         drop(model);
         let mut reopened = Model::open(&root).unwrap();
         let start = std::time::Instant::now();

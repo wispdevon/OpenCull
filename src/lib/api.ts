@@ -9,6 +9,13 @@
 import { Channel, invoke } from "@tauri-apps/api/core";
 import type { AiEvent, Compared, FileKinds, Framing, Histogram, Marks, MetaEvent, RunFrame, Scanned } from "./types";
 
+export interface AiAccelerationInfo {
+  requested: boolean;
+  enabled: boolean;
+  failure: string | null;
+  failureKind: "memory" | "unavailable" | "runtime" | null;
+}
+
 export interface AppInfo {
   platform: string;
   version: string;
@@ -156,8 +163,9 @@ export interface Backend {
    * finds the poses in it — or, without `poses`, only the bursts.
    */
   aiCompare(runs: RunFrame[][], poses: boolean, options?: { session: number; revision: number; mobileClip: boolean }): Promise<Compared[][]>;
-  mobileClipStatus(): Promise<{ ready: boolean; bytes: number; model: string }>;
-  mobileClipInstall(): Promise<{ ready: boolean; bytes: number; model: string }>;
+  aiAccelerationInfo(): Promise<AiAccelerationInfo | null>;
+  mobileClipStatus(): Promise<{ ready: boolean; bytes: number; model: string; backend: "CPU" | "CUDA" }>;
+  mobileClipInstall(): Promise<{ ready: boolean; bytes: number; model: string; backend: "CPU" | "CUDA" }>;
   aiStop(): Promise<void>;
   /** Whether analysis stands aside while the photographer moves between photos. */
   aiSetYield(on: boolean): Promise<void>;
@@ -243,6 +251,7 @@ const tauri: Backend = {
     return invoke("ai_scan", { session, order, advanced, motionBlur, events });
   },
   aiCompare: (runs, poses, options) => invoke("ai_compare", { runs, poses, ...options }),
+  aiAccelerationInfo: () => invoke("ai_acceleration_info"),
   mobileClipStatus: () => invoke("mobileclip_status"),
   mobileClipInstall: () => invoke("mobileclip_install"),
   aiLookAt: (order) => invoke("ai_look_at", { order }),
