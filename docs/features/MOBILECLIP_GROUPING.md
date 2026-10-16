@@ -25,7 +25,8 @@ geometry rules. The toggle participates in Storage settings import/export.
    `npm run desktop -- --cuda`; otherwise one CPU session uses two threads.
    CPU model loading is lazy, so cache hits and CUDA inference do not initialize
    an unnecessary CPU session.
-6. Store normalized 512-value embeddings. At cosine similarity ≥0.95, compare
+6. Store normalized 512-value embeddings. Select **Loose (>0.85)**, **Normal (>0.90, default)**, or
+   **Tight (>0.93)** in Settings. At similarity strictly above that cutoff, compare
    against both the preceding frame and group anchor to avoid chaining different
    compositions. Time span remains at most three seconds; orientation changes
    split groups. A visual mismatch can split even a single shutter burst.
@@ -134,3 +135,16 @@ isolated decoder benchmark. CUDA remained enabled with no fallback, and all
 1993 face results were restored from cache. In the runtime log, `cached` refers
 to embeddings, not preview JPEG hits: zero cached embeddings is compatible with
 reusing cached JPEGs to compute new embeddings.
+
+
+## Grouping strength
+
+The three radio choices sit beside the experimental MobileCLIP controls in
+Settings → AI. The saved `mobileClipGrouping` preference is included in
+settings export/import and validated as `loose`, `normal` or `tight`. Older
+settings without the preference use Normal. Changing strength cancels stale
+grouping requests and recomputes group membership using existing embeddings;
+it does not decode photographs, rerun inference, or invalidate embeddings.
+Previous-frame and group-anchor comparisons both use the selected threshold.
+Time and orientation safeguards remain. Backend enum validation rejects
+unsupported presets; calls that omit the preset use Normal.

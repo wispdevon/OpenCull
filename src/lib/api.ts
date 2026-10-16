@@ -1,3 +1,4 @@
+import type { MobileClipGrouping } from "./mobileclip-grouping";
 // Everything the interface asks of the Rust backend, in one place.
 //
 // Two implementations sit behind it. Inside the app it is the real backend.
@@ -162,7 +163,7 @@ export interface Backend {
    * taken one soon after another, in the order they were shot; the backend
    * finds the poses in it — or, without `poses`, only the bursts.
    */
-  aiCompare(runs: RunFrame[][], poses: boolean, options?: { session: number; revision: number; mobileClip: boolean }): Promise<Compared[][]>;
+  aiCompare(runs: RunFrame[][], poses: boolean, options?: { session: number; revision: number; mobileClip: boolean; mobileClipGrouping?: MobileClipGrouping }): Promise<Compared[][]>;
   aiAccelerationInfo(): Promise<AiAccelerationInfo | null>;
   mobileClipStatus(): Promise<{ ready: boolean; bytes: number; model: string; backend: "CPU" | "CUDA" }>;
   mobileClipInstall(): Promise<{ ready: boolean; bytes: number; model: string; backend: "CPU" | "CUDA" }>;

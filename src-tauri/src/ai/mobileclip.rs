@@ -8,7 +8,12 @@ use sha2::{Digest, Sha256};
 pub const MODEL_BYTES: u64 = 45_543_630;
 pub const MODEL_SHA: &str = "17d3c037b1d488c10c50e09f6009ea5a198caef4e0e8f4ea5617b7cb2d067ac0";
 pub const MODEL_URL: &str = "https://huggingface.co/Xenova/mobileclip_s0/resolve/757d59c9c6870a76a4b0306f05f5061bca15c39f/onnx/vision_model.onnx";
-pub const SIMILARITY: f32 = 0.95;
+#[derive(Clone, Copy, Debug, Default, serde::Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Grouping { Loose, #[default] Normal, Tight }
+impl Grouping {
+    pub fn threshold(self) -> f32 { match self { Self::Loose => 0.85, Self::Normal => 0.90, Self::Tight => 0.93 } }
+}
 const MODEL_FILE: &str = "mobileclip-s0-vision-v1.onnx";
 const DIM: usize = 512;
 const RAM_ENTRIES: usize = 256;
@@ -72,8 +77,8 @@ pub fn similarity(a: &[f32], b: &[f32]) -> Option<f32> {
     if a.len() != DIM || b.len() != DIM || a.iter().chain(b).any(|v| !v.is_finite()) { return None; }
     Some(a.iter().zip(b).map(|(x,y)| x*y).sum::<f32>().clamp(-1.0, 1.0))
 }
-pub fn matching(a: Option<&[f32]>, b: Option<&[f32]>) -> bool {
-    a.zip(b).and_then(|(a,b)| similarity(a,b)).is_some_and(|s| s >= SIMILARITY)
+pub fn matching(a: Option<&[f32]>, b: Option<&[f32]>, grouping: Grouping) -> bool {
+    a.zip(b).and_then(|(a,b)| similarity(a,b)).is_some_and(|s| s > grouping.threshold())
 }
 
 /// Same resize-short-edge, centre crop and [0,1] RGB scaling as the model's
@@ -213,15 +218,29 @@ pub fn cache_bytes(root: &Path) -> u64 {
 #[cfg(test)] mod tests {
     use super::*;
     #[test] fn invalid_features_cannot_join_a_group() {
-        assert!(!matching(None, None));
-        assert!(!matching(Some(&[0.0; 4]), Some(&[0.0; 4])));
+        assert!(!matching(None, None, Grouping::Normal));
+        assert!(!matching(Some(&[0.0; 4]), Some(&[0.0; 4]), Grouping::Normal));
         assert!(normalized(vec![0.0; DIM]).is_err());
         let mut a = vec![0.0; DIM]; a[0] = 1.0;
         let mut b = vec![0.0; DIM]; b[1] = 1.0;
-        assert!(matching(Some(&a), Some(&a)));
-        assert!(!matching(Some(&a), Some(&b)));
+        assert!(matching(Some(&a), Some(&a), Grouping::Normal));
+        assert!(!matching(Some(&a), Some(&b), Grouping::Normal));
         a[0] = f32::NAN;
-        assert!(!matching(Some(&a), Some(&b)));
+        assert!(!matching(Some(&a), Some(&b), Grouping::Normal));
+    }
+    #[test] fn grouping_presets_use_strict_similarity_cutoffs() {
+        let mut a=vec![0.;DIM];a[0]=1.;
+        for mode in [Grouping::Loose,Grouping::Normal,Grouping::Tight] {
+            let threshold=mode.threshold();
+            let vector=|value:f32| {let mut v=vec![0.;DIM];v[0]=value;v[1]=(1.-value*value).sqrt();v};
+            assert!(!matching(Some(&a),Some(&vector(threshold)),mode));
+            assert!(!matching(Some(&a),Some(&vector(threshold-0.001)),mode));
+            assert!(matching(Some(&a),Some(&vector(threshold+0.001)),mode));
+        }
+        let mut b=vec![0f32;DIM];b[0]=0.88690656;b[1]=(1.-b[0]*b[0]).sqrt();
+        assert!(matching(Some(&a),Some(&b),Grouping::Loose));
+        assert!(!matching(Some(&a),Some(&b),Grouping::Normal));
+        assert!(!matching(Some(&a),Some(&b),Grouping::Tight));
     }
     #[test] fn preprocessing_centre_crops_scales_rgb_and_keeps_channels_in_order() {
         let mut rgb = vec![0u8; 512*256*3];
@@ -244,7 +263,7 @@ pub fn cache_bytes(root: &Path) -> u64 {
         let visual = model.embeddings(&[(&a,"test-v1"),(&b,"test-v1")], &cache, || true).unwrap();
         let (av,bv) = (&visual[0],&visual[1]);
         eprintln!("two real embeddings: {:?}; similarity {:?}", start.elapsed(), similarity(&av,&bv));
-        assert!(!matching(Some(&av),Some(&bv)));
+        assert!(!matching(Some(&av),Some(&bv), Grouping::Normal));
         assert_eq!(model.computed,2);
         if super::super::acceleration::requested() {
             assert!(super::super::acceleration::enabled(), "CUDA silently fell back: {:?}",super::super::acceleration::failure());

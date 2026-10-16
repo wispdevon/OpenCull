@@ -830,7 +830,7 @@ pub struct RunFrame {
 /// shot; it is split here into bursts and, if `poses`, poses shot again.
 #[tauri::command]
 pub async fn ai_compare(app: AppState<'_>, handle: tauri::AppHandle, runs: Vec<Vec<RunFrame>>, poses: bool,
-    session: Option<u64>, revision: Option<u64>, mobile_clip: Option<bool>) -> Result<Vec<Vec<ai::series::Compared>>, String> {
+    session: Option<u64>, revision: Option<u64>, mobile_clip: Option<bool>, mobile_clip_grouping: Option<ai::mobileclip::Grouping>) -> Result<Vec<Vec<ai::series::Compared>>, String> {
     let app = app.inner().clone();
     let source = if let Some(id) = session { Some(app.sessions.lock().unwrap().get(&id).cloned().ok_or("Session closed.")?) } else { None };
     let epoch = (session.unwrap_or(0), revision.unwrap_or(0));
@@ -845,7 +845,7 @@ pub async fn ai_compare(app: AppState<'_>, handle: tauri::AppHandle, runs: Vec<V
         let wanted = || source.as_ref().is_none_or(|s| !s.closed.load(Ordering::SeqCst))
             && (session.is_none() || *app.ai_grouping_epoch.lock().unwrap() == epoch);
         let compare = |run: &[RunFrame], visual: Option<&[Vec<f32>]>| ai::series::compare_run_visual(
-            &run.iter().map(|f| ai::series::Frame { record: &f.record, time:f.time, burst:f.burst, upright:f.upright }).collect::<Vec<_>>(),poses,visual);
+            &run.iter().map(|f| ai::series::Frame { record: &f.record, time:f.time, burst:f.burst, upright:f.upright }).collect::<Vec<_>>(),poses,visual,mobile_clip_grouping.unwrap_or_default());
         if !mobile_clip.unwrap_or(false) { return Ok(runs.iter().map(|run| compare(run,None)).collect()); }
         let source = source.as_ref().ok_or("Open a session before using MobileCLIP.")?;
         ai::mobileclip::with_model(&root, |model| {
