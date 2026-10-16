@@ -64,53 +64,91 @@ requirements and skip the `nvm` commands. The first run compiles the native
 app and may take several minutes. Keep the terminal open; stop the app with
 Ctrl+C. Frontend edits reload automatically and Rust edits rebuild the app.
 
-The browser preview is `npm run dev`; it uses sample data and cannot open
-folders or memory cards through the native file APIs.
-
 ### Desktop commands
 
-| Command | What it does |
-|---|---|
-| `npm run desktop` | Start the desktop app; automatically enables CUDA when the required NVIDIA runtime is detected on Linux x86_64. |
-| `npm run desktop -- --cuda` | Force CUDA AI support on Linux x86_64. |
-| `npm run desktop -- --cpu` | Force CPU AI. |
-| `npm run desktop -- --nvidia` | Use the tested NVIDIA webview rendering profile on Linux. AI selection remains automatic. |
-| `npm run desktop -- --compatibility` | Use the Linux WebKit compatibility rendering profile. |
-| `npm run desktop -- --software` | Force software webview rendering on Linux. |
-| `npm run build:desktop` | Build the desktop app; CUDA is included automatically when detected on Linux x86_64. |
-| `npm run build:desktop -- --cuda` | Force a CUDA-enabled Linux x86_64 build. |
-| `npm run build:desktop -- --debug --no-bundle` | Build a debug desktop executable without installer packaging. |
+- **Run the desktop app:** `npm run desktop`
+- **Preview the browser demo:** `npm run dev` — sample data only.
+- **Build the app and installers:** `npm run build:desktop`
 
-CUDA AI needs an NVIDIA GPU and driver plus CUDA 13.x runtime libraries and
-cuDNN 9.x compatible with CUDA 13. The app verifies CUDA at launch and falls
-back to CPU if the provider cannot initialize. macOS and Windows builds do not
-include CUDA. Webview rendering and AI inference are separate: `--nvidia`
-selects a Linux rendering profile, while CUDA accelerates AI models.
-See the [CUDA setup and verification guide](docs/CUDA-TRIAL.md) and
-[benchmark results](docs/CUDA-BENCHMARK.md).
+CUDA is detected automatically on supported Linux x86_64 systems. macOS and
+Windows use CPU AI. Rendering and AI acceleration are independent.
 
-`npm run desktop` normally starts its own Vite server. If an OpenCull Vite
-server is already running on port 1420, the command reuses it; it reports an
-error if another app is using that port.
+<details>
+<summary>CUDA and Linux rendering options</summary>
 
-## What you can do
+- **Force CUDA AI:** `npm run desktop -- --cuda`
+- **Force CPU AI:** `npm run desktop -- --cpu`
+- **NVIDIA rendering:** `npm run desktop -- --nvidia`
+- **Compatibility rendering:** `npm run desktop -- --compatibility`
+- **Software rendering:** `npm run desktop -- --software`
+- **Build with CUDA:** `npm run build:desktop -- --cuda`
+- **Build without installers:** `npm run build:desktop -- --debug --no-bundle`
 
-- Review a folder or memory card, combine card sources, and choose which photos
-  to copy after culling. Reviewing leaves the card originals untouched.
-- Compare RAW/JPEG pairs, browse in filmstrip, grid or stack views, and adjust
-  crops, ratings, flags, labels and metadata panels.
-- Use local face analysis to compare expressions and sharpness. Optional
-  [MobileCLIP grouping](docs/features/MOBILECLIP_GROUPING.md) groups visually
-  similar photos; [motion-blur detection](docs/features/MOTION_BLUR.md) can
-  label and reject blurry frames.
-- Change appearance, layout, keyboard shortcuts and panels in Settings.
-  [Settings can be exported and imported](docs/features/SETTINGS_TRANSFER.md).
+CUDA requires an NVIDIA GPU and driver, CUDA 13.x runtime libraries and
+compatible cuDNN 9.x. The app falls back to CPU if initialization fails.
+See [CUDA setup](docs/CUDA-TRIAL.md) and [benchmarks](docs/CUDA-BENCHMARK.md).
 
-The [feature guides](docs/features/) cover the experimental options and their
-current limits. [How it works](docs/HOW-IT-WORKS.md) explains preview handling,
-analysis, and measured performance.
+</details>
+
+<details>
+<summary>Development server and port 1420</summary>
+
+- The desktop command starts Vite and the native app together.
+- An existing OpenCull Vite server on port 1420 is reused.
+- Another app using that port produces an error before the native build starts.
+
+</details>
+
+## Features
+
+<details>
+<summary>Culling and sessions</summary>
+
+- Review folders or memory cards before choosing which photos to copy.
+- Combine card sources and select individual card subfolders.
+- Compare RAW/JPEG pairs in filmstrip, grid or stack views.
+- Set ratings, flags, colour labels and crops; resume recent sessions.
+- Reviewing a card leaves its originals untouched.
+
+</details>
+
+<details>
+<summary>Local AI and grouping</summary>
+
+- Compare faces for sharpness, expressions, closed eyes and gaze.
+- [Group visually similar photos with MobileCLIP](docs/features/MOBILECLIP_GROUPING.md).
+- [Detect motion blur](docs/features/MOTION_BLUR.md), with optional one-star and Reject marking.
+- [Reuse cached analysis](docs/features/AI_CACHE.md) across sessions.
+- Analysis runs locally; downloading the optional model does not upload photos.
+
+</details>
+
+<details>
+<summary>Appearance and workspace</summary>
+
+- Choose Dark, Light, 18% grey or Wisp themes, plus your font and interface scale.
+- Select the home layout and optional featured image.
+- Resize panels and filmstrips, and choose which panels are visible.
+- Enable experimental native-aspect filmstrips, transitions and face overlays.
+
+</details>
+
+<details>
+<summary>Shortcuts and saved preferences</summary>
+
+- Customize shortcuts in **Settings → Keyboard**.
+- Follow the first-launch overview for common keys and the culling workflow.
+- [Import or export settings](docs/features/SETTINGS_TRANSFER.md) without photos or session history.
+
+</details>
+
+- [Feature guides](docs/features/) — options and experimental limitations.
+- [How it works](docs/HOW-IT-WORKS.md) — previews, analysis and measured performance.
 
 ## Keyboard basics
+
+<details>
+<summary>Common keyboard shortcuts</summary>
 
 | Key | Action |
 |---|---|
@@ -125,12 +163,11 @@ analysis, and measured performance.
 | `Caps Lock` | Toggle speed culling |
 | `R` | Crop and straighten |
 
-Shortcuts can be changed in **Settings → Keyboard**. The app also shows a
-first-launch overview with the common keys and culling flow.
-
 <div align="center">
   <img src="docs/images/shortcuts.png" alt="OpenCull keyboard shortcut settings" width="520">
 </div>
+
+</details>
 
 ## Built with
 
