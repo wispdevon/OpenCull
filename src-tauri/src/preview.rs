@@ -35,6 +35,7 @@
 //!   rendering had been decoded, however ready that was on disk.
 
 use std::path::Path;
+use std::time::Instant;
 
 use fast_image_resize as fr;
 
@@ -121,8 +122,20 @@ pub fn render(path: &Path, tier: Tier) -> Result<Rendered, String> {
     match tier {
         Tier::Full => {
             let e = probe.largest().ok_or("no preview in this file")?;
+            let read_started = Instant::now();
             let bytes = read(&src, e.offset, e.len)?;
-            Ok(Rendered { bytes: jpeg::set_orientation(bytes, probe.orientation), mime: "image/jpeg" })
+            let read_elapsed = read_started.elapsed();
+            let orientation_started = Instant::now();
+            let bytes = jpeg::set_orientation(bytes, probe.orientation);
+            let orientation_elapsed = orientation_started.elapsed();
+            eprintln!(
+                "[preview-timing] tier=full orientation={} jpeg_bytes={} read_ms={:.3} orientation_ms={:.3}",
+                probe.orientation,
+                bytes.len(),
+                read_elapsed.as_secs_f64() * 1000.0,
+                orientation_elapsed.as_secs_f64() * 1000.0,
+            );
+            Ok(Rendered { bytes, mime: "image/jpeg" })
         }
         Tier::Screen => {
             if let Some(stored) = stored_screen(&src, &probe)? {
