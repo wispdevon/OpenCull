@@ -1,4 +1,4 @@
-# Builds OpenCull for macOS, Windows and Linux, and runs its tests on each.
+# Builds Culltivate for macOS, Windows and Linux, and runs its tests on each.
 #
 # On every change to main it proves the app still builds everywhere, and
 # keeps the installers with the run. On a version tag (v0.5.0) it also puts
@@ -131,7 +131,7 @@ jobs:
           # Of the two Windows installers, the one an update falls back on.
           updaterJsonPreferNsis: true
           tagName: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || '' }}
-          releaseName: OpenCull ${{ github.ref_name }}
+          releaseName: Culltivate ${{ github.ref_name }}
           releaseBody: See the README for what works, what does not yet, and how to open the app the first time.
           releaseDraft: true
           prerelease: false
@@ -167,7 +167,7 @@ jobs:
       - name: Keep the installers
         uses: actions/upload-artifact@v4
         with:
-          name: OpenCull-${{ runner.os }}
+          name: Culltivate-${{ runner.os }}
           if-no-files-found: warn
           path: |
             src-tauri/target/release/bundle/dmg/*.dmg

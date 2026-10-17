@@ -23,6 +23,6 @@ export function ViewModeSettings() {
       <input type="checkbox" checked={remember} onChange={(e) => set("rememberViewMode", e.target.checked)}
         aria-describedby={`${id}-remember-help`} className="accent-primary" />Remember last view
     </label>
-    <p id={`${id}-remember-help`} className="text-xs text-muted-foreground">Reopen in the last Filmstrip, Stack, or Grid view, including after restarting OpenCull. Toolbar and keyboard changes are saved automatically.</p>
+    <p id={`${id}-remember-help`} className="text-xs text-muted-foreground">Reopen in the last Filmstrip, Stack, or Grid view, including after restarting Culltivate. Toolbar and keyboard changes are saved automatically.</p>
   </fieldset>;
 }

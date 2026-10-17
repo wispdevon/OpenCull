@@ -2,12 +2,12 @@
 
 Branch: `feature/rapidraw-theme`, based directly on upstream `a8c7f32`.
 No other feature branch is required. Select **Settings → Culling → Design theme
-→ RapidRAW inspired**. OpenCull's existing design remains the default.
+→ RapidRAW inspired**. Culltivate's existing design remains the default.
 
 The reference is RapidRAW's first library screen at
 [`MainLibrary.tsx`](https://github.com/CyberTimon/RapidRAW/blob/e90a9bba7422ed833892e4945f06da35a65470d2/src/components/panel/MainLibrary.tsx):
 a split image/action layout, prominent identity, neutral surfaces, and direct
-session actions. This is an original implementation using OpenCull's existing
+session actions. This is an original implementation using Culltivate's existing
 folder, settings, keyboard, card detection, and recent-folder controls.
 No RapidRAW code, photographs, or logos are distributed.
 

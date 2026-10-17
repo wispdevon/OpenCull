@@ -26,8 +26,8 @@ test("a free port leaves frontend startup owned by Tauri", async () => {
   const request = async () => { throw new TypeError("fetch failed", { cause: { code: "ECONNREFUSED" } }); };
   assert.deepEqual(await reuseFrontend(["dev"], request), { args: ["dev"], reused: false });
 });
-test("an existing OpenCull frontend is reused without consuming app arguments", async () => {
-  const request = async () => new Response('<title>OpenCull</title><script src="/@vite/client"></script>');
+test("an existing Culltivate frontend is reused without consuming app arguments", async () => {
+  const request = async () => new Response('<title>Culltivate</title><script src="/@vite/client"></script>');
   const original = ["dev", "--no-watch", "--", "--graphics=nvidia"];
   const result = await reuseFrontend(original, request);
   assert.equal(result.reused, true);

@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Rebrand this fork as Culltivate while keeping OpenCull configuration and
+  settings formats compatible.
+
 ## 0.5.1
 
 - Fix Linux CUDA AppImages placing ONNX Runtime provider libraries outside the path used at runtime.

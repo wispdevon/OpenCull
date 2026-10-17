@@ -1,4 +1,4 @@
-//! OpenCull.
+//! Culltivate.
 //!
 //! The Rust half: finds the previews inside RAW files, turns them into
 //! pictures a web view can show, reads and writes ratings, and decides what

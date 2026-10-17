@@ -1,7 +1,7 @@
 """Local YuNet/YOLO ONNX comparison. See docs/FACE-DETECTOR-BENCHMARK.md.
 
 Requires numpy, Pillow, onnxruntime-gpu; no photos or models are uploaded.
-This evaluates detector boxes, before OpenCull's separate face judge.
+This evaluates detector boxes, before Culltivate's separate face judge.
 """
 import argparse
 import collections
@@ -44,7 +44,7 @@ def nms(detections, threshold=0.3):
 
 def prepare(image, kind, size):
     w, h = image.size
-    # 2048 matches OpenCull: keep aspect, never enlarge, pad right/bottom to 32.
+    # 2048 matches Culltivate: keep aspect, never enlarge, pad right/bottom to 32.
     # 640 is the standard square YOLO deployment input, with centered letterbox.
     scale = size / max(w, h)
     if size == 2048:

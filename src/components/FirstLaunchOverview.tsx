@@ -19,7 +19,7 @@ export function FirstLaunchOverview({ bindings }: { bindings: Record<Action, Com
   const close = () => { save("onboardingSeen", true); useStore.getState().set("overviewOpen", false); };
   return <Dialog open={open && !selfTest} onOpenChange={(next) => { if (!next) close(); }}>
     <DialogContent className="max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] overflow-y-auto sm:max-w-3xl sm:p-6">
-      <DialogHeader><DialogTitle>Get started with OpenCull</DialogTitle></DialogHeader>
+      <DialogHeader><DialogTitle>Get started with Culltivate</DialogTitle></DialogHeader>
       <ol className="grid gap-3 sm:grid-cols-3">
         <li className="rounded-lg border border-border bg-card p-4"><h2 className="text-base font-semibold">1. Open a shoot</h2><p className="mt-2 text-sm leading-relaxed text-muted-foreground">Open a photo folder, or choose Ingest from Card to copy a card into a folder before culling.</p></li>
         <li className="rounded-lg border border-border bg-card p-4"><h2 className="text-base font-semibold">2. Review the photos</h2><p className="mt-2 text-sm leading-relaxed text-muted-foreground">Move through photos or groups. Pick, reject and rate frames, then zoom in to check focus. Flags never delete originals.</p></li>

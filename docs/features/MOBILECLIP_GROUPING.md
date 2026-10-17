@@ -1,7 +1,7 @@
 # Experimental MobileCLIP grouping
 
 Settings → AI → MobileCLIP grouping → Download model, then enable **Group by
-visual similarity**. It is off by default and needs OpenCull AI. Switching it
+visual similarity**. It is off by default and needs Culltivate AI. Switching it
 off immediately regroups cached face results using the existing time/face
 geometry rules. The toggle participates in Storage settings import/export.
 

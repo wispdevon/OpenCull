@@ -36,7 +36,7 @@ The native Rust smoke test additionally compares CPU/CUDA for all four models, o
 
 ## Reproduce
 
-In a separate Linux Python environment, install `onnxruntime-gpu[cuda,cudnn]==1.28.0` and Pillow, with compatible NVIDIA drivers. This is only needed for the benchmark, not for running OpenCull.
+In a separate Linux Python environment, install `onnxruntime-gpu[cuda,cudnn]==1.28.0` and Pillow, with compatible NVIDIA drivers. This is only needed for the benchmark, not for running Culltivate.
 
 ```sh
 python tools/benchmark_cuda.py --image /path/to/photo.jpg --output /tmp/opencull-benchmark

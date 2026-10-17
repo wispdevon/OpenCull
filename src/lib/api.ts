@@ -366,7 +366,7 @@ const tauri: Backend = {
 
 let backend: Backend = tauri;
 if (!inTauri) {
-  if (!import.meta.env.DEV) throw new Error("OpenCull has to be run as an app, not opened in a browser.");
+  if (!import.meta.env.DEV) throw new Error("Culltivate has to be run as an app, not opened in a browser.");
   backend = (await import("./mock")).mock;
 }
 

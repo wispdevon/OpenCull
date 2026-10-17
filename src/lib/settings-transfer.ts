@@ -34,7 +34,7 @@ export function parseSettingsImport(text: string): Record<string, unknown> {
   if (new TextEncoder().encode(text).length > SETTINGS_FILE_LIMIT) throw new Error("Settings files must be smaller than 1 MB.");
   let data: unknown;
   try { data = JSON.parse(text); } catch { throw new Error("This file is not valid JSON."); }
-  if (!record(data) || data.format !== "opencull-settings" || data.version !== 1 || !record(data.values)) throw new Error("Choose a supported OpenCull settings export (version 1).");
+  if (!record(data) || data.format !== "opencull-settings" || data.version !== 1 || !record(data.values)) throw new Error("Choose a supported Culltivate settings export (version 1).");
   const entries = Object.entries(data.values);
   if (!entries.length) throw new Error("This file contains no saved settings.");
   for (const [key, value] of entries) {

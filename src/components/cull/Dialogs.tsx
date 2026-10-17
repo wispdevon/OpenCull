@@ -426,7 +426,7 @@ function SettingsBody({ tab, onTab, ...shortcutProps }: { tab: SettingsTab; onTa
           />
           <Setting
             title="Check for updates"
-            detail={`Looks for a newer OpenCull each time the app opens, and offers to install it. It is the only thing OpenCull uses the internet for, and nothing about you or your photos is sent. ${
+            detail={`Looks for a newer Culltivate each time the app opens, and offers to install it. It is the only thing Culltivate uses the internet for, and nothing about you or your photos is sent. ${
               updates === "newest" ? `You have ${s.version}, the newest version.` : typeof updates === "object" ? `Could not check just now: ${updates.failed}` : `You have ${s.version}.`
             }`}
             control={
@@ -465,13 +465,13 @@ function SettingsBody({ tab, onTab, ...shortcutProps }: { tab: SettingsTab; onTa
         <TabsContent value="ai" className="space-y-4">
           <FaceOverlaySettings />
           <Setting
-            title="OpenCull AI"
+            title="Culltivate AI"
             detail="Finds the faces in each photo and judges them: eyes shut, looking away, how sharp, and who the photo is about. From that it marks each photo and ranks the frames of a burst, or of the same pose shot again. Runs on this computer; nothing is sent anywhere."
             control={toggle("aiEnabled")}
           />
           <Setting
             title="Advanced AI"
-            detail="A newer way of judging faces that is still being worked on. It looks closer at each face's eyes and mouth and names the state it is in — looking down, laughing, eyes closed in a hug — and stops marking a photo down for those, or for people looking away where nobody is looking at the camera. It also weighs the whole photo to decide who is in the background. Off, photos are judged as they were in OpenCull 0.3. Switching analyses the open folder again; each way remembers its own results. Needs OpenCull AI."
+            detail="A newer way of judging faces that is still being worked on. It looks closer at each face's eyes and mouth and names the state it is in — looking down, laughing, eyes closed in a hug — and stops marking a photo down for those, or for people looking away where nobody is looking at the camera. It also weighs the whole photo to decide who is in the background. Off, photos are judged as they were in OpenCull 0.3. Switching analyses the open folder again; each way remembers its own results. Needs Culltivate AI."
             control={toggle("aiAdvanced")}
           />
           <Setting
@@ -481,7 +481,7 @@ function SettingsBody({ tab, onTab, ...shortcutProps }: { tab: SettingsTab; onTa
           />
           <Setting
             title="Intelligent grouping"
-            detail="Groups a pose shot again — the same people in the same places, a few seconds apart — with the frames it was shot beside, as one scene. Scene View, the filmstrip and the ranks all follow it, and each person's eyes are compared across the whole pose. Turn off to group only the frames of one press of the shutter. Needs OpenCull AI."
+            detail="Groups a pose shot again — the same people in the same places, a few seconds apart — with the frames it was shot beside, as one scene. Scene View, the filmstrip and the ranks all follow it, and each person's eyes are compared across the whole pose. Turn off to group only the frames of one press of the shutter. Needs Culltivate AI."
             control={toggle("smartGroups")}
           />
           <MobileClipSettings />

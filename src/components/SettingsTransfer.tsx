@@ -21,7 +21,7 @@ export function SettingsTransfer() {
         if (await invoke<boolean>("config_export_file", { contents })) setMessage("Settings exported.");
       } else {
         const url = URL.createObjectURL(new Blob([contents], { type: "application/json" }));
-        const link = document.createElement("a"); link.href = url; link.download = "opencull-settings.json"; link.click();
+        const link = document.createElement("a"); link.href = url; link.download = "culltivate-settings.json"; link.click();
         setTimeout(() => URL.revokeObjectURL(url), 1000); setMessage("Settings exported.");
       }
     } catch (e) { setError(String(e)); }
@@ -52,7 +52,7 @@ export function SettingsTransfer() {
       <input ref={input} type="file" accept=".json,application/json" aria-label="Settings file" className="sr-only" disabled={busy} onChange={(e) => { void readFile(e.target.files?.[0]); e.target.value = ""; }} />
     </div>
     {pending && <div className="space-y-3 rounded-md border border-border p-3">
-      <p className="text-sm">Ready to import {Object.keys(pending).length} settings. Matching preferences will be replaced; other preferences stay as they are. Applying reloads OpenCull.</p>
+      <p className="text-sm">Ready to import {Object.keys(pending).length} settings. Matching preferences will be replaced; other preferences stay as they are. Applying reloads Culltivate.</p>
       <details><summary className="cursor-pointer text-sm">Review settings</summary><pre className="max-h-48 overflow-auto whitespace-pre-wrap break-all text-xs">{JSON.stringify(pending, null, 2)}</pre></details>
       <div className="flex flex-wrap gap-3"><Button disabled={busy} onClick={() => void apply()}>Apply and reload</Button><Button variant="outline" disabled={busy} onClick={() => setPending(null)}>Cancel import</Button></div>
     </div>}

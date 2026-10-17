@@ -1,6 +1,6 @@
-# Working on OpenCull
+# Working on Culltivate
 
-OpenCull is an offline photo-culling desktop application: React/TypeScript in `src/`, Rust/Tauri in `src-tauri/src/`. Read `README.md` and `docs/HOW-IT-WORKS.md` before changing behavior.
+Culltivate is Wisp's fork of OpenCull, an offline photo-culling desktop application: React/TypeScript in `src/`, Rust/Tauri in `src-tauri/src/`. Read `README.md` and `docs/HOW-IT-WORKS.md` before changing behavior.
 
 ## Branches and review
 

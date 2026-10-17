@@ -63,11 +63,11 @@ export function UpdateDialog() {
       {/* Wider than most: three buttons, one of them long. */}
       <AlertDialogContent className="data-[size=default]:sm:max-w-[460px]">
         <AlertDialogHeader>
-          <AlertDialogTitle>OpenCull {found?.version} is available</AlertDialogTitle>
+          <AlertDialogTitle>Culltivate {found?.version} is available</AlertDialogTitle>
           <AlertDialogDescription className="whitespace-pre-line">
             {failed
               ? `The update could not be installed:\n${failed}\n\nIt can be downloaded and installed by hand instead. Your settings and ratings are kept either way.`
-              : `You have ${found?.current}. Installing downloads the new version, ${windows ? "runs its installer" : "puts it in place of this one"} and reopens OpenCull. Your settings and ratings are kept.`}
+              : `You have ${found?.current}. Installing downloads the new version, ${windows ? "runs its installer" : "puts it in place of this one"} and reopens Culltivate. Your settings and ratings are kept.`}
           </AlertDialogDescription>
           {!failed && (
             <button type="button" className="self-start text-xs text-[#59a6ff] hover:underline disabled:opacity-50" disabled={installing} onClick={() => void api.openReleasePage(found?.version ?? null).catch(() => {})}>

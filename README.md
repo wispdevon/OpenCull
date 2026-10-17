@@ -7,10 +7,10 @@
 
 <div align="center">
   <a href="https://github.com/NatePhotos/OpenCull">
-    <img src="docs/images/logo.png" alt="OpenCull logo" width="96" height="96">
+    <img src="docs/images/logo.png" alt="Culltivate logo" width="96" height="96">
   </a>
 
-  <h1>OpenCull</h1>
+  <h1>Culltivate</h1>
   <p>Private, fast photo culling for photographers.</p>
   <p>
     <a href="https://github.com/wispdevon/OpenCull/releases/latest">Download</a> ·
@@ -20,7 +20,7 @@
   </p>
 </div>
 
-OpenCull is an offline desktop app for reviewing RAW and JPEG shoots. It opens
+Culltivate is an offline desktop app for reviewing RAW and JPEG shoots. It opens
 camera previews without importing or decoding the RAW files, helps compare
 frames, and saves ratings and crops in formats photo editors can read.
 Photo analysis stays on your computer. The optional MobileCLIP model is
@@ -96,7 +96,7 @@ See [CUDA setup](docs/CUDA-TRIAL.md) and [benchmarks](docs/CUDA-BENCHMARK.md).
 <summary>Development server and port 1420</summary>
 
 - The desktop command starts Vite and the native app together.
-- An existing OpenCull Vite server on port 1420 is reused.
+- An existing Culltivate Vite server on port 1420 is reused.
 - Another app using that port produces an error before the native build starts.
 
 </details>
@@ -211,7 +211,7 @@ target `dev`. To contribute to the original project, use
 
 ## License and contact
 
-Copyright © 2026 The OpenCull authors. OpenCull is distributed under the
+Copyright © 2026 The OpenCull authors. Culltivate is distributed under the
 [GNU General Public License, version 3 or later](LICENSE), without warranty.
 See [`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md) for dependencies,
 model credits and their licenses.

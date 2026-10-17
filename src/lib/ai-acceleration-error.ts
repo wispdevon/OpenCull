@@ -12,7 +12,7 @@ export function accelerationError(info: AiAccelerationInfo | null) {
 
   return {
     title,
-    body: "AI has switched to CPU processing. Close other GPU-heavy apps, then restart OpenCull with CUDA to retry.",
+    body: "AI has switched to CPU processing. Close other GPU-heavy apps, then restart Culltivate with CUDA to retry.",
     details: info.failure,
   };
 }

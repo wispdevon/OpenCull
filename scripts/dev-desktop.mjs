@@ -35,7 +35,7 @@ export function desktopSpec(platform, arch, environment, args, detected = false)
   return { args: ["dev", ...rest], env };
 }
 
-/** Reuse only an identifiable OpenCull Vite server; never take over another app's port. */
+/** Reuse only an identifiable Culltivate Vite server; never take over another app's port. */
 export async function reuseFrontend(args, request = fetch) {
   let response;
   try {
@@ -46,7 +46,7 @@ export async function reuseFrontend(args, request = fetch) {
     throw new Error("Port 1420 could not be checked. Stop the other dev server and retry npm run desktop.", { cause: error });
   }
   const html = await response.text();
-  if (!response.ok || !/<title>\s*OpenCull\s*<\/title>/i.test(html) || !html.includes("/@vite/client")) {
+  if (!response.ok || !/<title>\s*Culltivate\s*<\/title>/i.test(html) || !html.includes("/@vite/client")) {
     throw new Error("Port 1420 is used by another server. Stop it before running npm run desktop.");
   }
   const next = args.slice();
@@ -67,7 +67,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     const spec = desktopSpec(process.platform, process.arch, process.env, args, detected.available);
     if (automatic && process.platform === "linux" && process.arch === "x64") console.log(`[ai] ${detected.available ? "Automatic CUDA" : "CPU AI"}: ${detected.reason}`);
     const frontend = await reuseFrontend(spec.args);
-    if (frontend.reused) console.log("Reusing the OpenCull frontend already running on port 1420.");
+    if (frontend.reused) console.log("Reusing the Culltivate frontend already running on port 1420.");
     const cli = fileURLToPath(new URL("../node_modules/@tauri-apps/cli/tauri.js", import.meta.url));
     const child = spawn(process.execPath, [cli, ...frontend.args], { stdio: "inherit", env: spec.env });
     child.on("error", error => { console.error(error.message); process.exitCode = 1; });
