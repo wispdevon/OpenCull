@@ -355,7 +355,7 @@ export function IngestView() {
   // ── Copying ───────────────────────────────────────────────────────────────
 
   const chooseDestination = async () => {
-    const picked = await api.pickFolder("Where should OpenCull copy the selected photos?", destination ?? undefined);
+    const picked = await api.pickFolder("Where should Culltivate copy the selected photos?", destination ?? undefined);
     if (picked) setDestination(picked);
   };
 

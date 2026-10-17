@@ -1,16 +1,17 @@
 # Settings import and export
 
-Settings → Storage → Settings backup exports a versioned `opencull-settings.json`
+Settings → Storage → Settings backup exports a versioned `culltivate-settings.json`
 file. The desktop uses a native Save dialog; the browser demo downloads the file.
 Preferences, themes, home layout, panel sizes, experimental options and keyboard
 shortcuts are portable. Recent folders, session history, source paths, caches and
 photos are excluded.
 
-Import accepts version 1 OpenCull settings exports up to 1 MB. Known preference
-names, types, enums, dimensions, fonts and shortcut bindings are validated before
-any write. Unknown keys, malformed JSON and invalid values reject the entire
-import. The UI shows a review and Cancel/Apply choice. Apply merges matching
-preferences, keeps unspecified preferences and reloads the app.
+Import accepts version 1 Culltivate settings exports up to 1 MB, including earlier
+OpenCull exports. It validates known preference names, types, enums, dimensions,
+fonts and shortcut bindings before any write. Unknown keys, malformed JSON and
+invalid values reject the entire import. The UI shows a review and Cancel/Apply
+choice. Apply merges matching preferences, keeps unspecified preferences and
+reloads the app.
 
 On desktop, preferences are merged and written atomically under the existing
 settings lock. A failed native write leaves the old file intact. The browser

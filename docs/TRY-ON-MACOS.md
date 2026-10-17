@@ -1,4 +1,4 @@
-# Try every OpenCull feature on macOS
+# Try every Culltivate feature on macOS
 
 Share this link: https://github.com/wispdevon/OpenCull/tree/dev
 

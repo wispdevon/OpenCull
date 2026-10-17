@@ -1,4 +1,4 @@
-# OpenCull interface design guidelines
+# Culltivate interface design guidelines
 
 These rules apply across Home, ingest, culling, settings, menus and dialogs. Wisp is the reference theme for readable interface contrast; other presets retain their visual character.
 

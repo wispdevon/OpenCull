@@ -1,8 +1,8 @@
 # Pulling complete ideas
 
-Every original `feature/*` branch has been restored at its archived tip. Those tips retain their original ancestry: `feature/mobileclip-grouping`, for example, has 197 commits beyond upstream 0.4.1, including unrelated changes inherited from development. The initial MobileCLIP implementation itself was two commits. Restoring a branch does not remove its ancestry.
+The original `feature/*` branches were closed on 2026-10-17; their tips remain available as published `archive/2026-10-16/feature/*` tags (see [Archived work branches](BRANCH_ARCHIVE.md)). Those tips retain their original ancestry: `feature/mobileclip-grouping`, for example, has 197 commits beyond upstream 0.4.1, including unrelated changes inherited from development. The initial MobileCLIP implementation itself was two commits. Restoring a branch does not remove its ancestry.
 
-The `ideas/*` branches reorganize the final application into a cumulative stack rooted at upstream OpenCull 0.4.1 (`a8c7f32`). They keep shared changes together and avoid importing the old integration history. Each branch has a `BUNDLE.md` with source commits, scope, platform limits and validation. Original feature branches and archive tags are unchanged.
+The `ideas/*` branches reorganize the final application into a cumulative stack rooted at upstream OpenCull 0.4.1 (`a8c7f32`). They keep shared changes together and avoid importing the old integration history. Each branch has a `BUNDLE.md` with source commits, scope, platform limits and validation. The original archive tags remain unchanged.
 
 | Branch | Additional idea | Commits beyond upstream | Prerequisite |
 |---|---|---:|---|

@@ -6,6 +6,7 @@
 //! pixels wide, in 22 ms a photo.
 
 use std::cell::RefCell;
+use std::time::Instant;
 
 use super::onnx;
 use crate::faces::FaceBox;
@@ -115,7 +116,10 @@ fn find_with(rgb: &[u8], width: u32, height: u32, sure_enough: f32, chip: bool) 
         found
     };
     let inputs = vec![("input", vec![1, 3, ph, pw], input)];
-    let candidates = if chip { onnx::run_finder(&SESSION, MODEL, inputs, &names, read)? } else { onnx::run(&SESSION, MODEL, inputs, &names, read)? };
+    let inference_start = Instant::now();
+    let candidates = if chip { onnx::run_finder(&SESSION, MODEL, inputs, &names, read) } else { onnx::run(&SESSION, MODEL, inputs, &names, read) };
+    super::timing::yunet(inference_start.elapsed());
+    let candidates = candidates?;
     Ok(distinct(candidates))
 }
 
@@ -213,7 +217,8 @@ pub mod turning {
                 input[2 * plane + at] = small[i + 2] as f32 / 255.0;
             }
         }
-        let boxes = onnx::run_finder(&SESSION, MODEL, vec![("images", vec![1, 3, ph, pw], input)], &["output0"], |out| {
+        let inference_start = Instant::now();
+        let boxes = onnx::run_finder_with_cpu_fallback(&SESSION, MODEL, vec![("images", vec![1, 3, ph, pw], input)], &["output0"], |out| {
             let (shape, d) = (&out[0].0, out[0].1);
             let n = shape[2];
             // Four scores a box, one for each way a face may stand; the best says both how sure and which way.
@@ -228,7 +233,9 @@ pub mod turning {
                 found.push(Found { x: cx - bw / 2.0, y: cy - bh / 2.0, w: bw, h: bh, sure: on_yunet_scale(conf), eyes: [(0.0, 0.0); 2], turn });
             }
             found
-        })?;
+        });
+        crate::ai::timing::yolo(inference_start.elapsed());
+        let boxes = boxes?;
         let mut found = distinct(boxes);
         for face in &mut found {
             match eyes(rgb, width, height, face) {

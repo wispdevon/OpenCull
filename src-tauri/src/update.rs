@@ -1,4 +1,4 @@
-//! Finding out that a newer OpenCull exists, and putting it in this one's place.
+//! Finding out that a newer Culltivate exists, and putting it in this one's place.
 //!
 //! The updater asks GitHub for a
 //! small file saying what the latest release is and where its installers

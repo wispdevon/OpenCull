@@ -10,6 +10,7 @@ others. Each is used under its own licence, all of which allow this.
 |---|---|---|---|
 | [ONNX Runtime](https://github.com/microsoft/onnxruntime) | Runs the two face models | MIT | © Microsoft Corporation |
 | [YuNet](https://github.com/opencv/opencv_zoo/tree/main/models/face_detection_yunet) (`src-tauri/models/finder.onnx`) | Finds faces. The model file is re-saved to accept a picture of any size; nothing else about it is changed | MIT | © 2020 Shiqi Yu |
+| [YOLO26n face model](https://huggingface.co/Shubham12864/YOLO26n-face) (`src-tauri/models/faces-turning.onnx`) | Finds faces turned at different angles | GNU Affero General Public License 3.0 (AGPL-3.0) | © Ultralytics and the face model author |
 | [libjpeg-turbo](https://github.com/libjpeg-turbo/libjpeg-turbo) | Decodes and writes previews | IJG licence, Modified BSD (3-clause) and zlib | © the libjpeg-turbo Project and the Independent JPEG Group. This software is based in part on the work of the Independent JPEG Group. |
 | [Tauri](https://github.com/tauri-apps/tauri) and its plugins | The window, and the bridge between the interface and the rest | MIT or Apache-2.0 | © the Tauri Programme within The Commons Conservancy |
 | [React](https://github.com/facebook/react) | The interface | MIT | © Meta Platforms, Inc. and affiliates |

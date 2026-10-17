@@ -7,10 +7,10 @@
 
 <div align="center">
   <a href="https://github.com/NatePhotos/OpenCull">
-    <img src="docs/images/logo.png" alt="OpenCull logo" width="96" height="96">
+    <img src="docs/images/logo.png" alt="Culltivate logo" width="96" height="96">
   </a>
 
-  <h1>OpenCull</h1>
+  <h1>Culltivate</h1>
   <p>Private, fast photo culling for photographers.</p>
   <p>
     <a href="https://github.com/wispdevon/OpenCull/releases/latest">Download</a> ·
@@ -20,7 +20,7 @@
   </p>
 </div>
 
-OpenCull is an offline desktop app for reviewing RAW and JPEG shoots. It opens
+Culltivate is an offline desktop app for reviewing RAW and JPEG shoots. It opens
 camera previews without importing or decoding the RAW files, helps compare
 frames, and saves ratings and crops in formats photo editors can read.
 Photo analysis stays on your computer. The optional MobileCLIP model is
@@ -32,9 +32,18 @@ the original application, not this fork's additions.
 
 <div align="center">
   <a href="docs/images/screenshot.jpg">
-    <img src="docs/images/screenshot.jpg" alt="OpenCull showing a photo, face panel, and filmstrip" width="900">
+    <img src="docs/images/screenshot.jpg" alt="Culltivate 0.6.1 showing event photos, grouped scenes, face analysis, and EXIF" width="900">
   </a>
+  <p><a href="docs/images/screenshot-annotated.png">View the annotated overview</a></p>
 </div>
+
+## What's new in 0.6.1
+
+- Portrait photos are analysed about three times faster, and Culltivate can use
+  full-size previews embedded in newer Panasonic RAW files.
+- Development builds add an experimental YuNet/YOLO26n face-finder choice and
+  timing details in Settings → AI. See the [changelog](CHANGELOG.md) for the
+  release details.
 
 ## Try this fork
 
@@ -95,7 +104,7 @@ See [CUDA setup](docs/CUDA-TRIAL.md) and [benchmarks](docs/CUDA-BENCHMARK.md).
 <summary>Development server and port 1420</summary>
 
 - The desktop command starts Vite and the native app together.
-- An existing OpenCull Vite server on port 1420 is reused.
+- An existing Culltivate Vite server on port 1420 is reused.
 - Another app using that port produces an error before the native build starts.
 
 </details>
@@ -118,6 +127,12 @@ See [CUDA setup](docs/CUDA-TRIAL.md) and [benchmarks](docs/CUDA-BENCHMARK.md).
 <summary>Local AI and grouping</summary>
 
 - Compare faces for sharpness, expressions, closed eyes and gaze.
+- Choose the original YuNet finder by turning **Advanced AI** off, or use the
+  YOLO26n finder with **Advanced AI** on; it also uses YuNet to place eyes and
+  handles turned faces.
+- In development builds, **Settings → AI → Face finder · Experimental** can
+  use YuNet or YOLO26n for either AI rules mode. YOLO still uses YuNet to place
+  eyes.
 - [Group visually similar photos with MobileCLIP](docs/features/MOBILECLIP_GROUPING.md).
 - [Detect motion blur](docs/features/MOTION_BLUR.md), with optional one-star and Reject marking.
 - [Reuse cached analysis](docs/features/AI_CACHE.md) across sessions.
@@ -147,10 +162,26 @@ See [CUDA setup](docs/CUDA-TRIAL.md) and [benchmarks](docs/CUDA-BENCHMARK.md).
 - [Feature guides](docs/features/) — options and experimental limitations.
 - [How it works](docs/HOW-IT-WORKS.md) — previews, analysis and measured performance.
 
-### Upstream 0.6.1
+## Fork changes maintained ahead of upstream
 
-- Portrait photos are oriented about three times faster before face analysis, so scans with many portrait frames finish sooner.
-- Newer Panasonic Lumix RAW files, including the S5 II, can use their full-size embedded preview for sharper zooming and face analysis.
+This fork follows upstream OpenCull while maintaining its own changes on
+`dev`. Several earlier Culltivate additions have since landed upstream; these
+are the changes still specific to this fork:
+
+- **Culltivate identity.** This repository gives the fork its own name and
+  release identity while retaining OpenCull as its upstream base.
+- **Experimental face-finder choice.** Development builds let you choose
+  YuNet or YOLO26n in either AI rules mode. YOLO26n continues to use YuNet to
+  place eyes. See [How it works](docs/HOW-IT-WORKS.md).
+- **YOLO CUDA fallback.** On supported Linux NVIDIA builds, YOLO can run its
+  supported graph operations on CUDA and place unsupported operations on the
+  CPU. See the [CUDA guide](docs/CUDA-TRIAL.md).
+- **Motion-blur analysis.** An optional local check can lower streaked frames
+  in group rankings and, when enabled, mark unrated detections one star and
+  Reject. See [motion-blur details](docs/features/MOTION_BLUR.md).
+- **Performance log.** Settings → AI shows recent YuNet/YOLO analysis chunk
+  times, MobileCLIP grouping times, and full-size preview orientation times.
+  Entries are kept in memory for the current session, up to 500.
 
 ## Keyboard basics
 
@@ -215,7 +246,7 @@ target `dev`. To contribute to the original project, use
 
 ## License and contact
 
-Copyright © 2026 The OpenCull authors. OpenCull is distributed under the
+Copyright © 2026 The OpenCull authors. Culltivate is distributed under the
 [GNU General Public License, version 3 or later](LICENSE), without warranty.
 See [`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md) for dependencies,
 model credits and their licenses.

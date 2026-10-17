@@ -13,13 +13,22 @@ use std::sync::{
 use std::{collections::HashMap, path::PathBuf};
 
 enum ModelSource {
-    Embedded(&'static [u8]),
+    Embedded {
+        bytes: &'static [u8],
+        allow_cpu_ep_fallback: bool,
+    },
     File(PathBuf),
 }
 impl ModelSource {
     fn key(&self) -> String {
         match self {
-            Self::Embedded(bytes) => format!("embedded:{:x}", bytes.as_ptr() as usize),
+            Self::Embedded {
+                bytes,
+                allow_cpu_ep_fallback,
+            } => format!(
+                "embedded:{:x}:cpu-fallback={allow_cpu_ep_fallback}",
+                bytes.as_ptr() as usize
+            ),
             Self::File(path) => format!("file:{}", path.display()),
         }
     }
@@ -49,17 +58,24 @@ fn start() -> Result<SyncSender<Job>, String> {
                             let builder = onnx::builder()?
                                 .with_execution_providers([opencull_cuda::provider()])
                                 .map_err(|e| e.to_string())?;
-                            // Bundled face models must run wholly on CUDA. File-backed
-                            // models may contain small ops unsupported by the CUDA EP.
+                            // YuNet and scoring models run wholly on CUDA. YOLO opts
+                            // into CPU placement for nodes unsupported by the CUDA EP.
                             let mut builder = match &job.model {
-                                ModelSource::Embedded(_) => builder
+                                ModelSource::Embedded {
+                                    allow_cpu_ep_fallback: false,
+                                    ..
+                                } => builder
                                     .with_config_entry("session.disable_cpu_ep_fallback", "1")
                                     .map_err(|e| e.to_string())?,
-                                ModelSource::File(_) => builder,
+                                ModelSource::Embedded {
+                                    allow_cpu_ep_fallback: true,
+                                    ..
+                                }
+                                | ModelSource::File(_) => builder,
                             };
                             entry.insert(
                                 match &job.model {
-                                    ModelSource::Embedded(bytes) => {
+                                    ModelSource::Embedded { bytes, .. } => {
                                         builder.commit_from_memory(bytes)
                                     }
                                     ModelSource::File(path) => builder.commit_from_file(path),
@@ -67,7 +83,7 @@ fn start() -> Result<SyncSender<Job>, String> {
                                 .map_err(|e| e.to_string())?,
                             );
                             let kind = match &job.model {
-                                ModelSource::Embedded(_) => "bundled",
+                                ModelSource::Embedded { .. } => "bundled",
                                 ModelSource::File(_) => "file",
                             };
                             eprintln!(
@@ -109,7 +125,30 @@ pub(super) fn run(
     inputs: Vec<Input>,
     outputs: Vec<String>,
 ) -> Result<Reply, String> {
-    submit(ModelSource::Embedded(bytes), inputs, outputs)
+    submit(
+        ModelSource::Embedded {
+            bytes,
+            allow_cpu_ep_fallback: false,
+        },
+        inputs,
+        outputs,
+    )
+}
+
+/// Runs a bundled model on CUDA, allowing CPU placement for unsupported graph nodes.
+pub(super) fn run_with_cpu_fallback(
+    bytes: &'static [u8],
+    inputs: Vec<Input>,
+    outputs: Vec<String>,
+) -> Result<Reply, String> {
+    submit(
+        ModelSource::Embedded {
+            bytes,
+            allow_cpu_ep_fallback: true,
+        },
+        inputs,
+        outputs,
+    )
 }
 
 /// Registered as the optional file-model backend for separately installed models.
@@ -157,7 +196,10 @@ mod tests {
 
     #[test]
     fn model_cache_keys_separate_embedded_and_file_models() {
-        let embedded = ModelSource::Embedded(b"model");
+        let embedded = ModelSource::Embedded {
+            bytes: b"model",
+            allow_cpu_ep_fallback: false,
+        };
         let file = ModelSource::File(PathBuf::from("model"));
         assert_ne!(embedded.key(), file.key());
         assert_eq!(file.key(), ModelSource::File(PathBuf::from("model")).key());

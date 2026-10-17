@@ -24,6 +24,7 @@ use crate::editors;
 use crate::framing;
 use crate::ingest;
 use crate::transfer;
+use crate::diagnostics;
 
 /// One open folder, as the backend remembers it.
 pub struct Session {
@@ -695,6 +696,35 @@ const AI_BATCH: usize = 12;
 /// How many freshly analysed photos between saves of what has been found.
 const AI_SAVE_EVERY: usize = 150;
 
+fn log_ai_timing(
+    scan: u64,
+    chunk: &mut usize,
+    rules: ai::Rules,
+    face_finder: ai::FaceFinder,
+    photos: usize,
+    times: ai::timing::InferenceTimes,
+) {
+    if times.yunet.calls == 0 && times.yolo.calls == 0 {
+        return;
+    }
+    *chunk += 1;
+    let rules = match rules {
+        ai::Rules::Basic => "Basic",
+        ai::Rules::Advanced => "Advanced",
+    };
+    let message = format!(
+        "[ai-timing] scan={scan} chunk={} rules={rules} face_finder={} photos={photos} yunet_ms_total={:.1} yunet_calls={} yolo_ms_total={:.1} yolo_calls={}",
+        *chunk,
+        face_finder.log_name(),
+        times.yunet.elapsed.as_secs_f64() * 1000.0,
+        times.yunet.calls,
+        times.yolo.elapsed.as_secs_f64() * 1000.0,
+        times.yolo.calls,
+    );
+    diagnostics::record("AI", message.clone());
+    eprintln!("{message}");
+}
+
 /// Finds and judges the faces in a folder's photos, in the order given —
 /// nearest the photo being looked at first — reporting as it goes.
 ///
@@ -702,9 +732,10 @@ const AI_SAVE_EVERY: usize = 150;
 /// through on spare time: whenever the photographer is being served, the
 /// scan waits. Asking again, or closing the folder, stops this one.
 #[tauri::command]
-pub async fn ai_scan(app: AppState<'_>, session: u64, order: Vec<usize>, advanced: bool, motion_blur: Option<bool>, events: Channel<AiEvent>) -> Result<(), String> {
+pub async fn ai_scan(app: AppState<'_>, session: u64, order: Vec<usize>, advanced: bool, motion_blur: Option<bool>, finder: Option<ai::FinderChoice>, events: Channel<AiEvent>) -> Result<(), String> {
     let motion_blur = motion_blur.unwrap_or(false);
     let rules = if advanced { ai::Rules::Advanced } else { ai::Rules::Basic };
+    let face_finder = finder.unwrap_or_default().resolve(rules);
     let Some(session) = app.sessions.lock().unwrap().get(&session).cloned() else {
         return Err("that folder is no longer open".into());
     };
@@ -716,7 +747,7 @@ pub async fn ai_scan(app: AppState<'_>, session: u64, order: Vec<usize>, advance
 
     tauri::async_runtime::spawn_blocking(move || {
         let wanted = || !session.closed.load(Ordering::SeqCst) && app.ai_scan.load(Ordering::SeqCst) == mine;
-        let known = Mutex::new(app.faces.load_images(&session.folder, rules, session.images.iter().map(|image| (image.display.as_path(), image.version.as_str()))));
+        let known = Mutex::new(app.faces.load_images_with_finder(&session.folder, rules, face_finder, session.images.iter().map(|image| (image.display.as_path(), image.version.as_str()))));
 
         // What is already known goes out at once.
         let mut todo = Vec::new();
@@ -741,7 +772,7 @@ pub async fn ai_scan(app: AppState<'_>, session: u64, order: Vec<usize>, advance
 
         if todo.is_empty() {
             // Populate per-source directories from older root-only caches.
-            app.faces.save(&session.folder, rules, &known.lock().unwrap());
+            app.faces.save_with_finder(&session.folder, rules, face_finder, &known.lock().unwrap());
             events.send(AiEvent::Done { finished: wanted() }).ok();
             return;
         }
@@ -751,7 +782,7 @@ pub async fn ai_scan(app: AppState<'_>, session: u64, order: Vec<usize>, advance
         let cores = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(4);
         let workers = (cores / 2).clamp(1, 6).min(todo.len().max(1));
         let queue = ai::queue::Queue::new(todo);
-        let (tx, rx) = std::sync::mpsc::channel::<Analysed>();
+        let (tx, rx) = std::sync::mpsc::channel::<(Analysed, ai::timing::InferenceTimes)>();
         std::thread::scope(|scope| {
             for _ in 0..workers {
                 let tx = tx.clone();
@@ -772,14 +803,17 @@ pub async fn ai_scan(app: AppState<'_>, session: u64, order: Vec<usize>, advance
                         // A photo that cannot be analysed is remembered as
                         // having no faces, so it is not tried on every open.
                         let cached = ai::store::remembered(&known.lock().unwrap(), &image.display, &image.version);
-                        let record = if let Some(mut record) = cached {
+                        let (record, inference_times) = if let Some(mut record) = cached {
                             ai::motion::annotate_file(&image.display, &mut record);
-                            record
+                            (record, ai::timing::InferenceTimes::default())
                         } else {
-                            ai::analyze_record(&image.display, rules, motion_blur).unwrap_or_default()
+                            ai::timing::collect(|| {
+                                ai::analyze_record_with_finder(&image.display, rules, motion_blur, face_finder)
+                                    .unwrap_or_default()
+                            })
                         };
                         known.lock().unwrap().insert(image.display.to_string_lossy().into_owned(), (image.version.clone(), record.clone()));
-                        if tx.send(Analysed { index, record }).is_err() {
+                        if tx.send((Analysed { index, record }, inference_times)).is_err() {
                             return;
                         }
                     }
@@ -788,31 +822,37 @@ pub async fn ai_scan(app: AppState<'_>, session: u64, order: Vec<usize>, advance
             drop(tx);
 
             let mut batch = Vec::new();
+            let mut batch_times = ai::timing::InferenceTimes::default();
+            let mut timing_chunk = 0;
             let mut unsaved = 0;
             let mut last = Instant::now();
             loop {
                 match rx.recv_timeout(Duration::from_millis(250)) {
-                    Ok(item) => {
+                    Ok((item, times)) => {
                         batch.push(item);
+                        batch_times.add(times);
                         unsaved += 1;
                     }
                     Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {}
                     Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => break,
                 }
                 if batch.len() >= AI_BATCH || (!batch.is_empty() && last.elapsed() >= Duration::from_millis(400)) {
+                    log_ai_timing(mine, &mut timing_chunk, rules, face_finder, batch.len(), batch_times);
                     events.send(AiEvent::Batch { items: std::mem::take(&mut batch) }).ok();
+                    batch_times = ai::timing::InferenceTimes::default();
                     last = Instant::now();
                 }
                 if unsaved >= AI_SAVE_EVERY {
-                    app.faces.save(&session.folder, rules, &known.lock().unwrap());
+                    app.faces.save_with_finder(&session.folder, rules, face_finder, &known.lock().unwrap());
                     unsaved = 0;
                 }
             }
             if !batch.is_empty() {
+                log_ai_timing(mine, &mut timing_chunk, rules, face_finder, batch.len(), batch_times);
                 events.send(AiEvent::Batch { items: batch }).ok();
             }
             if unsaved > 0 {
-                app.faces.save(&session.folder, rules, &known.lock().unwrap());
+                app.faces.save_with_finder(&session.folder, rules, face_finder, &known.lock().unwrap());
             }
         });
         events.send(AiEvent::Done { finished: queue.exhausted() && wanted() }).ok();
@@ -886,7 +926,9 @@ pub async fn ai_compare(
                 let embeddings = model.embeddings(&paths, &app.previews.cache, wanted)?;
                 Ok(compare(run, Some(&embeddings)))
             }).collect::<Result<Vec<_>, String>>();
-            eprintln!("[mobileclip] {} cached, {} new embeddings in {:?}", model.cached - cached_before, model.computed - computed_before, start.elapsed());
+            let message = format!("[mobileclip] {} cached, {} new embeddings in {:?}", model.cached - cached_before, model.computed - computed_before, start.elapsed());
+            diagnostics::record("MobileCLIP", message.clone());
+            eprintln!("{message}");
             results
         })
     })

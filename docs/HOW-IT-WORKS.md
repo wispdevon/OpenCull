@@ -1,4 +1,4 @@
-# How OpenCull works
+# How Culltivate works
 
 The detail behind the [README](../README.md): how previews are made and how
 fast, what the face analysis measures, how to check a build, and what is not
@@ -161,9 +161,19 @@ read right 99.9% of the time; on hand-graded faces turned upside down, open
 eyes called shut 4 times in 1,230 where they had been 135. It takes 34 ms a
 photo on one processor core to YuNet's 55. Faces under 40 pixels across in a
 2,048-pixel copy are found a little less often: 90% to YuNet's 93%. Basic
-keeps YuNet, unchanged. The model is under the AGPL-3.0, as YOLO26 is.
+keeps YuNet as the face finder, unchanged. Choose between them with the
+**Advanced AI** switch in Settings: off uses YuNet; on uses YOLO26n to find
+faces and YuNet to place their eyes. YuNet is MIT licensed; the YOLO26 model
+is under AGPL-3.0.
 
-**MobileCLIP visual grouping** is an experimental option. The model is Apple's, published under the Apple Machine Learning Research Model License, whose terms cover non-commercial research use; read them before using the option for paid work. It is not bundled with OpenCull: it is downloaded only if you choose to, and the option is off until then. Its separately
+Development builds also expose **Settings → AI → Face finder · Experimental**.
+It can keep the normal choice, use YuNet in both rules modes, or use YOLO26n
+in both. This selects the full-photo face finder; YOLO still uses YuNet on
+small face crops to place eyes. Each rules-and-finder combination has its own
+cached results, so switching to one without saved results analyses the photos
+once, and switching back reuses that cache.
+
+**MobileCLIP visual grouping** is an experimental option. The model is Apple's, published under the Apple Machine Learning Research Model License, whose terms cover non-commercial research use; read them before using the option for paid work. It is not bundled with Culltivate: it is downloaded only if you choose to, and the option is off until then. Its separately
 downloaded MobileCLIP-S0 model compares whole-image embeddings, so frames can
 be grouped even when no faces were found. The loose, normal and tight settings
 use cosine-similarity cutoffs above 0.70, 0.80 and 0.90. Visual matches still

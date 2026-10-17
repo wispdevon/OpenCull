@@ -16,6 +16,8 @@ export interface AiAccelerationInfo {
   failureKind: "memory" | "unavailable" | "runtime" | null;
 }
 
+export type AiFinderChoice = "mode" | "yunet" | "yolo";
+
 export interface AppInfo {
   platform: string;
   version: string;
@@ -24,6 +26,14 @@ export interface AppInfo {
   openPath: string | null;
   /** Set when the app was started to check itself rather than to be used. */
   selfTest: boolean;
+}
+
+/** One of the app's recent AI or preview timing messages. */
+export interface TimingLogEntry {
+  id: number;
+  timestampMs: number;
+  category: string;
+  message: string;
 }
 
 /** A newer version than the one running. */
@@ -154,7 +164,7 @@ export interface Backend {
    * Finds and judges faces, `order` first to last; photos done before come at once. Asking again stops the last asking.
    * `advanced` judges them the newer way; otherwise as the last release did. Each remembers a folder separately.
    */
-  aiScan(session: number, order: number[], advanced: boolean, onEvent: (e: AiEvent) => void, motionBlur?: boolean): Promise<void>;
+  aiScan(session: number, order: number[], advanced: boolean, onEvent: (e: AiEvent) => void, motionBlur?: boolean, finder?: AiFinderChoice): Promise<void>;
   /** Tells the scan now running which photos are being looked at, nearest first: it analyses those before the rest. */
   aiLookAt(order: number[]): Promise<void>;
   /**
@@ -172,6 +182,9 @@ export interface Backend {
   /** Bytes remembered of past analysis, and how many folders that is. */
   aiCacheUsage(): Promise<[number, number]>;
   aiClearCache(): Promise<void>;
+  /** Recent performance timing messages from this app session. */
+  timingLogs(): Promise<TimingLogEntry[]>;
+  clearTimingLogs(): Promise<void>;
   /** Asks whether a newer version has been released. The one thing that uses the internet. */
   updateCheck(): Promise<UpdateFound | null>;
   /** Downloads and installs the newest version and reopens the app. Settles only if it could not. */
@@ -245,10 +258,10 @@ const tauri: Backend = {
   lightroomCatalogs: () => invoke("lightroom_catalogs"),
   openInEditor: (editor, files, catalog) => invoke("open_in_editor", { editor, files, catalog }),
   pathsExist: (paths) => invoke("paths_exist", { paths }),
-  aiScan: (session, order, advanced, onEvent, motionBlur = false) => {
+  aiScan: (session, order, advanced, onEvent, motionBlur = false, finder: AiFinderChoice = "mode") => {
     const events = new Channel<AiEvent>();
     events.onmessage = onEvent;
-    return invoke("ai_scan", { session, order, advanced, motionBlur, events });
+    return invoke("ai_scan", { session, order, advanced, motionBlur, finder, events });
   },
   aiCompare: (runs, poses, options = {}) => invoke("ai_compare", { runs, poses, session: options.session, revision: options.revision, mobileClip: options.mobileClip ?? false, mobileClipGrouping: options.mobileClipGrouping ?? "normal" }),
   mobileClipStatus: () => invoke("mobileclip_status"),
@@ -259,6 +272,8 @@ const tauri: Backend = {
   aiSetYield: (on) => invoke("ai_set_yield", { on }),
   aiCacheUsage: () => invoke("ai_cache_usage"),
   aiClearCache: () => invoke("ai_clear_cache"),
+  timingLogs: () => invoke("timing_logs"),
+  clearTimingLogs: () => invoke("clear_timing_logs"),
   updateCheck: () => invoke("update_check"),
   updateInstall: (onProgress) => {
     const progress = new Channel<{ done: number; total: number | null }>();
@@ -366,7 +381,7 @@ const tauri: Backend = {
 
 let backend: Backend = tauri;
 if (!inTauri) {
-  if (!import.meta.env.DEV) throw new Error("OpenCull has to be run as an app, not opened in a browser.");
+  if (!import.meta.env.DEV) throw new Error("Culltivate has to be run as an app, not opened in a browser.");
   backend = (await import("./mock")).mock;
 }
 

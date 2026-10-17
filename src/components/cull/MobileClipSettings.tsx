@@ -50,7 +50,7 @@ export function MobileClipSettings() {
       </div>
       <p id="mobileclip-strength-help" className="setting-hint mt-2 text-muted-foreground">Loose keeps more similar shots together; Tight separates smaller changes. Normal is the default. Changes regroup cached embeddings without analyzing images again. The three-second and orientation limits still apply.</p>
     </fieldset>
-    <p id="mobileclip-status" role="status" className="setting-hint text-muted-foreground">{!inTauri ? "Available in the desktop app." : checking ? "Checking model…" : downloading ? "Downloading model…" : !ai ? "Enable OpenCull AI to use visual grouping." : ready ? `MobileCLIP-S0 is installed · ${backend} inference. Embeddings are cached between sessions.` : "Download the 45.5 MB model once, then enable visual grouping."}</p>
+    <p id="mobileclip-status" role="status" className="setting-hint text-muted-foreground">{!inTauri ? "Available in the desktop app." : checking ? "Checking model…" : downloading ? "Downloading model…" : !ai ? "Enable Culltivate AI to use visual grouping." : ready ? `MobileCLIP-S0 is installed · ${backend} inference. Embeddings are cached between sessions.` : "Download the 45.5 MB model once, then enable visual grouping."}</p>
     {inTauri && <Button variant="outline" disabled={checking || downloading} onClick={() => void download()}>{downloading ? "Downloading…" : ready ? "Download model again" : "Download MobileCLIP model (45.5 MB)"}</Button>}
     <AiAccelerationError />
     {(error || groupingError) && <p role="alert" className="text-sm text-red-400">{error || groupingError}</p>}

@@ -1,6 +1,6 @@
 # Face detector comparison
 
-Measured locally on 2026-10-17. This compares OpenCull's bundled YuNet with
+Measured locally on 2026-10-17. This compares Culltivate's bundled YuNet with
 face-trained YOLO11 nano and YOLO26 nano checkpoints. The application model
 and processing pipeline were not changed.
 
@@ -42,7 +42,7 @@ tied on AP50; the data does not establish a clear accuracy winner there.
 P201 box counts are not accuracy scores. Visual review of YOLO11's extra
 640 proposals found many blurred heads, partial faces and people facing
 away, alongside additional profiles. There is no independent box annotation
-set for these 24 private photos. OpenCull's existing judge may remove such
+set for these 24 private photos. Culltivate's existing judge may remove such
 proposals; that downstream filtering was not measured here.
 
 All five configurations produced identical CPU/CUDA detection counts on the
@@ -62,7 +62,7 @@ of eye landmarks. No production model was replaced by this benchmark.
   and other applications remained running; these are comparative measurements,
   not isolated hardware limits.
 - ONNX Runtime 1.28.0, FP32, one intra/inter-op CPU thread. CUDA disables TF32
-  and uses requested-size arena growth, matching OpenCull's provider settings.
+  and uses requested-size arena growth, matching Culltivate's provider settings.
   Each configuration/provider gets its own process. Untimed profiles verify
   CUDA model-node execution; some YOLO shape/control nodes run on CPU.
 - Real-world input: 24 JPEGs evenly spaced through the 218 JPEGs in
@@ -77,7 +77,7 @@ of eye landmarks. No production model was replaced by this benchmark.
   multiple of 32. YuNet uses BGR values 0–255 and black padding. YOLO uses RGB
   0–1 and padding 114. The separate YOLO 640 configurations use standard
   centered square letterboxing and may enlarge smaller images.
-- The reference harness uses Pillow bilinear resizing. OpenCull uses native
+- The reference harness uses Pillow bilinear resizing. Culltivate uses native
   Catmull–Rom resizing; exact real-photo boxes can therefore differ slightly.
 - Accuracy sample: three seeded random images from each of 61 WIDER FACE
   validation event categories: 183 images, 2,365 valid faces. Of these, 1,983
@@ -89,12 +89,12 @@ of eye landmarks. No production model was replaced by this benchmark.
   Operating thresholds are YuNet 0.6 (the app default) and YOLO 0.25. AP50
   sweeps scores down to 0.001 using 101-point interpolation. This sampled
   metric is **not the official WIDER FACE Easy/Medium/Hard evaluation**.
-- Results cover raw detection, before OpenCull's judge removes nonfaces and
+- Results cover raw detection, before Culltivate's judge removes nonfaces and
   computes focus, eye state, gaze, or subject importance.
 
 ## Models and provenance
 
-- YuNet: the exact `src-tauri/models/finder.onnx` bundled in OpenCull.
+- YuNet: the exact `src-tauri/models/finder.onnx` bundled in Culltivate.
 - YOLO11 and YOLO26: `yolov11n-face.pt` and `yolo26n-face.pt` from
   [akanametov/yolo-face release 1.0.0](https://github.com/akanametov/yolo-face/releases/tag/1.0.0).
   Both checkpoints identify their only class as `face` and reference WIDER

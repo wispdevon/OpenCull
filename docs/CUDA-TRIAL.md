@@ -20,7 +20,7 @@ driver support; it does not prove that the runtime libraries or cuDNN are
 installed. Follow [NVIDIA's CUDA installation guide](https://docs.nvidia.com/cuda/cuda-installation-guide-linux/)
 and the [cuDNN installation guide](https://docs.nvidia.com/deeplearning/cudnn/installation/latest/linux.html).
 For custom installation paths, make the libraries visible to the system linker
-or set `LD_LIBRARY_PATH` when starting OpenCull. Do not mix incompatible CUDA
+or set `LD_LIBRARY_PATH` when starting Culltivate. Do not mix incompatible CUDA
 or cuDNN versions.
 
 The `ort` crate downloads the matching ONNX Runtime CUDA provider during a
@@ -46,7 +46,7 @@ npm run build:desktop -- --cuda
 
 Automatic selection checks for `nvidia-smi` and the required runtime libraries.
 The CUDA-enabled native app probes the driver and initializes a device before
-using it. If initialization or inference fails, OpenCull releases its CUDA
+using it. If initialization or inference fails, Culltivate releases its CUDA
 sessions and retries the current analysis on CPU. The launcher reports which
 path it selected. A successful window launch alone does not prove CUDA
 inference is active.

@@ -92,8 +92,8 @@ pub async fn config_export_file(app: tauri::AppHandle, contents: String) -> Resu
     if contents.len() > 1024 * 1024 { return Err("Settings export exceeds 1 MB".into()); }
     let document: Values = serde_json::from_str(&contents).map_err(|e| e.to_string())?;
     tauri::async_runtime::spawn_blocking(move || {
-        let Some(file) = app.dialog().file().set_title("Export OpenCull settings")
-            .add_filter("OpenCull settings", &["json"]).set_file_name("opencull-settings.json").blocking_save_file() else { return Ok(false); };
+        let Some(file) = app.dialog().file().set_title("Export Culltivate settings")
+            .add_filter("Culltivate settings", &["json"]).set_file_name("culltivate-settings.json").blocking_save_file() else { return Ok(false); };
         let path = file.into_path().map_err(|e| e.to_string())?;
         if path.extension().and_then(|s| s.to_str()).map(|s| s.eq_ignore_ascii_case("json")) != Some(true) {
             return Err("Choose a .json filename".into());

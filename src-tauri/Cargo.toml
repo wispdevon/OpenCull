@@ -1,7 +1,7 @@
 [package]
 name = "opencull"
 version = "0.6.1"
-description = "OpenCull — photo culling for macOS, Windows and Linux"
+description = "Culltivate — photo culling for macOS, Windows and Linux"
 authors = ["The OpenCull authors"]
 license = "GPL-3.0-or-later"
 repository = "https://github.com/NatePhotos/OpenCull"

@@ -172,7 +172,7 @@ export function FacePanel() {
         ) : (
           <div className="flex size-full flex-col items-center justify-center gap-2 text-xs text-[var(--ui-text-666666)]">
             <ScanFace className="size-7" strokeWidth={1.25} />
-            {photo && isVideo(photo.path) ? "Face analysis is unavailable for video" : !enabled ? "OpenCull AI is off" : result ? "No faces detected" : "Analyzing…"}
+            {photo && isVideo(photo.path) ? "Face analysis is unavailable for video" : !enabled ? "Culltivate AI is off" : result ? "No faces detected" : "Analyzing…"}
           </div>
         )}
       </div>

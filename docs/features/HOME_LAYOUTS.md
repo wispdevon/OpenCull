@@ -5,7 +5,7 @@ gap between those rows and a shared responsive gutter for the header and recent
 items. Existing live recent-folder previews are preserved.
 
 Settings → Design switches to Classic, placing actions at the upper right
-beside the OpenCull heading when there is room. Actions wrap on smaller windows
+beside the Culltivate heading when there is room. Actions wrap on smaller windows
 rather than clipping. The `homeLayout` preference is stored through shared
 preferences, independently of the design theme and colour mode. Invalid or
 missing values use Spacious. macOS window-control clearance is preserved.

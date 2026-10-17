@@ -1,11 +1,11 @@
-# Working on OpenCull
+# Working on Culltivate
 
-OpenCull is an offline photo-culling desktop application: React/TypeScript in `src/`, Rust/Tauri in `src-tauri/src/`. Read `README.md` and `docs/HOW-IT-WORKS.md` before changing behavior.
+Culltivate is Wisp's fork of OpenCull, an offline photo-culling desktop application: React/TypeScript in `src/`, Rust/Tauri in `src-tauri/src/`. Read `README.md` and `docs/HOW-IT-WORKS.md` before changing behavior.
 
 ## Branches and review
 
 - Work directly on `dev`. Do not create feature branches or worktrees unless the user explicitly asks.
-- The restored `feature/*` branches and explicitly requested `ideas/*` bundles are preserved for pulling; see `docs/IDEA-BUNDLES.md`. Do not create more automatically.
+- The archived `feature/*` tags and explicitly requested `ideas/*` bundles are preserved for pulling; see `docs/IDEA-BUNDLES.md`. Do not create more automatically.
 - Keep `main` as the release branch; merge or publish to it only when requested.
 - Commit focused, verified changes on `dev`; do not mix unrelated formatting or dependency work.
 - Inspect Git status first and preserve unrelated edits. Never reset or stash someone else's work.

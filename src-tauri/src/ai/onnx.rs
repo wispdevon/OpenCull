@@ -61,7 +61,7 @@ pub fn run<T>(
     read: impl FnOnce(&[(Vec<usize>, &[f32])]) -> T,
 ) -> Result<T, String> {
     let (inputs, outputs) = owned(inputs, outputs);
-    run_owned(slot, bytes, inputs, outputs, read)
+    run_owned(slot, bytes, inputs, outputs, read, false)
 }
 
 /// The finder: on a Mac, on the graphics chip while that is the quicker;
@@ -73,13 +73,42 @@ pub fn run_finder<T>(
     outputs: &[&str],
     read: impl FnOnce(&[(Vec<usize>, &[f32])]) -> T,
 ) -> Result<T, String> {
+    run_finder_with_cpu_fallback_policy(slot, bytes, inputs, outputs, read, false)
+}
+
+/// Like `run_finder`, while allowing CUDA to place unsupported graph nodes on the CPU.
+pub fn run_finder_with_cpu_fallback<T>(
+    slot: &'static std::thread::LocalKey<RefCell<Option<Session>>>,
+    bytes: &'static [u8],
+    inputs: Vec<Input>,
+    outputs: &[&str],
+    read: impl FnOnce(&[(Vec<usize>, &[f32])]) -> T,
+) -> Result<T, String> {
+    run_finder_with_cpu_fallback_policy(slot, bytes, inputs, outputs, read, true)
+}
+
+fn run_finder_with_cpu_fallback_policy<T>(
+    slot: &'static std::thread::LocalKey<RefCell<Option<Session>>>,
+    bytes: &'static [u8],
+    inputs: Vec<Input>,
+    outputs: &[&str],
+    read: impl FnOnce(&[(Vec<usize>, &[f32])]) -> T,
+    allow_cpu_ep_fallback: bool,
+) -> Result<T, String> {
     let (inputs, outputs) = owned(inputs, outputs);
     #[cfg(target_os = "macos")]
     let (inputs, read) = match super::gpu::run(bytes, inputs, &outputs, read) {
         Ok(done) => return done,
         Err(back) => back,
     };
-    let done = run_owned(slot, bytes, inputs, outputs, read);
+    let done = run_owned(
+        slot,
+        bytes,
+        inputs,
+        outputs,
+        read,
+        allow_cpu_ep_fallback,
+    );
     #[cfg(target_os = "macos")]
     super::gpu::finished();
     done
@@ -99,10 +128,15 @@ fn run_owned<T>(
     inputs: Vec<OwnedInput>,
     outputs: Vec<String>,
     read: impl FnOnce(&[(Vec<usize>, &[f32])]) -> T,
+    allow_cpu_ep_fallback: bool,
 ) -> Result<T, String> {
     #[cfg(all(feature = "cuda", target_os = "linux", target_arch = "x86_64"))]
     let inputs = if super::acceleration::enabled() {
-        let reply = super::cuda::run(bytes, inputs, outputs.clone())?;
+        let reply = if allow_cpu_ep_fallback {
+            super::cuda::run_with_cpu_fallback(bytes, inputs, outputs.clone())?
+        } else {
+            super::cuda::run(bytes, inputs, outputs.clone())?
+        };
         match reply.result {
             Ok(result) => {
                 return Ok(read(
@@ -117,6 +151,8 @@ fn run_owned<T>(
     } else {
         inputs
     };
+    #[cfg(not(all(feature = "cuda", target_os = "linux", target_arch = "x86_64")))]
+    let _ = allow_cpu_ep_fallback;
     slot.with(|cell| {
         let mut cell = cell.borrow_mut();
         if cell.is_none() {
@@ -134,6 +170,51 @@ fn run_owned<T>(
 #[cfg(all(test, feature = "cuda", target_os = "linux", target_arch = "x86_64"))]
 mod cuda_tests {
     use super::*;
+    #[test]
+    #[ignore = "requires OPENCULL_AI=cuda, NVIDIA GPU, CUDA 13 and cuDNN 9"]
+    fn advanced_yolo_runs_with_cuda_and_cpu_ep_fallback() {
+        assert!(
+            crate::ai::acceleration::enabled(),
+            "run with OPENCULL_AI=cuda"
+        );
+        let model = include_bytes!("../../models/faces-turning.onnx");
+        let shape = vec![1, 3, 640, 640];
+        let data = (0..shape.iter().product::<usize>())
+            .map(|i| ((i * 19 % 251) as f32) / 250.0)
+            .collect::<Vec<_>>();
+        let inputs = vec![("images".to_owned(), shape, data)];
+        let outputs = vec!["output0".to_owned()];
+
+        let mut cpu_session = builder().unwrap().commit_from_memory(model).unwrap();
+        let cpu = evaluate(&mut cpu_session, &inputs, &outputs, |values| {
+            values
+                .iter()
+                .map(|(shape, data)| (shape.clone(), data.to_vec()))
+                .collect::<Vec<_>>()
+        })
+        .unwrap();
+        let gpu = crate::ai::cuda::run_with_cpu_fallback(model, inputs, outputs)
+            .unwrap()
+            .result
+            .unwrap();
+
+        assert_eq!(cpu.len(), gpu.len());
+        for ((cpu_shape, cpu_values), (gpu_shape, gpu_values)) in cpu.iter().zip(&gpu) {
+            assert_eq!(cpu_shape, gpu_shape);
+            assert_eq!(cpu_values.len(), gpu_values.len());
+            for (cpu_value, gpu_value) in cpu_values.iter().zip(gpu_values) {
+                assert!(
+                    (cpu_value - gpu_value).abs() <= 0.001 + 0.001 * cpu_value.abs(),
+                    "CPU {cpu_value}, CUDA {gpu_value}"
+                );
+            }
+        }
+        assert!(
+            crate::ai::acceleration::failure().is_none(),
+            "CUDA silently fell back"
+        );
+    }
+
     #[test]
     #[ignore = "requires OPENCULL_AI=cuda, NVIDIA GPU, CUDA 13 and cuDNN 9"]
     fn concurrent_callers_share_cuda_models_and_match_cpu() {
