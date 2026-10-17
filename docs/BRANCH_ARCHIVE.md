@@ -1,4 +1,4 @@
-# Archived and restored work branches
+# Archived work branches
 
 Active development continues directly on `dev`; `main` remains the release branch.
 No new feature branches are created unless explicitly requested.
@@ -8,6 +8,8 @@ branch names were removed locally and from origin. Tags retain the complete
 history, including commits not merged into `dev`. Upstream refs were untouched.
 
 Later on the same date, all 43 `feature/*` branches were restored locally and on origin at their exact archived tips. The remaining 20 work branches stay available through archive tags. All 63 archive tags remain intact.
+
+On 2026-10-17, all 43 restored `feature/*` branch names were closed again locally and on origin. Every local and remote tip was verified against its existing published `archive/2026-10-16/feature/*` annotated tag before deletion. Those tags retain the complete history. Other branches and upstream refs were preserved.
 
 For curated, cumulative branches that avoid unrelated integration history, see [Idea bundles](IDEA-BUNDLES.md).
 
