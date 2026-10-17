@@ -35,6 +35,7 @@ import { cn } from "@/lib/utils";
 import { MobileClipSettings } from "./MobileClipSettings";
 import { MotionBlurSettings } from "./MotionBlurSettings";
 import { ExperimentalAiFinderSettings } from "./ExperimentalAiFinderSettings";
+import { PerformanceLogsDialog } from "./PerformanceLogsDialog";
 
 /** Asks before photos go to the trash. */
 export function TrashDialog() {
@@ -218,6 +219,7 @@ const SETTINGS_TABS: [SettingsTab, string, LucideIcon][] = [
 
 function SettingsBody({ tab, onTab, ...shortcutProps }: { tab: SettingsTab; onTab: (tab: SettingsTab) => void } & ShortcutEditorProps) {
   const s = useStore();
+  const [performanceLogsOpen, setPerformanceLogsOpen] = useState(false);
   const [usage, setUsage] = useState<CacheUsage | null>(null);
   const [clearing, setClearing] = useState(false);
   const [stopAsking, setStopAsking] = useState(false);
@@ -493,6 +495,12 @@ function SettingsBody({ tab, onTab, ...shortcutProps }: { tab: SettingsTab; onTa
             detail="Holds the folder scan for a moment each time you move to another photo, so previews never wait behind analysis. Nothing is lost; the scan carries on as soon as you pause. Turn off to let a folder finish as fast as possible while you work."
             control={toggle("aiPause")}
           />
+          <Setting
+            title="Performance log"
+            detail="View recent timings for AI analysis, MobileCLIP grouping, and full-size preview orientation."
+            control={<Button variant="outline" size="sm" onClick={() => setPerformanceLogsOpen(true)}>Open log</Button>}
+          />
+          <PerformanceLogsDialog open={performanceLogsOpen} onOpenChange={setPerformanceLogsOpen} />
         </TabsContent>
         <TabsContent value="storage" className="space-y-4">
           <GraphicsSettings />

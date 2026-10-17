@@ -186,6 +186,8 @@ export const mock: Backend = {
   aiSetYield: () => later(undefined),
   aiCacheUsage: () => later([2_400_000, 14] as [number, number]),
   aiClearCache: () => later(undefined),
+  timingLogs: () => later([]),
+  clearTimingLogs: () => later(undefined),
   // `?update` in the address shows what a newer version being found looks like.
   updateCheck: () => later(new URLSearchParams(location.search).has("update") ? { version: "9.9.9", current: "0.0.0" } : null, 300),
   updateInstall: async (onProgress) => {

@@ -41,6 +41,7 @@ use fast_image_resize as fr;
 
 use crate::raw::io::{FileSource, ReadAt};
 use crate::raw::{self, jpeg, Probe};
+use crate::diagnostics;
 
 /// Which rendering of a photo is wanted.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -128,13 +129,15 @@ pub fn render(path: &Path, tier: Tier) -> Result<Rendered, String> {
             let orientation_started = Instant::now();
             let bytes = jpeg::set_orientation(bytes, probe.orientation);
             let orientation_elapsed = orientation_started.elapsed();
-            eprintln!(
+            let message = format!(
                 "[preview-timing] tier=full orientation={} jpeg_bytes={} read_ms={:.3} orientation_ms={:.3}",
                 probe.orientation,
                 bytes.len(),
                 read_elapsed.as_secs_f64() * 1000.0,
                 orientation_elapsed.as_secs_f64() * 1000.0,
             );
+            diagnostics::record("Full-size preview", message.clone());
+            eprintln!("{message}");
             Ok(Rendered { bytes, mime: "image/jpeg" })
         }
         Tier::Screen => {

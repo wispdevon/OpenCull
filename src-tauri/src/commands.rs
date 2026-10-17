@@ -24,6 +24,7 @@ use crate::editors;
 use crate::framing;
 use crate::ingest;
 use crate::transfer;
+use crate::diagnostics;
 
 /// One open folder, as the backend remembers it.
 pub struct Session {
@@ -711,7 +712,7 @@ fn log_ai_timing(
         ai::Rules::Basic => "Basic",
         ai::Rules::Advanced => "Advanced",
     };
-    eprintln!(
+    let message = format!(
         "[ai-timing] scan={scan} chunk={} rules={rules} face_finder={} photos={photos} yunet_ms_total={:.1} yunet_calls={} yolo_ms_total={:.1} yolo_calls={}",
         *chunk,
         face_finder.log_name(),
@@ -720,6 +721,8 @@ fn log_ai_timing(
         times.yolo.elapsed.as_secs_f64() * 1000.0,
         times.yolo.calls,
     );
+    diagnostics::record("AI", message.clone());
+    eprintln!("{message}");
 }
 
 /// Finds and judges the faces in a folder's photos, in the order given —
@@ -923,7 +926,9 @@ pub async fn ai_compare(
                 let embeddings = model.embeddings(&paths, &app.previews.cache, wanted)?;
                 Ok(compare(run, Some(&embeddings)))
             }).collect::<Result<Vec<_>, String>>();
-            eprintln!("[mobileclip] {} cached, {} new embeddings in {:?}", model.cached - cached_before, model.computed - computed_before, start.elapsed());
+            let message = format!("[mobileclip] {} cached, {} new embeddings in {:?}", model.cached - cached_before, model.computed - computed_before, start.elapsed());
+            diagnostics::record("MobileCLIP", message.clone());
+            eprintln!("{message}");
             results
         })
     })

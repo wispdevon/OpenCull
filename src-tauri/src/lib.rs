@@ -8,6 +8,7 @@ pub mod ai;
 pub mod burst;
 pub mod cache;
 pub mod commands;
+pub mod diagnostics;
 pub mod editors;
 pub mod embed;
 pub mod faces;
@@ -184,6 +185,8 @@ pub fn run() {
             graphics::graphics_info,
             commands::app_info,
             commands::report,
+            diagnostics::timing_logs,
+            diagnostics::clear_timing_logs,
             commands::finish_self_test,
             commands::pause,
             commands::open_folder,

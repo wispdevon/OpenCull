@@ -28,6 +28,14 @@ export interface AppInfo {
   selfTest: boolean;
 }
 
+/** One of the app's recent AI or preview timing messages. */
+export interface TimingLogEntry {
+  id: number;
+  timestampMs: number;
+  category: string;
+  message: string;
+}
+
 /** A newer version than the one running. */
 export interface UpdateFound {
   version: string;
@@ -174,6 +182,9 @@ export interface Backend {
   /** Bytes remembered of past analysis, and how many folders that is. */
   aiCacheUsage(): Promise<[number, number]>;
   aiClearCache(): Promise<void>;
+  /** Recent performance timing messages from this app session. */
+  timingLogs(): Promise<TimingLogEntry[]>;
+  clearTimingLogs(): Promise<void>;
   /** Asks whether a newer version has been released. The one thing that uses the internet. */
   updateCheck(): Promise<UpdateFound | null>;
   /** Downloads and installs the newest version and reopens the app. Settles only if it could not. */
@@ -261,6 +272,8 @@ const tauri: Backend = {
   aiSetYield: (on) => invoke("ai_set_yield", { on }),
   aiCacheUsage: () => invoke("ai_cache_usage"),
   aiClearCache: () => invoke("ai_clear_cache"),
+  timingLogs: () => invoke("timing_logs"),
+  clearTimingLogs: () => invoke("clear_timing_logs"),
   updateCheck: () => invoke("update_check"),
   updateInstall: (onProgress) => {
     const progress = new Channel<{ done: number; total: number | null }>();
