@@ -6,7 +6,7 @@ import { hasMotionBlur, motionAdjustedScore } from "./motion-blur";
 // each photo in it, and what is on screen.
 
 import { create } from "zustand";
-import { api, type UpdateFound } from "./api";
+import { api, type AiFinderChoice, type UpdateFound } from "./api";
 import { useCrop } from "./crop";
 import { cropFromShare, isPlain, MIRROR_ACROSS, MIRROR_DOWN, PLAIN, QUARTER_LEFT, QUARTER_RIGHT, sameFraming, shareOf, turned, viewSize, type Share } from "./framing";
 import { sourceWritable, type ReviewSession } from "./review";
@@ -173,6 +173,8 @@ interface State {
   aiEnabled: boolean;
   /** Judge them the newer way, still being worked on, rather than as the last release did. */
   aiAdvanced: boolean;
+  /** Development-only full-photo face finder override. */
+  experimentalAiFinder: AiFinderChoice;
   aiMotionBlur: boolean;
   autoRateMotionBlur: boolean;
   motionRatingSkipped: Set<number>;
@@ -419,6 +421,7 @@ const PERSISTED = [
   "cacheLimitGb",
   "aiEnabled",
   "aiAdvanced",
+  "experimentalAiFinder",
   "aiMotionBlur",
   "autoRateMotionBlur",
   "showBackgroundFaces",
@@ -433,6 +436,11 @@ const PERSISTED = [
 
 const MAX_RECENTS = 24;
 const MAX_UNDO = 200;
+
+function loadAiFinder(): AiFinderChoice {
+  const value = load<unknown>("experimentalAiFinder", "mode");
+  return value === "yunet" || value === "yolo" ? value : "mode";
+}
 
 function baseName(path: string): string {
   const parts = path.split(/[\\/]/).filter(Boolean);
@@ -809,6 +817,7 @@ export const useStore = create<Store>((set, get) => {
     aiRunning: false,
     aiEnabled: load("aiEnabled", true),
     aiAdvanced: load("aiAdvanced", false),
+    experimentalAiFinder: loadAiFinder(),
     aiMotionBlur: load("aiMotionBlur", false),
     autoRateMotionBlur: load("autoRateMotionBlur", true),
     motionRatingSkipped: new Set(),

@@ -699,6 +699,7 @@ fn log_ai_timing(
     scan: u64,
     chunk: &mut usize,
     rules: ai::Rules,
+    face_finder: ai::FaceFinder,
     photos: usize,
     times: ai::timing::InferenceTimes,
 ) {
@@ -711,8 +712,9 @@ fn log_ai_timing(
         ai::Rules::Advanced => "Advanced",
     };
     eprintln!(
-        "[ai-timing] scan={scan} chunk={} rules={rules} photos={photos} yunet_ms_total={:.1} yunet_calls={} yolo_ms_total={:.1} yolo_calls={}",
+        "[ai-timing] scan={scan} chunk={} rules={rules} face_finder={} photos={photos} yunet_ms_total={:.1} yunet_calls={} yolo_ms_total={:.1} yolo_calls={}",
         *chunk,
+        face_finder.log_name(),
         times.yunet.elapsed.as_secs_f64() * 1000.0,
         times.yunet.calls,
         times.yolo.elapsed.as_secs_f64() * 1000.0,
@@ -727,9 +729,10 @@ fn log_ai_timing(
 /// through on spare time: whenever the photographer is being served, the
 /// scan waits. Asking again, or closing the folder, stops this one.
 #[tauri::command]
-pub async fn ai_scan(app: AppState<'_>, session: u64, order: Vec<usize>, advanced: bool, motion_blur: Option<bool>, events: Channel<AiEvent>) -> Result<(), String> {
+pub async fn ai_scan(app: AppState<'_>, session: u64, order: Vec<usize>, advanced: bool, motion_blur: Option<bool>, finder: Option<ai::FinderChoice>, events: Channel<AiEvent>) -> Result<(), String> {
     let motion_blur = motion_blur.unwrap_or(false);
     let rules = if advanced { ai::Rules::Advanced } else { ai::Rules::Basic };
+    let face_finder = finder.unwrap_or_default().resolve(rules);
     let Some(session) = app.sessions.lock().unwrap().get(&session).cloned() else {
         return Err("that folder is no longer open".into());
     };
@@ -741,7 +744,7 @@ pub async fn ai_scan(app: AppState<'_>, session: u64, order: Vec<usize>, advance
 
     tauri::async_runtime::spawn_blocking(move || {
         let wanted = || !session.closed.load(Ordering::SeqCst) && app.ai_scan.load(Ordering::SeqCst) == mine;
-        let known = Mutex::new(app.faces.load_images(&session.folder, rules, session.images.iter().map(|image| (image.display.as_path(), image.version.as_str()))));
+        let known = Mutex::new(app.faces.load_images_with_finder(&session.folder, rules, face_finder, session.images.iter().map(|image| (image.display.as_path(), image.version.as_str()))));
 
         // What is already known goes out at once.
         let mut todo = Vec::new();
@@ -766,7 +769,7 @@ pub async fn ai_scan(app: AppState<'_>, session: u64, order: Vec<usize>, advance
 
         if todo.is_empty() {
             // Populate per-source directories from older root-only caches.
-            app.faces.save(&session.folder, rules, &known.lock().unwrap());
+            app.faces.save_with_finder(&session.folder, rules, face_finder, &known.lock().unwrap());
             events.send(AiEvent::Done { finished: wanted() }).ok();
             return;
         }
@@ -802,7 +805,7 @@ pub async fn ai_scan(app: AppState<'_>, session: u64, order: Vec<usize>, advance
                             (record, ai::timing::InferenceTimes::default())
                         } else {
                             ai::timing::collect(|| {
-                                ai::analyze_record(&image.display, rules, motion_blur)
+                                ai::analyze_record_with_finder(&image.display, rules, motion_blur, face_finder)
                                     .unwrap_or_default()
                             })
                         };
@@ -831,22 +834,22 @@ pub async fn ai_scan(app: AppState<'_>, session: u64, order: Vec<usize>, advance
                     Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => break,
                 }
                 if batch.len() >= AI_BATCH || (!batch.is_empty() && last.elapsed() >= Duration::from_millis(400)) {
-                    log_ai_timing(mine, &mut timing_chunk, rules, batch.len(), batch_times);
+                    log_ai_timing(mine, &mut timing_chunk, rules, face_finder, batch.len(), batch_times);
                     events.send(AiEvent::Batch { items: std::mem::take(&mut batch) }).ok();
                     batch_times = ai::timing::InferenceTimes::default();
                     last = Instant::now();
                 }
                 if unsaved >= AI_SAVE_EVERY {
-                    app.faces.save(&session.folder, rules, &known.lock().unwrap());
+                    app.faces.save_with_finder(&session.folder, rules, face_finder, &known.lock().unwrap());
                     unsaved = 0;
                 }
             }
             if !batch.is_empty() {
-                log_ai_timing(mine, &mut timing_chunk, rules, batch.len(), batch_times);
+                log_ai_timing(mine, &mut timing_chunk, rules, face_finder, batch.len(), batch_times);
                 events.send(AiEvent::Batch { items: batch }).ok();
             }
             if unsaved > 0 {
-                app.faces.save(&session.folder, rules, &known.lock().unwrap());
+                app.faces.save_with_finder(&session.folder, rules, face_finder, &known.lock().unwrap());
             }
         });
         events.send(AiEvent::Done { finished: queue.exhausted() && wanted() }).ok();

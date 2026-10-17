@@ -34,6 +34,7 @@ import { GIGABYTE, useStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
 import { MobileClipSettings } from "./MobileClipSettings";
 import { MotionBlurSettings } from "./MotionBlurSettings";
+import { ExperimentalAiFinderSettings } from "./ExperimentalAiFinderSettings";
 
 /** Asks before photos go to the trash. */
 export function TrashDialog() {
@@ -474,6 +475,7 @@ function SettingsBody({ tab, onTab, ...shortcutProps }: { tab: SettingsTab; onTa
             detail="Uses YOLO26n to find faces and YuNet to place eyes. Turn it off to use the original YuNet finder and familiar 0.3 judgements. Advanced AI also looks closer at each face's eyes and mouth, names states such as looking down, laughing or eyes closed in a hug, and avoids marking down those states or people looking away where nobody is looking at the camera. It also weighs the whole photo to decide who is in the background. Switching analyses the open folder again; each way remembers its own results. Needs Culltivate AI."
             control={toggle("aiAdvanced")}
           />
+          <ExperimentalAiFinderSettings />
           <Setting
             title="Show background faces"
             detail="Shows faces judged to be background — guests, passers-by — in the face panel, dimmed, with the reason. They are left out of the photo's mark either way, so a blink in the crowd cannot sink a photo."

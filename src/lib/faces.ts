@@ -3,7 +3,7 @@ import { isVideo } from "./media";
 
 import { useEffect, useRef } from "react";
 
-import { api } from "./api";
+import { api, type AiFinderChoice } from "./api";
 import { useStore } from "./store";
 
 /** How many photos either side of the one on screen the scan is asked to do first. */
@@ -40,6 +40,10 @@ export function useFaceScan(): void {
   const session = useStore((s) => (s.session !== null && s.metaProgress >= 1 ? s.session.id : null));
   const pause = useStore((s) => s.aiPause);
   const advanced = useStore((s) => s.aiAdvanced);
+  const experimentalFinder = useStore((s) => s.experimentalAiFinder);
+  const finder: AiFinderChoice = import.meta.env.DEV && experimentalFinder !== "mode"
+    ? experimentalFinder
+    : advanced ? "yolo" : "yunet";
 
   useEffect(() => void api.aiSetYield(pause).catch(() => {}), [pause]);
 
@@ -87,13 +91,13 @@ export function useFaceScan(): void {
   // Judged by other rules, nothing found so far stands: it is put away and
   // the folder gone through again. What the other rules found is kept in
   // its own memory, so switching back costs nothing.
-  const judged = useRef(advanced);
+  const judged = useRef({ advanced, finder });
   useEffect(() => {
-    if (judged.current === advanced) return;
-    judged.current = advanced;
+    if (judged.current.advanced === advanced && judged.current.finder === finder) return;
+    judged.current = { advanced, finder };
     useStore.setState({ ai: [], compared: [], ranks: [], poses: [], aiDone: 0 });
     useStore.getState().regroup();
-  }, [advanced]);
+  }, [advanced, finder]);
 
   useEffect(() => {
     if (!enabled || session === null) return;
@@ -113,7 +117,7 @@ export function useFaceScan(): void {
         if (event.type === "cache") useStore.setState({ aiCached: event.cached, aiPending: event.pending, aiMotionPending: event.motionOnly ?? 0 });
         else if (event.type === "batch") s.addAnalysis(event.items);
         else s.set("aiRunning", false);
-      }, motionBlur)
+      }, motionBlur, finder)
       .catch(() => useStore.getState().session?.id === session && useStore.setState({ aiRunning: false }));
 
     return () => {
@@ -121,5 +125,5 @@ export function useFaceScan(): void {
       void api.aiStop().catch(() => {});
       if (useStore.getState().session?.id === session) useStore.setState({ aiRunning: false });
     };
-  }, [enabled, session, advanced, motionBlur]);
+  }, [enabled, session, advanced, finder, motionBlur]);
 }

@@ -13,6 +13,7 @@ const booleanKeys = new Set([
   "rememberViewMode", "sortAscending", "ingestSortAscending", "ignoreVideos", "showExif", "showHistogram", "showFilmstrip", "showInfo", "showRatingBar", "showFilterBar", "experimentalNativeFilmstrip", "experimentalSmoothZoom", "experimentalTransitions", "experimentalHideFilmstripOnCrop", "includeSubfolders", "embedInJpeg", "askBeforeTrash", "checkForUpdates", "warmAhead", "speedCullAlways", "keepZoom", "instantZoom", "rgbHistogram", "aiEnabled", "aiAdvanced", "showBackgroundFaces", "aiPause", "smartGroups", "showFaces", "visualThemeFont",
 ]);
 const enums: Record<string, readonly string[]> = {
+  experimentalAiFinder: ["mode", "yunet", "yolo"],
   mobileClipGrouping: ["loose", "normal", "tight"],
   rankingPalette: ["classic", "red-green"],
   theme: ["dark", "light", "grey", "wisp"], visualTheme: ["default", "rapidraw", "wisp"], homeLayout: ["spacious", "classic"],

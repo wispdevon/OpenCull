@@ -166,6 +166,13 @@ keeps YuNet as the face finder, unchanged. Choose between them with the
 faces and YuNet to place their eyes. YuNet is MIT licensed; the YOLO26 model
 is under AGPL-3.0.
 
+Development builds also expose **Settings → AI → Face finder · Experimental**.
+It can keep the normal choice, use YuNet in both rules modes, or use YOLO26n
+in both. This selects the full-photo face finder; YOLO still uses YuNet on
+small face crops to place eyes. Each rules-and-finder combination has its own
+cached results, so switching to one without saved results analyses the photos
+once, and switching back reuses that cache.
+
 **MobileCLIP visual grouping** is an experimental option. The model is Apple's, published under the Apple Machine Learning Research Model License, whose terms cover non-commercial research use; read them before using the option for paid work. It is not bundled with Culltivate: it is downloaded only if you choose to, and the option is off until then. Its separately
 downloaded MobileCLIP-S0 model compares whole-image embeddings, so frames can
 be grouped even when no faces were found. The loose, normal and tight settings

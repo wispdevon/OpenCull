@@ -11,7 +11,7 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 use xxhash_rust::xxh3::xxh3_128;
 
-use super::{focus, Analysis, Rules};
+use super::{focus, Analysis, FaceFinder, FinderChoice, Rules};
 
 /// Changes whenever the models or the rules applied to them do, so that
 /// verdicts from an earlier version are never shown as this one's.
@@ -26,6 +26,21 @@ pub fn version(rules: Rules) -> &'static str {
     match rules {
         Rules::Basic => BASIC,
         Rules::Advanced => ADVANCED,
+    }
+}
+
+/// The default choices keep their existing cache identity. An experimental
+/// finder gets a separate cache so switching models never reuses its results.
+pub fn version_for(rules: Rules, face_finder: FaceFinder) -> String {
+    let default_finder = FinderChoice::Mode.resolve(rules);
+    if face_finder == default_finder {
+        version(rules).to_owned()
+    } else {
+        let model = match face_finder {
+            FaceFinder::YuNet => "yunet",
+            FaceFinder::Yolo => "yolo26n",
+        };
+        format!("{}|face-finder-{model}", version(rules))
     }
 }
 
@@ -141,15 +156,19 @@ impl Store {
         Self { dir, writer: Default::default() }
     }
 
-    fn file_for(&self, folder: &Path, rules: Rules) -> PathBuf {
-        let key = format!("{}\0{}", version(rules), folder.to_string_lossy());
+    fn file_for(&self, folder: &Path, rules: Rules, face_finder: FaceFinder) -> PathBuf {
+        let key = format!("{}\0{}", version_for(rules, face_finder), folder.to_string_lossy());
         self.dir.join(format!("{:032x}.json", xxh3_128(key.as_bytes())))
     }
 
     /// What is remembered about a folder's photos, by path. Empty for a
     /// folder never analysed, or one whose record cannot be read.
     pub fn load(&self, folder: &Path, rules: Rules) -> HashMap<String, Entry> {
-        let Some(values) = std::fs::read(self.file_for(folder, rules)).ok().and_then(|bytes| serde_json::from_slice::<HashMap<String, serde_json::Value>>(&bytes).ok()) else { return HashMap::new(); };
+        self.load_with_finder(folder, rules, FinderChoice::Mode.resolve(rules))
+    }
+
+    pub fn load_with_finder(&self, folder: &Path, rules: Rules, face_finder: FaceFinder) -> HashMap<String, Entry> {
+        let Some(values) = std::fs::read(self.file_for(folder, rules, face_finder)).ok().and_then(|bytes| serde_json::from_slice::<HashMap<String, serde_json::Value>>(&bytes).ok()) else { return HashMap::new(); };
         // One damaged entry must not discard a whole shoot's good analysis.
         values.into_iter().filter_map(|(path, value)| serde_json::from_value(value).ok().map(|entry| (path, entry))).collect()
     }
@@ -157,15 +176,19 @@ impl Store {
     /// A session's root can change (card, DCIM, camera subfolder, multi-card
     /// review). Reuse the same files' analysis through their containing folders.
     pub fn load_images<'a>(&self, folder: &Path, rules: Rules, paths: impl IntoIterator<Item = (&'a Path, &'a str)>) -> HashMap<String, Entry> {
+        self.load_images_with_finder(folder, rules, FinderChoice::Mode.resolve(rules), paths)
+    }
+
+    pub fn load_images_with_finder<'a>(&self, folder: &Path, rules: Rules, face_finder: FaceFinder, paths: impl IntoIterator<Item = (&'a Path, &'a str)>) -> HashMap<String, Entry> {
         let requested: HashMap<_, _> = paths.into_iter().map(|(path, version)| (path.to_string_lossy().into_owned(), version)).collect();
         let wanted = |path: &String, entry: &Entry| requested.get(path).is_some_and(|version| *version == entry.0);
-        let mut known = self.load(folder, rules);
+        let mut known = self.load_with_finder(folder, rules, face_finder);
         known.retain(|path, entry| wanted(path, entry));
         // Read older parent-root caches too, so the existing cache migrates
         // without running the face models again after this update.
         let parents: std::collections::HashSet<_> = requested.keys().flat_map(|p| Path::new(p).parent().into_iter().flat_map(|p| p.ancestors().take(4))).filter(|p| *p != folder).collect();
         for parent in parents {
-            for (path, entry) in self.load(parent, rules).into_iter().filter(|(path, entry)| wanted(path, entry)) {
+            for (path, entry) in self.load_with_finder(parent, rules, face_finder).into_iter().filter(|(path, entry)| wanted(path, entry)) {
                 if known.get(&path).is_some_and(|old| old.1.motion_version > entry.1.motion_version) { continue; }
                 known.insert(path, entry);
             }
@@ -174,6 +197,10 @@ impl Store {
     }
 
     pub fn save(&self, folder: &Path, rules: Rules, known: &HashMap<String, Entry>) {
+        self.save_with_finder(folder, rules, FinderChoice::Mode.resolve(rules), known)
+    }
+
+    pub fn save_with_finder(&self, folder: &Path, rules: Rules, face_finder: FaceFinder, known: &HashMap<String, Entry>) {
         let _guard = self.writer.lock().unwrap_or_else(|e| e.into_inner());
         let mut folders: HashMap<PathBuf, HashMap<String, Entry>> = HashMap::new();
         folders.insert(folder.to_path_buf(), known.clone());
@@ -182,19 +209,19 @@ impl Store {
         }
         for (parent, entries) in folders {
             // Keep completed photos if a newer session contains only a subset.
-            let mut merged = self.load(&parent, rules);
+            let mut merged = self.load_with_finder(&parent, rules, face_finder);
             for (path, entry) in entries {
                 // A cancelled older scan must not erase newer blur enrichment.
                 if merged.get(&path).is_some_and(|old| old.0 == entry.0 && old.1.motion_version > entry.1.motion_version) { continue; }
                 merged.insert(path, entry);
             }
-            self.write(&parent, rules, &merged);
+            self.write(&parent, rules, face_finder, &merged);
         }
     }
 
-    fn write(&self, folder: &Path, rules: Rules, known: &HashMap<String, Entry>) {
+    fn write(&self, folder: &Path, rules: Rules, face_finder: FaceFinder, known: &HashMap<String, Entry>) {
         let Ok(bytes) = serde_json::to_vec(known) else { return };
-        let path = self.file_for(folder, rules);
+        let path = self.file_for(folder, rules, face_finder);
         let temp = path.with_extension(format!("tmp{}", std::process::id()));
         if let Err(error) = std::fs::write(&temp, bytes).and_then(|_| std::fs::rename(&temp, &path)) {
             eprintln!("[ai-cache] could not save {}: {error}", path.display());

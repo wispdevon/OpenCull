@@ -51,6 +51,48 @@ pub enum Rules {
     Advanced,
 }
 
+/// Which face-finding model to use. `Mode` keeps Basic on YuNet and Advanced
+/// on YOLO, as shipped; the other choices are exposed only in development.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum FinderChoice {
+    #[default]
+    Mode,
+    #[serde(rename = "yunet")]
+    YuNet,
+    #[serde(rename = "yolo")]
+    Yolo,
+}
+
+/// The full-photo face finder selected for an analysis run.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum FaceFinder {
+    YuNet,
+    Yolo,
+}
+
+impl FinderChoice {
+    pub fn resolve(self, rules: Rules) -> FaceFinder {
+        match self {
+            Self::Mode => match rules {
+                Rules::Basic => FaceFinder::YuNet,
+                Rules::Advanced => FaceFinder::Yolo,
+            },
+            Self::YuNet => FaceFinder::YuNet,
+            Self::Yolo => FaceFinder::Yolo,
+        }
+    }
+}
+
+impl FaceFinder {
+    pub fn log_name(self) -> &'static str {
+        match self {
+            Self::YuNet => "YuNet",
+            Self::Yolo => "YOLO26n",
+        }
+    }
+}
+
 /// One face in a photograph, and everything decided about it.
 #[derive(Clone, Copy, Debug)]
 pub struct Face {
@@ -231,12 +273,24 @@ fn upright(rgb: &[u8], width: u32, height: u32, f: &finder::Found, up: f64) -> O
 
 /// Finds and judges the faces in an upright picture at full size.
 pub fn analyze_pixels(rgb: &[u8], width: u32, height: u32, rules: Rules) -> Result<Analysis, String> {
+    analyze_pixels_with_finder(rgb, width, height, rules, FinderChoice::Mode.resolve(rules))
+}
+
+pub fn analyze_pixels_with_finder(
+    rgb: &[u8],
+    width: u32,
+    height: u32,
+    rules: Rules,
+    face_finder: FaceFinder,
+) -> Result<Analysis, String> {
     // The finder is shown a smaller copy; everything after it looks at the
     // photograph itself, where the detail is.
     let k = (finder::LONG_EDGE as f64 / width.max(height) as f64).min(1.0);
     let (sw, sh) = (((width as f64 * k).round() as u32).max(1), ((height as f64 * k).round() as u32).max(1));
-    // Advanced finds faces whichever way up they stand; Basic keeps the finder of release 0.3.
-    let find = |pic: &[u8]| if rules == Rules::Advanced { finder::turning::find(pic, sw, sh) } else { finder::find(pic, sw, sh) };
+    let find = |pic: &[u8]| match face_finder {
+        FaceFinder::YuNet => finder::find(pic, sw, sh),
+        FaceFinder::Yolo => finder::turning::find(pic, sw, sh),
+    };
     let found = if k < 1.0 { find(&faces::cut(rgb, width, height, (0, 0, width, height), sw, sh)?)? } else { find(rgb)? };
     if found.is_empty() {
         return about(rgb, width, height);
@@ -456,8 +510,17 @@ pub fn analyze(path: &Path, rules: Rules) -> Result<Analysis, String> {
 }
 
 pub fn analyze_record(path: &Path, rules: Rules, motion_blur: bool) -> Result<store::Record, String> {
+    analyze_record_with_finder(path, rules, motion_blur, FinderChoice::Mode.resolve(rules))
+}
+
+pub fn analyze_record_with_finder(
+    path: &Path,
+    rules: Rules,
+    motion_blur: bool,
+    face_finder: FaceFinder,
+) -> Result<store::Record, String> {
     let picture = preview::decode_upright(path, u32::MAX)?;
-    let mut record = store::Record::from(&analyze_pixels(&picture.rgb, picture.width, picture.height, rules)?);
+    let mut record = store::Record::from(&analyze_pixels_with_finder(&picture.rgb, picture.width, picture.height, rules, face_finder)?);
     if motion_blur { motion::annotate_pixels(&picture.rgb, picture.width, picture.height, &mut record); }
     Ok(record)
 }

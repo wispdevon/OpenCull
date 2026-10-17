@@ -122,6 +122,9 @@ See [CUDA setup](docs/CUDA-TRIAL.md) and [benchmarks](docs/CUDA-BENCHMARK.md).
 - Choose the original YuNet finder by turning **Advanced AI** off, or use the
   YOLO26n finder with **Advanced AI** on; it also uses YuNet to place eyes and
   handles turned faces.
+- In development builds, **Settings → AI → Face finder · Experimental** can
+  use YuNet or YOLO26n for either AI rules mode. YOLO still uses YuNet to place
+  eyes.
 - [Group visually similar photos with MobileCLIP](docs/features/MOBILECLIP_GROUPING.md).
 - [Detect motion blur](docs/features/MOTION_BLUR.md), with optional one-star and Reject marking.
 - [Reuse cached analysis](docs/features/AI_CACHE.md) across sessions.
