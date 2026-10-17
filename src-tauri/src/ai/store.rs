@@ -277,11 +277,12 @@ mod tests {
         let store = Store::new(dir.clone());
         let root = Path::new("/card/DCIM");
         let photo = Path::new("/card/DCIM/100CAM/A.RAW");
+        let face_finder = FinderChoice::Mode.resolve(Rules::Advanced);
         let known = HashMap::from([(photo.to_string_lossy().into_owned(), ("v2".into(), record(80.0)))]);
-        store.write(root, Rules::Advanced, &known);
-        let mut raw: serde_json::Value = serde_json::from_slice(&std::fs::read(store.file_for(root, Rules::Advanced)).unwrap()).unwrap();
+        store.write(root, Rules::Advanced, face_finder, &known);
+        let mut raw: serde_json::Value = serde_json::from_slice(&std::fs::read(store.file_for(root, Rules::Advanced, face_finder)).unwrap()).unwrap();
         raw["/card/DCIM/100CAM/broken.RAW"] = serde_json::json!(["v2", { "faces": "bad" }]);
-        std::fs::write(store.file_for(root, Rules::Advanced), serde_json::to_vec(&raw).unwrap()).unwrap();
+        std::fs::write(store.file_for(root, Rules::Advanced, face_finder), serde_json::to_vec(&raw).unwrap()).unwrap();
         let back = store.load_images(photo.parent().unwrap(), Rules::Advanced, [(photo, "v2")]);
         assert_eq!(remembered(&back, photo, "v2"), Some(record(80.0)));
         store.save(root, Rules::Advanced, &back);
@@ -325,7 +326,8 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("opencull-ai-store-bad-{}", std::process::id()));
         let store = Store::new(dir.clone());
         let folder = Path::new("/shoots/wedding");
-        std::fs::write(store.file_for(folder, Rules::Advanced), b"{ not json").unwrap();
+        let face_finder = FinderChoice::Mode.resolve(Rules::Advanced);
+        std::fs::write(store.file_for(folder, Rules::Advanced, face_finder), b"{ not json").unwrap();
         assert!(store.load(folder, Rules::Advanced).is_empty());
         std::fs::remove_dir_all(dir).ok();
     }
