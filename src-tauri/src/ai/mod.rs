@@ -24,6 +24,7 @@ pub mod series;
 pub mod state;
 pub mod store;
 pub mod subject;
+pub mod timing;
 
 use std::path::Path;
 
