@@ -27,7 +27,6 @@ pub mod times;
 pub mod transfer;
 pub mod update;
 pub mod xmp;
-#[cfg(target_os = "linux")]
 pub mod video_stream;
 
 use std::sync::Arc;
@@ -40,11 +39,14 @@ use serve::Previews;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let graphics = graphics::initialize();
-
+    #[cfg(all(feature = "cuda", target_os = "linux", target_arch = "x86_64"))]
+    if let Err(reason) = ai::register_cuda_file_backend() {
+        eprintln!("[ai] Could not register the CUDA file-model worker: {reason}");
+    }
     if ai::acceleration::requested() {
         eprintln!("[ai] CUDA requested; one shared model worker, CPU fallback on failure");
     }
+    let graphics = graphics::initialize();
     let launch = Launch::from_args();
     let mut builder = tauri::Builder::default().plugin(tauri_plugin_opener::init()).plugin(tauri_plugin_dialog::init()).plugin(tauri_plugin_updater::Builder::new().build());
     if !launch.self_test {
@@ -173,19 +175,8 @@ pub fn run() {
             }
         })
         .invoke_handler(tauri::generate_handler![
-            review::review_save,
-            review::review_list,
-            review::review_remove,
-            review::review_load,
-            commands::review_copy,
-            settings::config_load,
-            settings::config_set,
-            settings::config_set_many,
-            settings::config_export_file,
-            commands::video_source,
-            graphics::graphics_info,
-
             ai::acceleration::ai_acceleration_info,
+            graphics::graphics_info,
             commands::app_info,
             commands::report,
             commands::finish_self_test,
@@ -221,15 +212,25 @@ pub fn run() {
             commands::ingest_conflicts,
             commands::ingest_copy,
             commands::ingest_cancel,
+            review::review_save,
+            review::review_list,
+            review::review_remove,
+            review::review_load,
+            commands::review_copy,
+            commands::video_source,
             commands::ai_scan,
-            commands::ai_look_at,
-            commands::ai_compare,
             commands::mobileclip_status,
             commands::mobileclip_install,
+            commands::ai_look_at,
+            commands::ai_compare,
             commands::ai_stop,
             commands::ai_set_yield,
             commands::ai_cache_usage,
             commands::ai_clear_cache,
+            settings::config_load,
+            settings::config_set,
+            settings::config_set_many,
+            settings::config_export_file,
             update::update_check,
             update::update_install,
             update::open_release_page,

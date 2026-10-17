@@ -1,6 +1,4 @@
 import { PhotoTransition } from "./InterfaceMotion";
-import { isVideo } from "@/lib/media";
-import { VideoPlayer } from "./VideoPlayer";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Flag, Loader2, X } from "lucide-react";
 
@@ -16,6 +14,8 @@ import { cn } from "@/lib/utils";
 import { COLORS, type Photo } from "@/lib/types";
 import { useStripThumbSize } from "./Filmstrip";
 import { CropView } from "./Crop";
+import { isVideo } from "@/lib/media";
+import { VideoPlayer } from "./VideoPlayer";
 import { PhotoMenu } from "./PhotoMenu";
 import { FaceOverlays } from "./FaceOverlays";
 
@@ -130,7 +130,7 @@ export function Loupe() {
 
   return (
     <div className="relative size-full overflow-hidden bg-canvas">
-      {photo && isVideo(photo.path) ? <VideoPlayer key={photo.path} path={photo.path} /> : photo && cropping ? (
+      {photo && cropping ? (
         <PhotoTransition identity={`${photo.display}:${photo.version}:crop`}><CropView photo={photo} /></PhotoTransition>
       ) : photo ? (
         <PhotoTransition identity={`${photo.display}:${photo.version}:view`}><Canvas photo={photo} /></PhotoTransition>
@@ -147,21 +147,10 @@ export function Loupe() {
 }
 
 function Canvas({ photo }: { photo: Photo }) {
-  const smoothZoom = useStore((s) => s.experimentalSmoothZoom);
-  const [reducedMotion, setReducedMotion] = useState(() => window.matchMedia("(prefers-reduced-motion: reduce)").matches);
-  useEffect(() => {
-    const query = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const update = () => setReducedMotion(query.matches);
-    query.addEventListener("change", update);
-    update();
-    return () => query.removeEventListener("change", update);
-  }, []);
-  const GLIDE = smoothZoom
-    ? reducedMotion ? { in: 0, out: 0, box: 0 } : { in: 320, out: 280, box: 340 }
-    : { in: 220, out: 200, box: 250 };
-  const zoomCurve = smoothZoom ? "cubic-bezier(0.22, 1, 0.36, 1)" : "ease-in-out";
+  return isVideo(photo.path) ? <VideoPlayer key={photo.path} path={photo.path} /> : <StillCanvas photo={photo} />;
+}
 
-
+function StillCanvas({ photo }: { photo: Photo }) {
   const frame = useRef<HTMLDivElement>(null);
   const sheet = useRef<HTMLDivElement>(null);
   const [box, setBox] = useState({ w: 0, h: 0 });
@@ -194,6 +183,22 @@ function Canvas({ photo }: { photo: Photo }) {
     measure();
     return () => observer.disconnect();
   }, []);
+
+  // Keep the optional motion hooks after the baseline canvas hooks so the
+  // still-canvas wrapper can be introduced without changing this hook block.
+  const smoothZoom = useStore((s) => s.experimentalSmoothZoom);
+  const [reducedMotion, setReducedMotion] = useState(() => window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+  useEffect(() => {
+    const query = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const update = () => setReducedMotion(query.matches);
+    query.addEventListener("change", update);
+    update();
+    return () => query.removeEventListener("change", update);
+  }, []);
+  const GLIDE = smoothZoom
+    ? reducedMotion ? { in: 0, out: 0, box: 0 } : { in: 320, out: 280, box: 340 }
+    : { in: 220, out: 200, box: 250 };
+  const zoomCurve = smoothZoom ? "cubic-bezier(0.22, 1, 0.36, 1)" : "ease-in-out";
 
   // The picture's shape is known from the folder's metadata before a single
   // pixel has loaded. Until that has been read, assume the usual 3:2.

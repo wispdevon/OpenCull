@@ -1,4 +1,3 @@
-import type { MobileClipGrouping } from "./mobileclip-grouping";
 // Everything the interface asks of the Rust backend, in one place.
 //
 // Two implementations sit behind it. Inside the app it is the real backend.
@@ -8,7 +7,7 @@ import type { MobileClipGrouping } from "./mobileclip-grouping";
 // out of the shipped bundle entirely.
 
 import { Channel, invoke } from "@tauri-apps/api/core";
-import type { AiEvent, Compared, FileKinds, Framing, Histogram, Marks, MetaEvent, RunFrame, Scanned } from "./types";
+import type { AiEvent, AiGroupingOptions, Compared, FileKinds, Framing, Histogram, Marks, MetaEvent, MobileClipStatus, RunFrame, Scanned } from "./types";
 
 export interface AiAccelerationInfo {
   requested: boolean;
@@ -123,7 +122,7 @@ export type Tier = "thumb" | "fit" | "screen" | "full";
 
 export interface Backend {
   appInfo(): Promise<AppInfo>;
-  openFolder(path: string, includeSubfolders: boolean, kinds: FileKinds, members?: Scanned[], ignoreVideos?: boolean): Promise<FolderReply>;
+  openFolder(path: string, includeSubfolders: boolean, kinds: FileKinds, ignoreVideos?: boolean, members?: Scanned[]): Promise<FolderReply>;
   closeFolder(session: number): Promise<void>;
   loadMetadata(session: number, onEvent: (e: MetaEvent) => void): Promise<void>;
   prefetch(items: { path: string; version: string }[], size: number): Promise<void>;
@@ -163,10 +162,10 @@ export interface Backend {
    * taken one soon after another, in the order they were shot; the backend
    * finds the poses in it — or, without `poses`, only the bursts.
    */
-  aiCompare(runs: RunFrame[][], poses: boolean, options?: { session: number; revision: number; mobileClip: boolean; mobileClipGrouping?: MobileClipGrouping }): Promise<Compared[][]>;
+  aiCompare(runs: RunFrame[][], poses: boolean, options?: AiGroupingOptions): Promise<Compared[][]>;
+  mobileClipStatus(): Promise<MobileClipStatus>;
+  mobileClipInstall(): Promise<MobileClipStatus>;
   aiAccelerationInfo(): Promise<AiAccelerationInfo | null>;
-  mobileClipStatus(): Promise<{ ready: boolean; bytes: number; model: string; backend: "CPU" | "CUDA" }>;
-  mobileClipInstall(): Promise<{ ready: boolean; bytes: number; model: string; backend: "CPU" | "CUDA" }>;
   aiStop(): Promise<void>;
   /** Whether analysis stands aside while the photographer moves between photos. */
   aiSetYield(on: boolean): Promise<void>;
@@ -221,7 +220,7 @@ const previewBase = /Windows|Android/.test(navigator.userAgent) ? "http://opencu
 
 const tauri: Backend = {
   appInfo: () => invoke("app_info"),
-  openFolder: (path, includeSubfolders, kinds, members, ignoreVideos) => invoke("open_folder", { path, includeSubfolders, kinds, members, ignoreVideos }),
+  openFolder: (path, includeSubfolders, kinds, ignoreVideos, members) => invoke("open_folder", { path, includeSubfolders, kinds, ignoreVideos, members }),
   closeFolder: (session) => invoke("close_folder", { session }),
   loadMetadata: (session, onEvent) => {
     const channel = new Channel<MetaEvent>();
@@ -251,10 +250,10 @@ const tauri: Backend = {
     events.onmessage = onEvent;
     return invoke("ai_scan", { session, order, advanced, motionBlur, events });
   },
-  aiCompare: (runs, poses, options) => invoke("ai_compare", { runs, poses, ...options }),
-  aiAccelerationInfo: () => invoke("ai_acceleration_info"),
+  aiCompare: (runs, poses, options = {}) => invoke("ai_compare", { runs, poses, session: options.session, revision: options.revision, mobileClip: options.mobileClip ?? false, mobileClipGrouping: options.mobileClipGrouping ?? "normal" }),
   mobileClipStatus: () => invoke("mobileclip_status"),
   mobileClipInstall: () => invoke("mobileclip_install"),
+  aiAccelerationInfo: () => invoke("ai_acceleration_info"),
   aiLookAt: (order) => invoke("ai_look_at", { order }),
   aiStop: () => invoke("ai_stop"),
   aiSetYield: (on) => invoke("ai_set_yield", { on }),

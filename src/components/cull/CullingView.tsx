@@ -1,8 +1,7 @@
-import { AiAccelerationError } from "./AiAccelerationError";
 import { MotionRegion } from "./InterfaceMotion";
 import { FolderSearch, Images } from "lucide-react";
 
-import { ReviewBar } from "@/components/ingest/ReviewBar";
+import { ReviewDialog } from "@/components/ingest/ReviewBar";
 import { Button } from "@/components/ui/button";
 import { filmstripVisible, useStore } from "@/lib/store";
 import { useFaceScan } from "@/lib/faces";
@@ -14,6 +13,7 @@ import { Grid } from "./Grid";
 import { Loupe } from "./Loupe";
 import { SceneOverview, SceneView } from "./SceneView";
 import { Toolbar } from "./Toolbar";
+import { AiAccelerationError } from "./AiAccelerationError";
 
 /** How narrow and how wide each side panel may be, as a share of the workspace. */
 const PANEL_LIMITS = {
@@ -49,7 +49,7 @@ export function CullingView() {
 
   return (
     <div className="flex size-full flex-col bg-canvas">
-      <ReviewBar />
+      <ReviewDialog />
       <Toolbar />
       <AiAccelerationError />
       <div className="flex min-h-0 flex-1">

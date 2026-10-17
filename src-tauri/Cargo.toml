@@ -17,8 +17,8 @@ name = "opencull_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [features]
-# Optional NVIDIA AI runtime; detected by the desktop launcher on Linux x86_64.
-# The dependency is excluded from macOS/Windows.
+# Optional NVIDIA inference runtime. The implementation is available only on
+# Linux x86_64 and the app continues on CPU if CUDA cannot initialize.
 cuda = ["dep:opencull-cuda"]
 # The JPEG work — decoding a camera's preview and writing a smaller one — can
 # be done by libjpeg-turbo instead of the pure-Rust decoder and encoder.
@@ -62,8 +62,8 @@ ndarray = "0.17.2"
 tauri-plugin-updater = "2"
 reqwest = { version = "0.13.5", default-features = false, features = ["rustls-no-provider"] }
 sha2 = "0.10.9"
+getrandom = "0.3"
 rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
-
 
 [target.'cfg(target_os = "linux")'.dependencies]
 webkit2gtk = { version = "2.0.2", features = ["v2_34"] }

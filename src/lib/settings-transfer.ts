@@ -3,10 +3,14 @@ import { DEFAULTS } from "./shortcuts";
 import { INTERFACE_SCALES } from "./interface-scale";
 export const SETTINGS_FILE_LIMIT = 1024 * 1024;
 const booleanKeys = new Set([
-  "showFeaturedImage", "aiMotionBlur", "autoRateMotionBlur", "aiMobileClipGrouping",
+  // These optional keys may be provided by the separate AI contribution.
+  // Preserve them during import/export without adding its controls here.
+  "aiMotionBlur", "autoRateMotionBlur", "aiMobileClipGrouping",
+  "showFeaturedImage",
   "spaceZoomToFace",
   "experimentalFaceOutlines", "experimentalFaceSpotlight",
-  "rememberViewMode", "sortAscending", "ingestSortAscending", "showExif", "showHistogram", "showFilmstrip", "showInfo", "showRatingBar", "showFilterBar", "experimentalNativeFilmstrip", "experimentalSmoothZoom", "experimentalTransitions", "experimentalHideFilmstripOnCrop", "includeSubfolders", "ignoreVideos", "embedInJpeg", "askBeforeTrash", "checkForUpdates", "warmAhead", "speedCullAlways", "keepZoom", "instantZoom", "rgbHistogram", "aiEnabled", "aiAdvanced", "showBackgroundFaces", "aiPause", "smartGroups", "showFaces", "visualThemeFont",
+  // Ingest contribution preference; retain it in backups without exposing a control here.
+  "rememberViewMode", "sortAscending", "ingestSortAscending", "ignoreVideos", "showExif", "showHistogram", "showFilmstrip", "showInfo", "showRatingBar", "showFilterBar", "experimentalNativeFilmstrip", "experimentalSmoothZoom", "experimentalTransitions", "experimentalHideFilmstripOnCrop", "includeSubfolders", "embedInJpeg", "askBeforeTrash", "checkForUpdates", "warmAhead", "speedCullAlways", "keepZoom", "instantZoom", "rgbHistogram", "aiEnabled", "aiAdvanced", "showBackgroundFaces", "aiPause", "smartGroups", "showFaces", "visualThemeFont",
 ]);
 const enums: Record<string, readonly string[]> = {
   mobileClipGrouping: ["loose", "normal", "tight"],

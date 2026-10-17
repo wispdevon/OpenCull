@@ -1,15 +1,17 @@
 import { InterfaceMotionSettings } from "./InterfaceMotionSettings";
 import { ExperimentalFilmstripSettings } from "./ExperimentalFilmstripSettings";
 import { FaceOverlaySettings } from "./FaceOverlaySettings";
-import { MobileClipSettings } from "./MobileClipSettings";
-import { MotionBlurSettings } from "./MotionBlurSettings";
 import { ExperimentalZoomSettings } from "./ExperimentalZoomSettings";
 import { HomeLayoutSettings } from "@/components/HomeLayoutSettings";
 import { SettingsTransfer } from "@/components/SettingsTransfer";
 import { InterfaceScaleSettings } from "@/components/InterfaceScaleSettings";
-import { GraphicsSettings } from "@/components/GraphicsSettings";
+import { FontSettings } from "@/components/FontSettings";
+import { ThemeSettings } from "@/components/ThemeSettings";
+import { ViewModeSettings } from "@/components/ViewModeSettings";
+import { ChartColumn, Funnel, Info, Palette, PanelBottom, PanelLeft, PanelRight, PanelsTopLeft } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { ChartColumn, Funnel, HardDrive, Info, Palette, PanelBottom, PanelLeft, PanelRight, PanelsTopLeft, Keyboard, ScanFace, Star, ZoomIn, type LucideIcon } from "lucide-react";
+import { HardDrive, Keyboard, ScanFace, Star, ZoomIn, type LucideIcon } from "lucide-react";
+import { GraphicsSettings } from "@/components/GraphicsSettings";
 
 import {
   AlertDialog,
@@ -21,10 +23,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { FontSettings } from "@/components/FontSettings";
-import { ThemeSettings } from "@/components/ThemeSettings";
 import { Button } from "@/components/ui/button";
-import { ViewModeSettings } from "@/components/ViewModeSettings";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -33,6 +32,8 @@ import { fileSize } from "@/lib/format";
 import { CAPS_LOCK, comboLabel, comboOf, DEFAULTS, isMac, sameCombo, SECTIONS, type Action, type Combo } from "@/lib/shortcuts";
 import { GIGABYTE, useStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
+import { MobileClipSettings } from "./MobileClipSettings";
+import { MotionBlurSettings } from "./MotionBlurSettings";
 
 /** Asks before photos go to the trash. */
 export function TrashDialog() {
@@ -131,7 +132,7 @@ function ShortcutEditor({ bindings, onChange, onRecording }: ShortcutEditorProps
                     onClick={() => setRecording(recording === action ? null : action)}
                     className={cn(
                       "min-h-9 min-w-12 rounded border px-2 py-1 font-mono text-sm",
-                      recording === action ? "border-brand bg-brand/15 text-brand" : "border-[var(--ui-line-3a3a44)] bg-white/[0.04] text-[var(--ui-text-bfbfbf)] hover:border-[var(--ui-line-595959)]",
+                      recording === action ? "border-brand bg-brand/15 text-brand" : "border-[var(--ui-line-3a3a44)] bg-foreground/[0.05] text-[var(--ui-text-bfbfbf)] hover:border-[var(--ui-line-595959)]",
                     )}
                   >
                     {recording === action ? "press…" : bindings[action].code ? comboLabel(bindings[action]) : "—"}
@@ -265,6 +266,7 @@ function SettingsBody({ tab, onTab, ...shortcutProps }: { tab: SettingsTab; onTa
     void api.aiCacheUsage().then(setFaceMemory, () => setFaceMemory(null));
   }, []);
   const clearFaces = async () => {
+    useStore.setState((current) => ({ groupingRevision: current.groupingRevision + 1, aiGroupingError: null }));
     await api.aiClearCache().catch(() => {});
     setFaceMemory(await api.aiCacheUsage().catch(() => null));
     // The folder on screen is analysed afresh, there being nothing to show for it now.
@@ -332,8 +334,6 @@ function SettingsBody({ tab, onTab, ...shortcutProps }: { tab: SettingsTab; onTa
         </TabsContent>
         <TabsContent value="culling" className="space-y-4">
           <ExperimentalFilmstripSettings />
-          <Setting title="Ignore videos" detail="Hide video files when opening folders and ingesting cards. Turn off to include playback where the system supports the codec."
-            control={<Switch aria-label="Ignore videos" checked={s.ignoreVideos} onCheckedChange={(on) => { set("ignoreVideos", on); useStore.getState().reloadForSubfolders(); }} />} />
           <Setting
             title="Speed cull"
             detail="Moves straight on to the next photo after you pick, reject or rate one. Its key — Caps Lock unless you change it — also turns it on, whatever is set here."
@@ -353,7 +353,7 @@ function SettingsBody({ tab, onTab, ...shortcutProps }: { tab: SettingsTab; onTa
             title="Files to cull"
             detail="For a camera that saves every frame as both a RAW and a JPEG. RAW + JPEG shows each pair as one photo: one rating covers both, and both are moved, copied or binned together. RAW or JPEG shows only that kind and leaves the other files where they are. The folder on screen reloads when you change this."
             control={
-              <div className="flex rounded-md bg-white/[0.06] p-0.5">
+              <div className="flex rounded-md bg-foreground/[0.07] p-0.5">
                 {(
                   [
                     ["both", "RAW + JPEG"],
@@ -370,7 +370,7 @@ function SettingsBody({ tab, onTab, ...shortcutProps }: { tab: SettingsTab; onTa
                       // The folder on screen was listed under the old setting.
                       useStore.getState().reloadForSubfolders();
                     }}
-                    className={cn("whitespace-nowrap rounded px-2.5 py-1 text-xs font-medium", s.fileKinds === kinds ? "bg-white/[0.14] text-white" : "text-[var(--ui-text-8c8c8c)] hover:text-white")}
+                    className={cn("whitespace-nowrap rounded px-2.5 py-1 text-xs font-medium", s.fileKinds === kinds ? "bg-foreground/[0.14] text-foreground" : "text-[var(--ui-text-8c8c8c)] hover:text-foreground")}
                   >
                     {label}
                   </button>
@@ -420,6 +420,11 @@ function SettingsBody({ tab, onTab, ...shortcutProps }: { tab: SettingsTab; onTa
             }
           />
           <Setting
+            title="Ignore videos"
+            detail="Hide video files when opening folders and ingesting cards. Turn off to include playback where the system supports the codec."
+            control={<Switch aria-label="Ignore videos" checked={s.ignoreVideos} onCheckedChange={(on) => { set("ignoreVideos", on); useStore.getState().reloadForSubfolders(); }} />}
+          />
+          <Setting
             title="Check for updates"
             detail={`Looks for a newer OpenCull each time the app opens, and offers to install it. It is the only thing OpenCull uses the internet for, and nothing about you or your photos is sent. ${
               updates === "newest" ? `You have ${s.version}, the newest version.` : typeof updates === "object" ? `Could not check just now: ${updates.failed}` : `You have ${s.version}.`
@@ -458,9 +463,7 @@ function SettingsBody({ tab, onTab, ...shortcutProps }: { tab: SettingsTab; onTa
           />
         </TabsContent>
         <TabsContent value="ai" className="space-y-4">
-          <MobileClipSettings />
           <FaceOverlaySettings />
-          <MotionBlurSettings />
           <Setting
             title="OpenCull AI"
             detail="Finds the faces in each photo and judges them: eyes shut, looking away, how sharp, and who the photo is about. From that it marks each photo and ranks the frames of a burst, or of the same pose shot again. Runs on this computer; nothing is sent anywhere."
@@ -481,6 +484,8 @@ function SettingsBody({ tab, onTab, ...shortcutProps }: { tab: SettingsTab; onTa
             detail="Groups a pose shot again — the same people in the same places, a few seconds apart — with the frames it was shot beside, as one scene. Scene View, the filmstrip and the ranks all follow it, and each person's eyes are compared across the whole pose. Turn off to group only the frames of one press of the shutter. Needs OpenCull AI."
             control={toggle("smartGroups")}
           />
+          <MobileClipSettings />
+          <MotionBlurSettings />
           <Setting
             title="Pause analysis while culling"
             detail="Holds the folder scan for a moment each time you move to another photo, so previews never wait behind analysis. Nothing is lost; the scan carries on as soon as you pause. Turn off to let a folder finish as fast as possible while you work."
@@ -488,7 +493,6 @@ function SettingsBody({ tab, onTab, ...shortcutProps }: { tab: SettingsTab; onTa
           />
         </TabsContent>
         <TabsContent value="storage" className="space-y-4">
-          <SettingsTransfer />
           <GraphicsSettings />
           <Setting
             title="Prepare previews ahead"
@@ -536,6 +540,7 @@ function SettingsBody({ tab, onTab, ...shortcutProps }: { tab: SettingsTab; onTa
               </Button>
             }
           />
+          <SettingsTransfer />
         </TabsContent>
         <TabsContent value="keyboard" className="space-y-4">
           <Button variant="outline" onClick={() => useStore.setState({ settingsOpen: false, overviewOpen: true })}>Quick overview</Button>

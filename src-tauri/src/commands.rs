@@ -9,7 +9,7 @@ use std::time::{Duration, Instant};
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use tauri::ipc::Channel;
-use tauri::{State, Manager};
+use tauri::{Manager, State};
 
 use crate::pool::Priority;
 use crate::preview::Tier;
@@ -61,7 +61,9 @@ pub struct App {
     /// Which face scan is the wanted one. An earlier one stops when it sees
     /// this has moved on.
     ai_scan: AtomicU64,
-    ai_grouping_epoch: Mutex<(u64,u64)>,
+    /// The current visual regrouping request. A newer user choice invalidates
+    /// older embedding work for the same session.
+    ai_grouping_epoch: Mutex<(u64, u64)>,
     /// Whether analysis stands aside while the photographer is moving about.
     ai_yields: AtomicBool,
     /// The photos being looked at now, nearest first: what the scan
@@ -88,7 +90,7 @@ impl App {
             ingest_reading: AtomicU64::new(0),
             faces,
             ai_scan: AtomicU64::new(0),
-            ai_grouping_epoch: Mutex::new((0,0)),
+            ai_grouping_epoch: Mutex::new((0, 0)),
             ai_yields: AtomicBool::new(true),
             ai_front: Default::default(),
         }
@@ -96,6 +98,14 @@ impl App {
 }
 
 type AppState<'a> = State<'a, Arc<App>>;
+
+/// Advances grouping work only to a fresh revision. Multiple completed photo
+/// runs may share a revision; a late request from an older setting may not.
+fn accept_grouping_epoch(current: &mut (u64, u64), requested: (u64, u64)) -> bool {
+    if current.0 == requested.0 && current.1 > requested.1 { return false; }
+    *current = requested;
+    true
+}
 
 /// How the app was started, read once from its command line.
 ///
@@ -226,7 +236,7 @@ const TIME_BUDGET: Duration = Duration::from_millis(1500);
 /// on screen before either — but the capture times are read here, by the
 /// short route, because the order of the folder depends on them.
 #[tauri::command]
-pub async fn open_folder(app: AppState<'_>, path: String, include_subfolders: bool, kinds: Option<scan::Kinds>, members: Option<Vec<Scanned>>, ignore_videos: Option<bool>) -> Result<FolderReply, String> {
+pub async fn open_folder(app: AppState<'_>, path: String, include_subfolders: bool, kinds: Option<scan::Kinds>, ignore_videos: Option<bool>, members: Option<Vec<Scanned>>) -> Result<FolderReply, String> {
     let kinds = kinds.unwrap_or_default();
     let folder = PathBuf::from(&path);
     if !folder.is_dir() {
@@ -817,64 +827,84 @@ pub async fn ai_scan(app: AppState<'_>, session: u64, order: Vec<usize>, advance
 pub struct RunFrame {
     #[serde(flatten)]
     record: ai::store::Record,
-    #[serde(default)]
-    index: Option<usize>,
     time: Option<f64>,
     burst: Option<u32>,
     #[serde(default)]
     upright: Option<bool>,
+    #[serde(default)]
+    index: Option<usize>,
 }
 
 /// Marks the frames of each pose against one another: who blinked in which.
 /// Each run is photos taken one soon after another, in the order they were
 /// shot; it is split here into bursts and, if `poses`, poses shot again.
 #[tauri::command]
-pub async fn ai_compare(app: AppState<'_>, handle: tauri::AppHandle, runs: Vec<Vec<RunFrame>>, poses: bool,
-    session: Option<u64>, revision: Option<u64>, mobile_clip: Option<bool>, mobile_clip_grouping: Option<ai::mobileclip::Grouping>) -> Result<Vec<Vec<ai::series::Compared>>, String> {
+pub async fn ai_compare(
+    app: AppState<'_>,
+    handle: tauri::AppHandle,
+    runs: Vec<Vec<RunFrame>>,
+    poses: bool,
+    session: Option<u64>,
+    revision: Option<u64>,
+    mobile_clip: Option<bool>,
+    mobile_clip_grouping: Option<ai::mobileclip::Grouping>,
+) -> Result<Vec<Vec<ai::series::Compared>>, String> {
     let app = app.inner().clone();
-    let source = if let Some(id) = session { Some(app.sessions.lock().unwrap().get(&id).cloned().ok_or("Session closed.")?) } else { None };
+    let source = if let Some(id) = session { Some(app.sessions.lock().unwrap().get(&id).cloned().ok_or("that folder is no longer open")?) } else { None };
     let epoch = (session.unwrap_or(0), revision.unwrap_or(0));
     if session.is_some() {
         let mut current = app.ai_grouping_epoch.lock().unwrap();
-        if current.0 == epoch.0 && current.1 > epoch.1 { return Err("Grouping cancelled.".into()); }
-        *current = epoch;
+        if !accept_grouping_epoch(&mut current, epoch) { return Err("Grouping cancelled.".into()); }
     }
     if runs.is_empty() { return Ok(Vec::new()); }
     let root = mobileclip_root(&handle)?;
+
     tauri::async_runtime::spawn_blocking(move || {
         let wanted = || source.as_ref().is_none_or(|s| !s.closed.load(Ordering::SeqCst))
             && (session.is_none() || *app.ai_grouping_epoch.lock().unwrap() == epoch);
-        let compare = |run: &[RunFrame], visual: Option<&[Vec<f32>]>| ai::series::compare_run_visual(
-            &run.iter().map(|f| ai::series::Frame { record: &f.record, time:f.time, burst:f.burst, upright:f.upright }).collect::<Vec<_>>(),poses,visual,mobile_clip_grouping.unwrap_or_default());
-        if !mobile_clip.unwrap_or(false) { return Ok(runs.iter().map(|run| compare(run,None)).collect()); }
-        let source = source.as_ref().ok_or("Open a session before using MobileCLIP.")?;
+        let compare = |run: &[RunFrame], visual: Option<&[Vec<f32>]>| {
+            let frames = run.iter().map(|f| ai::series::Frame { record: &f.record, time: f.time, burst: f.burst, upright: f.upright }).collect::<Vec<_>>();
+            ai::series::compare_run_visual(&frames, poses, visual, mobile_clip_grouping.unwrap_or_default())
+        };
+        if !mobile_clip.unwrap_or(false) {
+            return Ok(runs.iter().map(|run| compare(run, None)).collect());
+        }
+        let source = source.as_ref().ok_or("Open a folder before using MobileCLIP.")?;
         ai::mobileclip::with_model(&root, |model| {
-            let start = Instant::now(); let before = (model.cached,model.computed);
-            let result = runs.iter().map(|run| {
-                while wanted() && app.ai_yields.load(Ordering::Relaxed) && app.previews.pool.busy() { std::thread::sleep(Duration::from_millis(60)); }
-                if !wanted() { return Err("Grouping cancelled.".into()); }
+            let start = Instant::now();
+            let cached_before = model.cached;
+            let computed_before = model.computed;
+            let results = runs.iter().map(|run| {
+                while wanted() && app.ai_yields.load(Ordering::Relaxed) && app.previews.pool.busy() {
+                    std::thread::sleep(Duration::from_millis(60));
+                }
+                if !wanted() { return Err("Grouping cancelled.".to_string()); }
                 let paths = run.iter().map(|frame| {
-                    let photo = frame.index.and_then(|i| source.images.get(i)).ok_or("Invalid grouping photo.")?;
-                    Ok((photo.display.as_path(),photo.version.as_str()))
-                }).collect::<Result<Vec<_>,String>>()?;
-                let visual = model.embeddings(&paths,&app.previews.cache,wanted)?;
-                Ok(compare(run,Some(&visual)))
-            }).collect();
-            eprintln!("[mobileclip] {} cached, {} new embeddings in {:?}",model.cached-before.0,model.computed-before.1,start.elapsed());
-            result
+                    let photo = frame.index.and_then(|i| source.images.get(i)).ok_or("Invalid grouping photo index.")?;
+                    Ok((photo.display.as_path(), photo.version.as_str()))
+                }).collect::<Result<Vec<_>, String>>()?;
+                let embeddings = model.embeddings(&paths, &app.previews.cache, wanted)?;
+                Ok(compare(run, Some(&embeddings)))
+            }).collect::<Result<Vec<_>, String>>();
+            eprintln!("[mobileclip] {} cached, {} new embeddings in {:?}", model.cached - cached_before, model.computed - computed_before, start.elapsed());
+            results
         })
-    }).await.map_err(|e| e.to_string())?
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
-fn mobileclip_root(handle: &tauri::AppHandle) -> Result<PathBuf,String> {
+fn mobileclip_root(handle: &tauri::AppHandle) -> Result<PathBuf, String> {
     Ok(handle.path().app_cache_dir().map_err(|e| e.to_string())?.join("mobileclip-s0"))
 }
+
 #[tauri::command]
-pub fn mobileclip_status(handle: tauri::AppHandle) -> Result<ai::mobileclip::Status,String> {
+pub fn mobileclip_status(handle: tauri::AppHandle) -> Result<ai::mobileclip::Status, String> {
     Ok(ai::mobileclip::status(&mobileclip_root(&handle)?))
 }
+
 #[tauri::command]
-pub async fn mobileclip_install(handle: tauri::AppHandle) -> Result<ai::mobileclip::Status,String> {
+pub async fn mobileclip_install(handle: tauri::AppHandle) -> Result<ai::mobileclip::Status, String> {
     ai::mobileclip::install(mobileclip_root(&handle)?).await
 }
 
@@ -902,17 +932,38 @@ pub fn ai_set_yield(app: AppState, on: bool) {
 pub async fn ai_cache_usage(app: AppState<'_>, handle: tauri::AppHandle) -> Result<(u64, usize), String> {
     let store = app.faces.clone();
     let root = mobileclip_root(&handle)?;
-    tauri::async_runtime::spawn_blocking(move || { let (bytes,count) = store.usage(); (bytes + ai::mobileclip::cache_bytes(&root),count) }).await.map_err(|e| e.to_string())
+    tauri::async_runtime::spawn_blocking(move || {
+        let (bytes, folders) = store.usage();
+        (bytes + ai::mobileclip::cache_bytes(&root), folders)
+    }).await.map_err(|e| e.to_string())
 }
 
 /// Forgets all past analysis. Folders are analysed again when next opened.
 #[tauri::command]
 pub async fn ai_clear_cache(app: AppState<'_>, handle: tauri::AppHandle) -> Result<(), String> {
     app.ai_scan.fetch_add(1, Ordering::SeqCst);
+    {
+        let mut epoch = app.ai_grouping_epoch.lock().unwrap();
+        epoch.1 = epoch.1.wrapping_add(1);
+    }
     let store = app.faces.clone();
-    *app.ai_grouping_epoch.lock().unwrap() = (0,0);
     let root = mobileclip_root(&handle)?;
     tauri::async_runtime::spawn_blocking(move || { store.clear(); ai::mobileclip::clear(&root); }).await.map_err(|e| e.to_string())
+}
+
+#[cfg(test)]
+mod ai_grouping_epoch_tests {
+    use super::accept_grouping_epoch;
+
+    #[test]
+    fn accepts_parallel_runs_at_one_revision_but_rejects_older_settings() {
+        let mut current = (0, 0);
+        assert!(accept_grouping_epoch(&mut current, (7, 2)));
+        assert!(accept_grouping_epoch(&mut current, (7, 2)), "other ready runs share the same grouping revision");
+        assert!(accept_grouping_epoch(&mut current, (7, 3)));
+        assert!(!accept_grouping_epoch(&mut current, (7, 2)));
+        assert_eq!(current, (7, 3));
+    }
 }
 
 /// The cards and outside drives attached.
@@ -944,7 +995,9 @@ pub async fn ingest_browse(path: String, ignore_videos: Option<bool>) -> Result<
 /// The photos a folder on a card has to offer.
 #[tauri::command]
 pub async fn ingest_scan(path: String, ignore_videos: Option<bool>) -> Result<Vec<Scanned>, String> {
-    tauri::async_runtime::spawn_blocking(move || ingest::scan_media(Path::new(&path), !ignore_videos.unwrap_or(true))).await.map_err(|e| e.to_string())
+    let found = tauri::async_runtime::spawn_blocking(move || ingest::scan_media(Path::new(&path), !ignore_videos.unwrap_or(true))).await.map_err(|e| e.to_string())?;
+    allow_shown_videos(&found);
+    Ok(found)
 }
 
 #[derive(Serialize, Clone)]
@@ -1129,10 +1182,24 @@ pub async fn histogram(app: AppState<'_>, path: String, version: String) -> Resu
 /// A few photos to stand for a folder on the home screen.
 #[tauri::command]
 pub async fn folder_cover(path: String) -> Result<Vec<Scanned>, String> {
-    tauri::async_runtime::spawn_blocking(move || scan::cover_images(Path::new(&path), 4))
+    let found = tauri::async_runtime::spawn_blocking(move || scan::cover_images(Path::new(&path), 4))
         .await
-        .map_err(|e| e.to_string())
+        .map_err(|e| e.to_string())?;
+    allow_shown_videos(&found);
+    Ok(found)
 }
+
+/// Lets clips that were shown to the person, on the home page or in a card's contents, be opened for their still before any folder is open.
+fn allow_shown_videos(found: &[Scanned]) {
+    if let Ok(mut shown) = COVER_VIDEOS.lock() {
+        for image in found.iter().filter(|i| scan::is_video(&raw::extension(&i.path))) {
+            if let Ok(real) = Path::new(&image.path).canonicalize() { shown.insert(real); }
+        }
+    }
+}
+
+/// Clips just shown on the home page or in a card's contents: the only videos, besides an open folder's, that may be opened.
+static COVER_VIDEOS: std::sync::LazyLock<std::sync::Mutex<std::collections::HashSet<PathBuf>>> = std::sync::LazyLock::new(Default::default);
 
 /// Which of these folders are still where they were.
 #[tauri::command]
@@ -1186,15 +1253,28 @@ pub struct ReviewCopyItem {
 
 fn copy_review_items(items: &[ReviewCopyItem], sources: &[PathBuf], destination: &Path, cancel: &AtomicBool, progress: impl Fn(usize)) -> Result<(transfer::Outcome, HashMap<String, String>), String> {
     let destination = destination.canonicalize().map_err(|e| e.to_string())?;
-    for source in sources {
+    let roots = sources.iter().map(|source| {
         let root = source.canonicalize().map_err(|e| format!("Reconnect {}: {e}", source.display()))?;
+        if !root.is_dir() { return Err(format!("{} is not a source folder", root.display())); }
+        Ok(root)
+    }).collect::<Result<Vec<_>, String>>()?;
+    for root in &roots {
         if destination.starts_with(root) { return Err("Choose a destination outside the source cards".into()); }
     }
     let mut outcome = transfer::Outcome::default();
     let mut completed = HashMap::new();
     for (i, item) in items.iter().enumerate() {
         if cancel.load(Ordering::SeqCst) { break; }
-        let job = transfer::Job { owner: item.path.clone(), companions: if item.display != item.path { vec![item.display.clone()] } else { vec![] } };
+        let owner = item.path.canonicalize().map_err(|e| format!("Reconnect {}: {e}", item.path.display()))?;
+        let display = item.display.canonicalize().map_err(|e| format!("Reconnect {}: {e}", item.display.display()))?;
+        if !owner.is_file() || !roots.iter().any(|root| owner.starts_with(root)) {
+            return Err(format!("{} is outside the selected source folders", item.path.display()));
+        }
+        if !display.is_file() || !roots.iter().any(|root| display.starts_with(root)) {
+            return Err(format!("{} is outside the selected source folders", item.display.display()));
+        }
+        let companions = if display != owner { vec![display] } else { vec![] };
+        let job = transfer::Job { owner, companions };
         let mut result = transfer::run(&[job], &destination, false, transfer::Conflict::KeepBoth, |_| {});
         if result.failed.is_empty() {
             if let Some(target) = result.placed.first() {
@@ -1248,12 +1328,26 @@ pub async fn review_copy(app: AppState<'_>, items: Vec<ReviewCopyItem>, sources:
         let root = std::env::temp_dir().join(format!("opencull-review-same-{}", std::process::id())); std::fs::create_dir_all(&root).unwrap();
         assert!(copy_review_items(&[], &[root.clone()], &root, &AtomicBool::new(false), |_| {}).is_err()); std::fs::remove_dir_all(root).unwrap();
     }
+    #[test] fn review_copy_refuses_files_outside_selected_sources() {
+        let root = std::env::temp_dir().join(format!("opencull-review-scope-{}", std::process::id()));
+        let source = root.join("card"); let destination = root.join("destination");
+        std::fs::create_dir_all(&source).unwrap(); std::fs::create_dir_all(&destination).unwrap();
+        let outside = root.join("outside.JPG"); std::fs::write(&outside, b"outside source").unwrap();
+        let item = ReviewCopyItem { path: outside.clone(), display: outside.clone(), marks: Marks::default(), framing: framing::Framing::default(), upright: (0, 0) };
+        assert!(copy_review_items(&[item], &[source], &destination, &AtomicBool::new(false), |_| {}).is_err());
+        assert_eq!(std::fs::read(&outside).unwrap(), b"outside source");
+        assert_eq!(std::fs::read_dir(destination).unwrap().count(), 0);
+        std::fs::remove_dir_all(root).unwrap();
+    }
 }
 
 /// Selected cards are scanned as one shoot; disconnected sources are reported.
 #[tauri::command]
 pub async fn ingest_sources(sources: Vec<PathBuf>, ignore_videos: Option<bool>) -> Result<Vec<Scanned>, String> {
-    tauri::async_runtime::spawn_blocking(move || crate::multicard::scan_sources_media(&sources, !ignore_videos.unwrap_or(true))).await.map_err(|e| e.to_string())?
+    let include_videos = !ignore_videos.unwrap_or(true);
+    let found = tauri::async_runtime::spawn_blocking(move || crate::multicard::scan_sources(&sources, include_videos)).await.map_err(|e| e.to_string())??;
+    allow_shown_videos(&found);
+    Ok(found)
 }
 
 /// Grant only the requested video already belonging to an open session.
@@ -1263,10 +1357,8 @@ pub fn video_source(handle: tauri::AppHandle, app: AppState, path: String) -> Re
     let requested = PathBuf::from(path).canonicalize().map_err(|e| e.to_string())?;
     if !scan::is_video(&raw::extension(&requested)) { return Err("Not a supported video container".into()); }
     let sessions = app.sessions.lock().map_err(|e| e.to_string())?;
-    if !sessions.values().any(|s| s.images.iter().any(|p| p.path.canonicalize().ok().as_ref() == Some(&requested))) { return Err("Video is not in the selected session".into()); }
+    let on_cover = COVER_VIDEOS.lock().is_ok_and(|shown| shown.contains(&requested));
+    if !on_cover && !sessions.values().any(|s| s.images.iter().any(|p| p.path.canonicalize().ok().as_ref() == Some(&requested))) { return Err("Video is not in the selected session".into()); }
     handle.asset_protocol_scope().allow_file(&requested).map_err(|e| e.to_string())?;
-    #[cfg(target_os = "linux")]
-    { crate::video_stream::url(requested) }
-    #[cfg(not(target_os = "linux"))]
-    { Ok(requested.to_string_lossy().into_owned()) }
+    crate::video_stream::url(requested)
 }

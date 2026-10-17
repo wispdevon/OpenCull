@@ -49,6 +49,9 @@ export async function checkLinuxFeatures(folder: string, scratch: string) {
   say("card review, local decisions, selected copying, and in-place membership passed");
 
   s().set("settingsOpen", true);
+  await until(() => !!document.querySelector('[role="tab"]'), "Settings navigation did not render");
+  const design = [...document.querySelectorAll<HTMLButtonElement>('[role="tab"]')].find((tab) => tab.textContent?.includes("Design"));
+  assert(design, "Design tab missing"); design!.focus(); design!.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, button: 0 }));
   await until(() => !!document.querySelector('select[aria-label="Theme"]'), "Appearance settings did not render");
   const theme = document.querySelector<HTMLSelectElement>('select[aria-label="Theme"]')!;
   const original = theme.value; theme.value = "light"; theme.dispatchEvent(new Event("change", { bubbles: true }));

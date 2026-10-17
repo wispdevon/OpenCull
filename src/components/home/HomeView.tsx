@@ -5,14 +5,16 @@ import { Circle, CircleCheck, FolderPlus, FolderSearch, Images, Keyboard, Settin
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from "@/components/ui/context-menu";
 import { useHomeLayout } from "@/components/HomeLayoutSettings";
 import { useFeaturedImage } from "@/components/HomeLayoutSettings";
-import { RecentSessions, ResumeLatestSession } from "./RecentSessions";
 import { CardIcon } from "@/components/ingest/IngestView";
 import { api, type Volume } from "@/lib/api";
+import { VideoStill } from "@/components/cull/Thumb";
+import { isVideo } from "@/lib/media";
 import { useStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
 import type { Scanned } from "@/lib/types";
+import { RecentSessions, ResumeLatestSession } from "./RecentSessions";
 
-const GRADIENT = "bg-gradient-to-r from-[#4d80ff] to-[#804dff]";
+const GRADIENT = "accent-action bg-[color-mix(in_oklch,var(--opencull-accent),black_25%)]";
 const HOME_ACTION = "inline-flex h-10 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-lg px-4 py-0 text-[13px] font-medium leading-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background";
 
 function baseName(path: string): string {
@@ -104,11 +106,11 @@ export function HomeView({ dropping }: { dropping: boolean }) {
     <div data-home-layout={layout} data-platform={platform} className="home-view relative flex size-full flex-col bg-gradient-to-br from-[var(--home-from)] to-[var(--home-to)]">
       {featured && <WelcomeArtwork path={recents.find((path) => !missing.has(path))} />}
       <div className="home-content flex min-h-0 flex-1 flex-col">
-      <header data-tauri-drag-region className={cn("home-header flex shrink-0 flex-wrap items-center gap-6 px-8 py-6", platform === "macos" && "pl-[78px]")}>
+      <header data-tauri-drag-region className={cn("home-header flex shrink-0 flex-wrap items-center gap-6 px-8 py-6", platform === "macos" && "pl-[calc(78px/var(--ui-scale,1))]")}>
         <div data-tauri-drag-region className="home-heading min-w-[220px] flex-1">
           <h1 className="bg-gradient-to-r from-foreground to-muted-foreground bg-clip-text text-[32px] font-bold leading-tight tracking-tight text-transparent">OpenCull</h1>
           <p className="mt-1 text-[13px] text-[var(--ui-text-808080)]">Culling Software made for Photographers</p>
-          <p className="rapidraw-intro">{recents.length ? "Welcome back. Continue a session or bring in your next shoot." : "Your next great photograph starts with a closer look."}</p>
+          <p className="rapidraw-intro">{recents.length ? "Welcome back. Choose a folder or bring in your next shoot." : "Your next great photograph starts with a closer look."}</p>
         </div>
         <div className="home-controls flex max-w-full flex-wrap items-center justify-end gap-4">
         <div role="group" aria-label="Utility actions" className="home-utilities flex items-center gap-2">
@@ -128,11 +130,11 @@ export function HomeView({ dropping }: { dropping: boolean }) {
         >
           <CardIcon className="size-4 text-current" /> Ingest from Card
         </button>
-        <ResumeLatestSession className={cn(HOME_ACTION, "border-border bg-secondary text-secondary-foreground shadow-none hover:bg-accent")} />
+        <ResumeLatestSession className={cn("home-resume", HOME_ACTION)} />
         <button
           type="button"
           onClick={() => void chooseFolder()}
-          className={cn("home-open bg-brand text-white hover:brightness-110", HOME_ACTION)}
+          className={cn("home-open accent-action bg-[color-mix(in_oklch,var(--opencull-accent),black_25%)] text-white hover:brightness-110", HOME_ACTION)}
         >
           <FolderPlus className="size-4" /> Open Folder
         </button>
@@ -163,7 +165,6 @@ export function HomeView({ dropping }: { dropping: boolean }) {
       {openError && <div className="mx-10 mb-4 rounded-lg bg-[#e64d4d]/15 px-4 py-2.5 text-[13px] text-[#f29999]">Could not open that folder: {openError}</div>}
 
       <main className="home-recents flex-1 overflow-y-auto p-10 pt-4">
-        <RecentSessions />
         {recents.length === 0 ? (
           <div className="home-empty flex flex-col items-center gap-5 pt-16 text-center">
             <Images className="size-16 text-[#5970ff]" strokeWidth={1.25} />
@@ -212,6 +213,7 @@ export function HomeView({ dropping }: { dropping: boolean }) {
             </div>
           </>
         )}
+        <RecentSessions />
       </main>
       <footer className="rapidraw-footer">Local photos. A clear view. Your best frames.</footer>
       </div>
@@ -351,7 +353,9 @@ function Cover({ path }: { path: string }) {
 
   if (!images || images.length === 0) return <Placeholder />;
   const [first, ...rest] = images;
-  const tile = (image: Scanned, size: number) => <img key={image.path} src={api.url("thumb", image, size)} alt="" draggable={false} className="min-h-0 w-full flex-1 object-cover" />;
+  const tile = (image: Scanned, size: number) => isVideo(image.path)
+    ? <VideoStill key={image.path} path={image.path} width={size} badge={false} className="min-h-0 w-full flex-1 object-cover" />
+    : <img key={image.path} src={api.url("thumb", image, size)} alt="" draggable={false} className="min-h-0 w-full flex-1 object-cover" />;
 
   return (
     <div className="flex size-full gap-0.5 bg-[var(--ui-surface-262626)]">

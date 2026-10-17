@@ -134,8 +134,6 @@ export interface AiFace {
 
 /** What the analysis found in one photo. */
 export interface AiResult {
-  motionBlur?: number | null;
-  motionVersion?: number;
   faces: AiFace[];
   /** Out of 100, on its subjects; null for a photo with no faces. */
   score: number | null;
@@ -147,11 +145,28 @@ export interface AiResult {
    * on. Left, top, width and height, as fractions of the upright photo.
    */
   key: { x: number; y: number; w: number; h: number } | null;
+  /** Experimental directional motion evidence, from 0 to 1; absent in old caches. */
+  motionBlur?: number | null;
+  motionVersion?: number;
 }
 
 /** An analysed photo with when it was taken, as it is sent to be compared. */
 /** `upright`: taller than it is wide, the way up it is shown; null if its shape is not known. */
-export type RunFrame = AiResult & { index?: number; time: number | null; burst: number | null; upright: boolean | null };
+export type RunFrame = AiResult & { time: number | null; burst: number | null; upright: boolean | null; index?: number };
+
+export type MobileClipGrouping = "loose" | "normal" | "tight";
+export interface AiGroupingOptions {
+  session?: number;
+  revision?: number;
+  mobileClip?: boolean;
+  mobileClipGrouping?: MobileClipGrouping;
+}
+export interface MobileClipStatus {
+  ready: boolean;
+  bytes: number;
+  model: string;
+  backend: string;
+}
 
 /** A photo marked again as one frame of its burst, or of a pose shot again. */
 export interface Compared {

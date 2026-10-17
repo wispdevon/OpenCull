@@ -1,75 +1,90 @@
-# NVIDIA AI trial
+# CUDA inference on Linux
 
-CUDA is experimental and available only on **Linux x86_64** in this fork. macOS, Windows, ARM and ordinary CPU builds exclude the CUDA runtime dependency. macOS has no CUDA option; use its normal desktop development command.
-
-The combined, cross-platform test branch is `dev`. The same changes are merged into the fork's `main` when approved. Earlier CUDA work is preserved in [archive tags](BRANCH_ARCHIVE.md); new development happens directly on `dev`.
+CUDA support is experimental and limited to **Linux x86_64**. It accelerates
+ONNX face analysis. It does not accelerate JPEG decoding or webview rendering;
+those paths are configured separately. macOS, Windows, ARM and CPU-only builds
+do not include the CUDA provider.
 
 ## Requirements
 
-First install the normal Rust, Node and Tauri prerequisites from the README. For the CUDA trial also install:
+Install the normal Rust, Node and Tauri prerequisites from the README. CUDA
+inference additionally needs:
 
-- An NVIDIA GPU and a driver compatible with CUDA 13.
-- CUDA **13.x** runtime libraries, including cuBLAS, cuBLASLt, cuRAND and CUDA runtime. A full CUDA toolkit is also suitable. `nvidia-smi`'s displayed CUDA version describes driver support; it does not prove these libraries are installed.
-- NVIDIA **cuDNN 9.x** runtime libraries compatible with CUDA 13. cuDNN is a separate installation from the CUDA toolkit.
+- An NVIDIA GPU with a compatible driver.
+- CUDA 13.x runtime libraries, including cuBLAS, cuBLASLt, cuRAND and the CUDA
+  runtime.
+- NVIDIA cuDNN 9.x libraries compatible with CUDA 13.
 
-Use [NVIDIA's CUDA installation guide](https://docs.nvidia.com/cuda/cuda-installation-guide-linux/) and [cuDNN installation guide](https://docs.nvidia.com/deeplearning/cudnn/installation/latest/linux.html). Make custom installation directories discoverable by the system dynamic linker, or add their library directories to `LD_LIBRARY_PATH` for the launch. Avoid mixing CUDA major versions or incompatible cuDNN libraries.
+The full CUDA toolkit can provide these runtime libraries. `nvidia-smi` reports
+driver support; it does not prove that the runtime libraries or cuDNN are
+installed. Follow [NVIDIA's CUDA installation guide](https://docs.nvidia.com/cuda/cuda-installation-guide-linux/)
+and the [cuDNN installation guide](https://docs.nvidia.com/deeplearning/cudnn/installation/latest/linux.html).
+For custom installation paths, make the libraries visible to the system linker
+or set `LD_LIBRARY_PATH` when starting OpenCull. Do not mix incompatible CUDA
+or cuDNN versions.
 
-The pinned Rust binding downloads an ONNX Runtime 1.28 CUDA 13 build on the first CUDA compilation. Set `ORT_CUDA_VERSION=13` if needed to override an incorrectly detected older toolkit. No TensorRT installation or ONNX Python package is needed to run the desktop app; the prebuilt archive may contain additional unused providers.
+The `ort` crate downloads the matching ONNX Runtime CUDA provider during a
+CUDA-enabled build. You do not need TensorRT or the ONNX Python package to run
+the desktop application.
 
-## Run
+## Run and build
 
-On `dev` or fork `main`, after the README's `npm ci` step:
+After installing the repository's npm packages, use the desktop launcher:
 
 ```sh
-# Native desktop, automatically selects CUDA on compatible Linux systems:
+# Detect a compatible CUDA installation automatically; otherwise use CPU.
 npm run desktop
 
-# Force CUDA compilation, Linux x86_64 only:
+# Explicitly request CUDA, or force CPU inference.
 npm run desktop -- --cuda
-
-# Force CPU AI:
 npm run desktop -- --cpu
 
-# NVIDIA webview rendering profile, automatic AI selection:
-npm run desktop -- --nvidia
+# Build an installer with the same automatic selection.
+npm run build:desktop
+npm run build:desktop -- --cuda
 ```
 
-The desktop launcher checks `nvidia-smi` and the installed 64-bit CUDA/cuDNN
-libraries. When available, it compiles CUDA support automatically. Otherwise it
-builds the CPU version. `npm run build:desktop` uses the same selection; pass
-`--cuda` to include CUDA support when building on a machine without the runtime.
-CUDA-enabled executables also probe library loading and device initialization at
-launch; absent or unusable devices use CPU. `OPENCULL_AI=cpu` disables runtime
-probing, and `OPENCULL_AI=cuda` explicitly requests CUDA. Direct Tauri/Cargo build
-commands still require `--features cuda` to include CUDA support.
+Automatic selection checks for `nvidia-smi` and the required runtime libraries.
+The CUDA-enabled native app probes the driver and initializes a device before
+using it. If initialization or inference fails, OpenCull releases its CUDA
+sessions and retries the current analysis on CPU. The launcher reports which
+path it selected. A successful window launch alone does not prove CUDA
+inference is active.
 
-Enabling CUDA accelerates AI models; JPEG decoding and the webview renderer are separate.
+`--nvidia`, `--compatibility` and `--software` select Linux webview rendering
+profiles; these are independent of CUDA inference. See
+[NVIDIA rendering](features/NVIDIA_GRAPHICS.md).
 
-Open a folder and enable OpenCull AI in Settings. The terminal reports `[ai] CUDA model ready` as each model loads. Four model sessions are shared by the whole process through one bounded worker queue, rather than duplicated per CPU analysis thread. The device arena grows by the requested amount, with TF32 disabled for the tested FP32 comparison. Explicit additional GPU input buffers and workspace changes were omitted after the benchmark showed no useful memory benefit.
+Direct Cargo builds must opt in with `--features cuda`. To force a runtime
+choice in an already CUDA-enabled build, set `OPENCULL_AI=cpu` or
+`OPENCULL_AI=cuda`.
 
-If provider initialization or inference fails, the app reports `[ai] CUDA unavailable; continuing on CPU: ...`, releases its CUDA sessions, and retries the original input on CPU. Subsequent inference remains on CPU for that launch. A successful window launch alone does not prove CUDA inference is active.
+## Linux installers
 
-Existing cached AI results may skip inference. For a fresh trial use a new folder or Settings → Storage → clear the face-analysis cache. This only removes cached analysis, not photos or sidecars.
+Linux installers built by CI include the matching ONNX CUDA and shared
+provider libraries next to the executable, as required by the statically
+linked runtime. The host still supplies the NVIDIA driver, CUDA 13 and cuDNN 9;
+the installers do not bundle those system libraries. The packaging wrapper
+adds the provider files to Debian, RPM and AppImage packages and excludes the
+host NVIDIA libraries from AppImage bundling.
 
 ## Native checks
 
 ```sh
 node --test scripts/cuda-desktop.test.mjs scripts/dev-desktop.test.mjs
-cd src-tauri
-cargo test --lib --features cuda
-OPENCULL_AI=cuda cargo test --lib --features cuda concurrent_callers_share_cuda_models_and_match_cpu -- --ignored --nocapture
-OPENCULL_AI=cuda cargo run --features cuda --example ai_backend -- /path/to/photo.jpg
+cargo test --manifest-path src-tauri/Cargo.toml --lib --features cuda
+OPENCULL_AI=cuda cargo test --manifest-path src-tauri/Cargo.toml --lib \
+  --features cuda concurrent_callers_share_cuda_models_and_match_cpu -- --ignored --test-threads=1 --nocapture
+OPENCULL_AI=cuda cargo test --manifest-path src-tauri/Cargo.toml --lib \
+  --features cuda registered_file_model_runs_on_cuda_and_matches_cpu -- --ignored --test-threads=1 --nocapture
+OPENCULL_AI=cuda cargo run --manifest-path src-tauri/Cargo.toml --features cuda \
+  --example ai_backend -- /path/to/photo.jpg
 ```
 
-The explicit GPU test compares all four models with CPU results at batches of one and eight across four concurrent callers. The read-only example prints three actual photo-analysis timings and any CPU fallback. Neither writes photos or marks. Default tests do not require NVIDIA hardware.
+The explicit hardware test compares all four built-in models with CPU results
+for batches of one and eight across four concurrent callers. The read-only
+example prints three photo-analysis timings and any CPU fallback. Default tests
+do not require NVIDIA hardware.
 
-See [CUDA memory experiment](CUDA-BENCHMARK.md) for the measured tradeoff. Benchmark results are not a guarantee of whole-app performance or memory usage on another machine.
-
-## Linux installers
-
-Linux release installers include the matching ONNX CUDA and shared provider
-libraries beside the executable, as required by the statically linked runtime.
-The host supplies NVIDIA drivers, CUDA 13 and cuDNN 9; installers do not bundle
-those system runtimes. The desktop build wrapper applies `tauri.cuda.conf.json`
-when CUDA is selected, including debug package paths. Direct Tauri packaging
-uses `--features cuda --config src-tauri/tauri.cuda.conf.json` for release builds.
+See the [CUDA memory experiment](CUDA-BENCHMARK.md) for measurements and their
+limits.

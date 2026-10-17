@@ -2,7 +2,9 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
   "description": "What the main window may ask of the system",
-  "windows": ["main"],
+  "windows": [
+    "main"
+  ],
   "permissions": [
     "core:default",
     "core:webview:allow-set-webview-zoom",
@@ -12,6 +14,7 @@
     "core:window:allow-is-fullscreen",
     "core:window:allow-set-title",
     "dialog:allow-open",
+    "dialog:allow-save",
     "opener:allow-reveal-item-in-dir"
   ]
 }

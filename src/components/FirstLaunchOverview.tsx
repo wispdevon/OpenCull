@@ -21,9 +21,9 @@ export function FirstLaunchOverview({ bindings }: { bindings: Record<Action, Com
     <DialogContent className="max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] overflow-y-auto sm:max-w-3xl sm:p-6">
       <DialogHeader><DialogTitle>Get started with OpenCull</DialogTitle></DialogHeader>
       <ol className="grid gap-3 sm:grid-cols-3">
-        <li className="rounded-lg border border-border bg-card p-4"><h2 className="text-base font-semibold">1. Bring in a shoot</h2><p className="mt-2 text-sm leading-relaxed text-muted-foreground">Open a folder, or use Ingest from Card. Add multiple cards to review one shoot before copying anything.</p></li>
-        <li className="rounded-lg border border-border bg-card p-4"><h2 className="text-base font-semibold">2. Find the keepers</h2><p className="mt-2 text-sm leading-relaxed text-muted-foreground">Move through photos or stacks. Pick, reject and rate frames, then zoom in to check details. Flags alone never delete originals.</p></li>
-        <li className="rounded-lg border border-border bg-card p-4"><h2 className="text-base font-semibold">3. Finish the review</h2><p className="mt-2 text-sm leading-relaxed text-muted-foreground">For cards, choose what to copy or import in place. Use Ship for export and copying. Resume saved reviews from Recent Sessions.</p></li>
+        <li className="rounded-lg border border-border bg-card p-4"><h2 className="text-base font-semibold">1. Open a shoot</h2><p className="mt-2 text-sm leading-relaxed text-muted-foreground">Open a photo folder, or choose Ingest from Card to copy a card into a folder before culling.</p></li>
+        <li className="rounded-lg border border-border bg-card p-4"><h2 className="text-base font-semibold">2. Review the photos</h2><p className="mt-2 text-sm leading-relaxed text-muted-foreground">Move through photos or groups. Pick, reject and rate frames, then zoom in to check focus. Flags never delete originals.</p></li>
+        <li className="rounded-lg border border-border bg-card p-4"><h2 className="text-base font-semibold">3. Finish with Ship</h2><p className="mt-2 text-sm leading-relaxed text-muted-foreground">Use Ship to copy, move or open selected photos in another editor. Ratings and flags stay alongside your photos.</p></li>
       </ol>
       <section aria-label="Common keyboard shortcuts" className="rounded-lg border border-border bg-card p-4">
         <h2 className="text-base font-semibold">Common keyboard shortcuts</h2>

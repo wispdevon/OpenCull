@@ -56,7 +56,7 @@ export const mock: Backend = {
   appInfo: () => later({ platform: "macos", version: "dev", cacheDir: "/tmp/opencull", openPath: null, selfTest: false }),
   // Untimed, so the slower path — filename order first, shooting order once
   // the metadata is in — is the one a browser tab exercises.
-  openFolder: (_path, _include, _kinds, members) => { activeImages = members ?? images; return later({ session: 1, images: activeImages, subfolderCount: 2, leftOut: 0, times: activeImages.map(() => null), timed: false, groups: null }, 150); },
+  openFolder: (_path, _include, _kinds, _ignoreVideos, members) => { activeImages = members ?? images; return later({ session: 1, images: activeImages, subfolderCount: 2, leftOut: 0, times: activeImages.map(() => null), timed: false, groups: null }, 150); },
   closeFolder: () => later(undefined),
   loadMetadata: async (_session, onEvent) => {
     // Bursts of one to six frames, a few seconds apart.
@@ -128,8 +128,7 @@ export const mock: Backend = {
   lightroomCatalogs: () => later(["/Users/sample/Pictures/Lightroom/Weddings 2026.lrcat", "/Users/sample/Pictures/Lightroom/Personal.lrcat"], 600),
   openInEditor: () => later(undefined),
   pathsExist: (paths) => later(paths.map(() => true)),
-  aiScan: async (_session, order, advanced, onEvent) => {
-    onEvent({ type: "cache", cached: 0, pending: order.length });
+  aiScan: async (_session, order, advanced, onEvent, _motionBlur) => {
     for (let at = 0; at < order.length; at += 12) {
       await later(null, 120);
       onEvent({
@@ -179,9 +178,9 @@ export const mock: Backend = {
         }),
       ),
     ),
+  mobileClipStatus: () => later({ ready: false, bytes: 45_543_630, model: "MobileCLIP-S0", backend: "CPU" }),
+  mobileClipInstall: () => later({ ready: false, bytes: 45_543_630, model: "MobileCLIP-S0", backend: "CPU" }),
   aiAccelerationInfo: async () => null,
-  mobileClipStatus: async () => ({ ready: false, bytes: 45_543_630, model: "MobileCLIP-S0", backend: "CPU" as const }),
-  mobileClipInstall: async () => { throw new Error("Model downloads are available in the desktop app."); },
   aiLookAt: () => later(undefined),
   aiStop: () => later(undefined),
   aiSetYield: () => later(undefined),

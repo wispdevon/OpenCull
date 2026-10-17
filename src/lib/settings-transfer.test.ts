@@ -8,6 +8,10 @@ describe("portable settings", () => {
     expect(parseSettingsImport(exportSettings({ ...values, hoveredFace: { display: "/private/photo.raw" } }))).toEqual(values);
     expect(() => parseSettingsImport(document({ experimentalFaceSpotlight: "yes" }))).toThrow();
   });
+  it("preserves ingest preferences from an adjacent contribution", () => {
+    const values = { ignoreVideos: true, ingestSortAscending: false };
+    expect(parseSettingsImport(exportSettings(values))).toEqual(values);
+  });
   it("ships the portable Wisp culling preset without source paths", () => {
     const values = parseSettingsImport(JSON.stringify(wisp));
     expect(values).toMatchObject({ theme: "wisp", showFeaturedImage: true, font: { choice: "space-grotesk", family: "" }, interfaceScale: 1.25, experimentalNativeFilmstrip: true, experimentalSmoothZoom: true, aiAdvanced: true, speedCullAlways: true });

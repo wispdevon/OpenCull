@@ -7,6 +7,7 @@
   "type": "module",
   "scripts": {
     "dev": "node scripts/check-node.mjs && vite",
+    "preview": "vite preview",
     "desktop": "node scripts/dev-desktop.mjs",
     "build": "npm run build:web",
     "build:web": "node scripts/check-node.mjs && tsc && tsc -p tsconfig.node.json && vite build",

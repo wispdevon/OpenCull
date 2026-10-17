@@ -4,7 +4,7 @@ import { resolve } from "node:path";
 
 export function launchSpec(platform, arch, env, args) {
   if (platform !== "linux" || arch !== "x64") {
-    throw new Error("The CUDA trial is Linux x86_64 only. Use npm run tauri -- dev on macOS or Windows.");
+    throw new Error("The CUDA trial is Linux x86_64 only. Use npm run desktop on macOS or Windows.");
   }
   return { args: ["dev", "--features", "cuda", ...args], env: { ...env, OPENCULL_AI: "cuda" } };
 }

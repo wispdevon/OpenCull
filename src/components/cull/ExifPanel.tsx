@@ -1,4 +1,3 @@
-import { isVideo } from "@/lib/media";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Aperture, Calendar, Camera, Clock, FileText, Folder, HardDrive, Image as ImageIcon, Info, Ratio, Sun, Target, Timer, X } from "lucide-react";
 
@@ -6,6 +5,7 @@ import { api } from "@/lib/api";
 import * as fmt from "@/lib/format";
 import { useStore } from "@/lib/store";
 import type { Histogram as HistogramData, Photo } from "@/lib/types";
+import { HistogramGuard } from "./Histogram";
 
 /** The panel down the left: a histogram, then what the camera recorded. */
 export function ExifPanel() {
@@ -17,13 +17,11 @@ export function ExifPanel() {
       <div className="flex items-center gap-2 bg-toolbar px-3.5 py-3">
         <Info className="size-3.5 fill-brand text-toolbar" />
         <span className="flex-1 text-[13px] font-bold text-foreground">EXIF Data</span>
-        <button type="button" title="Close Panel" onClick={() => useStore.getState().set("showExif", false)} className="rounded-full bg-white/[0.08] p-1 text-[var(--ui-text-808080)] hover:text-white">
+        <button type="button" title="Close Panel" onClick={() => useStore.getState().set("showExif", false)} className="rounded-full bg-foreground/[0.08] p-1 text-[var(--ui-text-808080)] hover:text-foreground">
           <X className="size-2.5" strokeWidth={3} />
         </button>
       </div>
-      {showHistogram && <div className="border-y border-[var(--ui-line-2e2e2e)]">
-        {photo && isVideo(photo.path) ? <p className="p-3 text-xs text-muted-foreground">Histogram unavailable for video</p> : <Histogram photo={photo} />}
-      </div>}
+      {showHistogram && <div className="border-y border-[var(--ui-line-2e2e2e)]"><Histogram photo={photo} /></div>}
       {photo ? <Details photo={photo} /> : <Empty />}
     </div>
   );
@@ -96,7 +94,7 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 
 function Badge({ title, value, icon }: { title: string; value: string | null; icon: ReactNode }) {
   return (
-    <div className="metadata-badge rounded-md border border-white/[0.08] bg-white/[0.04] px-2.5 py-2">
+    <div className="metadata-badge rounded-md border border-foreground/[0.08] bg-foreground/[0.04] px-2.5 py-2">
       <div className="metadata-label flex items-center gap-1 text-[9px] font-medium uppercase text-[var(--ui-text-737373)] [&_svg]:size-2.5 [&_svg]:text-[var(--ui-text-808080)]">
         {icon}
         {title}
@@ -118,6 +116,14 @@ function Row({ icon, title, value }: { icon: ReactNode; title: string; value: st
   );
 }
 
+function Histogram({ photo }: { photo: Photo | undefined }) {
+  return (
+    <HistogramGuard photo={photo}>
+      <StillHistogram photo={photo} />
+    </HistogramGuard>
+  );
+}
+
 const H = 96;
 
 /**
@@ -127,7 +133,7 @@ const H = 96;
  * passes through dozens of photos a second, and a histogram for each would be
  * work done for pictures nobody stopped to look at.
  */
-function Histogram({ photo }: { photo: Photo | undefined }) {
+function StillHistogram({ photo }: { photo: Photo | undefined }) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const [data, setData] = useState<HistogramData | null>(null);
   const [width, setWidth] = useState(0);

@@ -11,7 +11,7 @@ import { useCrop } from "./crop";
 import { cropFromShare, isPlain, MIRROR_ACROSS, MIRROR_DOWN, PLAIN, QUARTER_LEFT, QUARTER_RIGHT, sameFraming, shareOf, turned, viewSize, type Share } from "./framing";
 import { sourceWritable, type ReviewSession } from "./review";
 import { saveReview } from "./review-api";
-import { load, save, snapshotPreferences } from "./prefs";
+import { holdPreferences, load, save, snapshotPreferences } from "./prefs";
 import { shouldShowOverview } from "./onboarding";
 import { openingView, validViewMode } from "./view-preferences";
 import type { AiFace, AiResult, Color, Compared, FileKinds, Flag, FlagFilter, Framing, Marks, MetaEvent, Photo, Rank, SortKey, ViewMode } from "./types";
@@ -46,6 +46,8 @@ interface State {
 
   session: Session | null;
   review: ReviewSession | null;
+  reviewFinishOpen: boolean;
+  reviewCopying: boolean;
   /** The folder is still being listed. */
   loading: boolean;
   /** How much of the folder's ratings and EXIF has been read, 0–1. */
@@ -727,6 +729,8 @@ export const useStore = create<Store>((set, get) => {
     version: "",
     session: null,
     review: null,
+    reviewFinishOpen: false,
+    reviewCopying: false,
     loading: false,
     metaProgress: 0,
     openError: null,
@@ -834,6 +838,7 @@ export const useStore = create<Store>((set, get) => {
     async init() {
       const info = await api.appInfo();
       set({ platform: info.platform, selfTest: info.selfTest, version: info.version });
+      if (info.selfTest) holdPreferences();
       // Asked in the background, and no matter if it cannot be: there may be
       // no connection, and the app is none the worse for not knowing.
       if (!info.selfTest && get().checkForUpdates) {
@@ -877,7 +882,7 @@ export const useStore = create<Store>((set, get) => {
 
       let reply;
       try {
-        reply = await api.openFolder(path, includeSubfolders, fileKinds, review?.items.filter((p) => !get().ignoreVideos || !isVideo(p.path)), get().ignoreVideos);
+        reply = await api.openFolder(path, includeSubfolders, fileKinds, get().ignoreVideos, review?.items.filter((p) => !get().ignoreVideos || !isVideo(p.path)));
       } catch (e) {
         set({ session: null, loading: false, openError: String(e) });
         return;
@@ -994,8 +999,9 @@ export const useStore = create<Store>((set, get) => {
       const { session } = get();
       if (!session) return;
       rememberPosition();
+      set({ groupingRevision: get().groupingRevision + 1 });
       if (session.id >= 0) void api.closeFolder(session.id);
-      set({ session: null, review: null, loading: false, photos: [], order: [], view: [], current: -1, selected: new Set(), trashPending: null, cropOpen: false, warmRemaining: 0, aiGroupingBusy: 0, aiGroupingError: null, ai: [], compared: [], ranks: [], poses: [], aiDone: 0, aiCached: 0, aiPending: null, aiRunning: false, faceZoom: null, hoveredFace: null });
+      set({ session: null, review: null, reviewFinishOpen: false, reviewCopying: false, loading: false, photos: [], order: [], view: [], current: -1, selected: new Set(), trashPending: null, cropOpen: false, warmRemaining: 0, aiGroupingBusy: 0, aiGroupingError: null, ai: [], compared: [], ranks: [], poses: [], aiDone: 0, aiCached: 0, aiPending: null, aiRunning: false, faceZoom: null, hoveredFace: null });
     },
 
     reloadForSubfolders() {

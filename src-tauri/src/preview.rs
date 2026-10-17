@@ -195,16 +195,12 @@ pub fn decode_upright(path: &Path, long_edge: u32) -> Result<Upright, String> {
 pub fn grouping_pixels(path: &Path, version: &str, cache: &crate::cache::Cache) -> Result<Upright, String> {
     for tier in [Tier::Thumb(1280), Tier::Thumb(640), Tier::Screen, Tier::Fit(1600), Tier::Fit(2400), Tier::Fit(3400)] {
         let key = cache.path_for(path, version, &tier.label());
-        if let Some(bytes) = cache.get(&key) {
-            if dimensions(&bytes).is_some_and(|(w,h)| w.min(h) >= 256) {
-                if let Ok(p) = decode_jpeg(&bytes, 512) {
-                    // Generated previews are upright; lifted camera Screen
-                    // JPEGs retain EXIF orientation, so apply it exactly once.
-                    let p = orient(p, jpeg::own_orientation(&bytes).unwrap_or(1));
-                    return Ok(Upright { rgb: p.data, width: p.width, height: p.height });
-                }
-            }
-        }
+        let Some(bytes) = cache.get(&key) else { continue };
+        if !dimensions(&bytes).is_some_and(|(w, h)| w.min(h) >= 256) { continue; }
+        let Ok(pixels) = decode_jpeg(&bytes, 512) else { continue };
+        let orientation = if tier == Tier::Screen { jpeg::own_orientation(&bytes).unwrap_or(1) } else { 1 };
+        let pixels = orient(pixels, orientation);
+        return Ok(Upright { rgb: pixels.data, width: pixels.width, height: pixels.height });
     }
     decode_upright(path, 512)
 }

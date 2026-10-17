@@ -5,7 +5,8 @@ import "@/home-featured.css";
 
 type HomeLayout = "spacious" | "classic";
 export const useHomeLayout = create<{ layout: HomeLayout; setLayout: (layout: HomeLayout) => void }>((set) => ({
-  layout: load<string>("homeLayout", "spacious") === "classic" ? "classic" : "spacious",
+  // Upstream places the actions beside the heading; retain that on fresh profiles.
+  layout: load<string>("homeLayout", "classic") === "spacious" ? "spacious" : "classic",
   setLayout(layout) { save("homeLayout", layout); set({ layout }); },
 }));
 

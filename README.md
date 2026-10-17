@@ -108,6 +108,7 @@ See [CUDA setup](docs/CUDA-TRIAL.md) and [benchmarks](docs/CUDA-BENCHMARK.md).
 - Review folders or memory cards before choosing which photos to copy.
 - Combine card sources and select individual card subfolders.
 - Compare RAW/JPEG pairs in filmstrip, grid or stack views.
+- Review video clips with local first-frame previews and native playback.
 - Set ratings, flags, colour labels and crops; resume recent sessions.
 - Reviewing a card leaves its originals untouched.
 

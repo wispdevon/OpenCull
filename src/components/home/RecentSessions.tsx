@@ -60,7 +60,7 @@ export function RecentSessions() {
     try { await removeReviews([...selected]); await refresh(); setSelected(new Set()); }
     catch(e) { setOpenError(String(e)); } finally { setRemoving(false); }
   };
-  return <section aria-label="Recent Sessions" className="recent-sessions mb-8">
+  return <section aria-label="Recent Sessions" className="mb-8">
     <div className="mb-4 flex flex-wrap items-center gap-3">
       <h2 className="mr-auto text-lg font-semibold text-foreground">Recent Sessions ({sessions.length})</h2>
       {selected.size > 0 && <>
@@ -71,10 +71,10 @@ export function RecentSessions() {
     </div>
     {selected.size > 0 && <p className="mb-3 text-xs text-muted-foreground">Deletes saved session history. Source photos stay on disk.</p>}
     {(error || openError) && <p role="alert" className="mb-3 text-sm text-destructive">{error || openError}</p>}
-    <div className="recent-sessions-grid grid grid-cols-[repeat(auto-fill,minmax(min(100%,420px),1fr))] gap-6">
-      {sessions.map((session) => <article key={session.id} className="recent-session-card relative min-w-0">
+    <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,420px),1fr))] gap-6">
+      {sessions.map((session) => <article key={session.id} className="relative min-w-0">
         <button type="button" disabled={opening !== null || removing} onClick={() => void open(session.id)}
-          className="recent-session-open w-full overflow-hidden rounded-xl border border-border bg-card text-left text-card-foreground hover:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          className="w-full overflow-hidden rounded-xl border border-border bg-card text-left text-card-foreground hover:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
           <div className="relative aspect-[16/10] bg-muted">
             <Images className="absolute left-1/2 top-1/2 size-10 -translate-x-1/2 -translate-y-1/2 text-muted-foreground" />
             {session.cover && <img src={api.url("thumb",session.cover,640)} alt="" className="relative size-full object-cover" onError={(e) => {e.currentTarget.style.opacity="0";}} />}

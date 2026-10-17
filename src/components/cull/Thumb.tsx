@@ -1,13 +1,14 @@
-import { rankingColour } from "@/lib/ranking-palette";
 import { Film } from "lucide-react";
 import { isVideo } from "@/lib/media";
 import { rememberPreviewAspect } from "@/lib/preview-aspect";
+import { videoThumb } from "@/lib/video-thumb";
 import { memo, useEffect, useState, type CSSProperties } from "react";
-import { Check, Crop, X } from "lucide-react";
+import { CheckCircle2, Crop, Flag, X } from "lucide-react";
 
 import { api } from "@/lib/api";
 import { placement, shownSize } from "@/lib/framing";
 import { PROBLEM_LABEL, problemOf, useStore } from "@/lib/store";
+import { rankingColour } from "@/lib/ranking-palette";
 import { cn } from "@/lib/utils";
 import type { Photo } from "@/lib/types";
 
@@ -20,8 +21,32 @@ import type { Photo } from "@/lib/types";
  * blank for as long as it was on screen.
  */
 export function ThumbImage(props: { photo: Pick<Photo, "display" | "version">; size: number; className?: string; style?: CSSProperties }) {
-  if (isVideo(props.photo.display)) return <div className={cn("flex items-center justify-center bg-cell", props.className)} style={props.style} role="img" aria-label="Video"><Film className="size-8 text-muted-foreground" /></div>;
+  if (isVideo(props.photo.display)) return <VideoStill path={props.photo.display} width={props.size} className={props.className} style={props.style} />;
   return <StillThumbImage {...props} />;
+}
+
+/** A clip's first frame when the system can open it; otherwise the film icon. */
+export function VideoStill({ path, width, badge = true, className, style }: { path: string; width: number; badge?: boolean; className?: string; style?: CSSProperties }) {
+  const [still, setStill] = useState<{ path: string; url: string | null } | null>(null);
+  useEffect(() => {
+    let live = true;
+    void videoThumb(path, width, () => live).then((url) => live && setStill({ path, url }));
+    return () => {
+      live = false;
+    };
+  }, [path, width]);
+  const url = still?.path === path ? still.url : null;
+  if (!url) return <div className={cn("flex items-center justify-center bg-cell", className)} style={style} role="img" aria-label="Video"><Film className="size-8 text-muted-foreground" /></div>;
+  return (
+    <>
+      <img src={url} alt="" draggable={false} className={className} style={style} />
+      {badge && (
+        <span className="pointer-events-none absolute right-1 top-1 rounded-[3px] bg-black/55 p-[3px]" title="Video">
+          <Film className="size-2.5 text-white/85" strokeWidth={2.5} />
+        </span>
+      )}
+    </>
+  );
 }
 
 function StillThumbImage({ photo, size, className, style }: { photo: Pick<Photo, "display" | "version">; size: number; className?: string; style?: CSSProperties }) {
@@ -92,7 +117,7 @@ export function FramedThumb({ photo, size, box, inset = 0, cover = false, classN
       </span>
       {photo.framing.crop && (
         <span className="absolute left-1 top-1 rounded-[3px] bg-black/55 p-[2px]" title="Cropped">
-          <Crop className="size-2.5 text-foreground/85" strokeWidth={2.5} />
+          <Crop className="size-2.5 text-white/85" strokeWidth={2.5} />
         </span>
       )}
     </>
@@ -106,20 +131,23 @@ export function FramedThumb({ photo, size, box, inset = 0, cover = false, classN
  * are shut — usually the end of that frame.
  */
 export const RankBar = memo(function RankBar({ index, height = 14 }: { index: number; height?: number }) {
+  const palette = useStore((s) => s.rankingPalette);
   const rank = useStore((s) => s.ranks[index]);
-  const palette = useStore(s => s.rankingPalette);
   const problem = useStore((s) => problemOf(s.ai[index], s.compared[index], s.aiEnabled && s.aiMotionBlur));
   if (!rank && problem !== "eyesClosed" && problem !== "motionBlur") return null;
 
   let colour = "#525252";
   if (problem === "eyesClosed" || problem === "motionBlur") colour = "#d95252";
   else if (rank) {
-    colour = rankingColour(rank.rank, rank.count, palette);
+    const third = Math.max(1, Math.ceil(rank.count / 3));
+    colour = palette === "classic"
+      ? (rank.rank === 1 ? "#2ea0fa" : rank.rank <= third ? "#8cbde6" : rank.rank > rank.count - third ? "#de8a8a" : "#525252")
+      : rankingColour(rank.rank, rank.count, palette);
   }
   const title = problem ? PROBLEM_LABEL[problem] : rank!.rank === 1 ? `Best of these ${rank!.count}` : `Rank ${rank!.rank} of ${rank!.count}`;
   return (
     <span title={title} className="absolute inset-x-0 bottom-0 flex items-center justify-center text-[10px] font-bold leading-none text-black/80" style={{ height, background: colour }}>
-      {problem === "motionBlur" ? <span className="truncate px-1 text-[9px]">Motion blur{rank ? ` · ${rank.rank}` : ""}</span> : rank?.rank}
+      {problem === "motionBlur" ? `Motion blur${rank ? ` · ${rank.rank}` : ""}` : rank?.rank}
     </span>
   );
 });
@@ -133,10 +161,22 @@ export function useHasRankBar(index: number): boolean {
 export function FlagBadge({ flag, small, title }: { flag: Photo["flag"]; small?: boolean; title?: string }) {
   if (flag === "none") return null;
   const size = small ? "size-2.5" : "size-3";
-  const label = title ?? (flag === "pick" ? "Picked" : "Rejected");
   return (
-    <span role="img" aria-label={label} title={label} className={cn("inline-flex shrink-0 items-center justify-center rounded-full p-0.5", flag === "pick" ? "bg-[#33cc66]" : "bg-[#d95252]")}>
-      {flag === "pick" ? <Check aria-hidden="true" className={cn(size, "text-black")} strokeWidth={4} /> : <X aria-hidden="true" className={cn(size, "text-white")} strokeWidth={4} />}
+    <span title={title} className="rounded bg-black/45 p-1">
+      {flag === "pick" ? (
+        <Flag className={cn(size, "fill-white text-white")} strokeWidth={2.5} />
+      ) : (
+        <X className={cn(size, "text-[#ff5959]")} strokeWidth={4} />
+      )}
+    </span>
+  );
+}
+
+/** A group in the scene overview that has been gone through, kept apart from a flag by being a tick. */
+export function ReviewedBadge({ small, title }: { small?: boolean; title?: string }) {
+  return (
+    <span title={title} className="rounded bg-black/45 p-1">
+      <CheckCircle2 className={cn(small ? "size-2.5" : "size-3", "text-[#33cc66]")} strokeWidth={3} />
     </span>
   );
 }
@@ -146,7 +186,7 @@ export function StarRow({ rating, small }: { rating: number; small?: boolean }) 
   return (
     <span className={cn("flex gap-px rounded bg-black/60 leading-none", small ? "px-1 py-0.5 text-[8px]" : "px-1.5 py-1 text-[9px]")}>
       {[1, 2, 3, 4, 5].map((n) => (
-        <span key={n} className={n <= rating ? "text-star" : "text-foreground/20"}>
+        <span key={n} className={n <= rating ? "text-star" : "text-white/20"}>
           ★
         </span>
       ))}

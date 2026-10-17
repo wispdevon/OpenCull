@@ -8,12 +8,13 @@ mod cuda;
 pub mod acceleration;
 pub mod basic;
 pub mod eyes;
+pub mod file_backend;
 pub mod finder;
 pub mod focus;
-pub mod motion;
-pub mod mobileclip;
 pub mod judge;
 pub mod key;
+pub mod mobileclip;
+pub mod motion;
 pub mod onnx;
 pub mod queue;
 pub mod score;
@@ -29,6 +30,12 @@ use crate::preview;
 
 pub use judge::Verdict;
 pub use subject::Reason;
+
+/// Connects the optional Linux CUDA worker to file-backed model inference.
+#[cfg(all(feature = "cuda", target_os = "linux", target_arch = "x86_64"))]
+pub fn register_cuda_file_backend() -> Result<(), &'static str> {
+    file_backend::register(acceleration::enabled, cuda::run_file, acceleration::failure)
+}
 
 /// Which rules the faces of a photograph are judged by.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -393,7 +400,6 @@ pub fn analyze(path: &Path, rules: Rules) -> Result<Analysis, String> {
     analyze_pixels(&picture.rgb, picture.width, picture.height, rules)
 }
 
-/// Decode once for both the existing face models and optional blur evidence.
 pub fn analyze_record(path: &Path, rules: Rules, motion_blur: bool) -> Result<store::Record, String> {
     let picture = preview::decode_upright(path, u32::MAX)?;
     let mut record = store::Record::from(&analyze_pixels(&picture.rgb, picture.width, picture.height, rules)?);

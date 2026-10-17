@@ -28,6 +28,11 @@ describe("source-safe review", () => {
     useStore.setState({ review: null }); useStore.getState().setRating(3);
     expect(api.setMarks).toHaveBeenCalledOnce();
   });
+  it("copied card sessions write edits to the destination files", () => {
+    useStore.setState({ review: { ...newReview(["/destination"], [photo]), stage: "copied" } });
+    useStore.getState().setRating(3);
+    expect(api.setMarks).toHaveBeenCalledOnce();
+  });
   it("removes explicitly deleted files from the saved session", async () => {
     useStore.setState({ session: { id: 1, folder: "/card", name: "card", includeSubfolders: false, subfolderCount: 0, fileKinds: "both", leftOut: 0, timed: true } });
     useStore.getState().requestTrash([0]); await useStore.getState().confirmTrash();
