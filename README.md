@@ -147,6 +147,11 @@ See [CUDA setup](docs/CUDA-TRIAL.md) and [benchmarks](docs/CUDA-BENCHMARK.md).
 - [Feature guides](docs/features/) — options and experimental limitations.
 - [How it works](docs/HOW-IT-WORKS.md) — previews, analysis and measured performance.
 
+### Upstream 0.6.1
+
+- Portrait photos are oriented about three times faster before face analysis, so scans with many portrait frames finish sooner.
+- Newer Panasonic Lumix RAW files, including the S5 II, can use their full-size embedded preview for sharper zooming and face analysis.
+
 ## Keyboard basics
 
 <details>
