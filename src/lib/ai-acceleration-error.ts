@@ -10,9 +10,16 @@ export function accelerationError(info: AiAccelerationInfo | null) {
         ? "GPU busy or unavailable"
         : "GPU acceleration failed";
 
+  const body =
+    info.failureKind === "memory"
+      ? "AI has switched to CPU processing. Close other GPU-heavy apps, then restart Culltivate with CUDA to retry."
+      : info.failureKind === "unavailable"
+        ? "AI has switched to CPU processing. Check that the NVIDIA driver and CUDA runtime are available, then restart Culltivate with CUDA."
+        : "AI has switched to CPU processing. See technical details for the CUDA error.";
+
   return {
     title,
-    body: "AI has switched to CPU processing. Close other GPU-heavy apps, then restart Culltivate with CUDA to retry.",
+    body,
     details: info.failure,
   };
 }

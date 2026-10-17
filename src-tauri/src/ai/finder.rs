@@ -213,7 +213,7 @@ pub mod turning {
                 input[2 * plane + at] = small[i + 2] as f32 / 255.0;
             }
         }
-        let boxes = onnx::run_finder(&SESSION, MODEL, vec![("images", vec![1, 3, ph, pw], input)], &["output0"], |out| {
+        let boxes = onnx::run_finder_with_cpu_fallback(&SESSION, MODEL, vec![("images", vec![1, 3, ph, pw], input)], &["output0"], |out| {
             let (shape, d) = (&out[0].0, out[0].1);
             let n = shape[2];
             // Four scores a box, one for each way a face may stand; the best says both how sure and which way.
