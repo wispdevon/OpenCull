@@ -119,6 +119,9 @@ See [CUDA setup](docs/CUDA-TRIAL.md) and [benchmarks](docs/CUDA-BENCHMARK.md).
 <summary>Local AI and grouping</summary>
 
 - Compare faces for sharpness, expressions, closed eyes and gaze.
+- Choose the original YuNet finder by turning **Advanced AI** off, or use the
+  YOLO26n finder with **Advanced AI** on; it also uses YuNet to place eyes and
+  handles turned faces.
 - [Group visually similar photos with MobileCLIP](docs/features/MOBILECLIP_GROUPING.md).
 - [Detect motion blur](docs/features/MOTION_BLUR.md), with optional one-star and Reject marking.
 - [Reuse cached analysis](docs/features/AI_CACHE.md) across sessions.
