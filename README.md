@@ -32,7 +32,7 @@ the original application, not this fork's additions.
 
 <div align="center">
   <a href="docs/images/screenshot.jpg">
-    <img src="docs/images/screenshot.jpg" alt="OpenCull showing a photo, face panel, and filmstrip" width="900">
+    <img src="docs/images/screenshot.jpg" alt="OpenCull 0.5.1 showing a family photo, detected faces, and filmstrip" width="900">
   </a>
 </div>
 
