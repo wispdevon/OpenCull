@@ -154,6 +154,27 @@ See [CUDA setup](docs/CUDA-TRIAL.md) and [benchmarks](docs/CUDA-BENCHMARK.md).
 - [Feature guides](docs/features/) — options and experimental limitations.
 - [How it works](docs/HOW-IT-WORKS.md) — previews, analysis and measured performance.
 
+## Fork changes maintained ahead of upstream
+
+This fork follows upstream OpenCull while maintaining its own changes on
+`dev`. Several earlier Culltivate additions have since landed upstream; these
+are the changes still specific to this fork:
+
+- **Culltivate identity.** This repository gives the fork its own name and
+  release identity while retaining OpenCull as its upstream base.
+- **Experimental face-finder choice.** Development builds let you choose
+  YuNet or YOLO26n in either AI rules mode. YOLO26n continues to use YuNet to
+  place eyes. See [How it works](docs/HOW-IT-WORKS.md).
+- **YOLO CUDA fallback.** On supported Linux NVIDIA builds, YOLO can run its
+  supported graph operations on CUDA and place unsupported operations on the
+  CPU. See the [CUDA guide](docs/CUDA-TRIAL.md).
+- **Motion-blur analysis.** An optional local check can lower streaked frames
+  in group rankings and, when enabled, mark unrated detections one star and
+  Reject. See [motion-blur details](docs/features/MOTION_BLUR.md).
+- **Performance log.** Settings → AI shows recent YuNet/YOLO analysis chunk
+  times, MobileCLIP grouping times, and full-size preview orientation times.
+  Entries are kept in memory for the current session, up to 500.
+
 ## Keyboard basics
 
 <details>
