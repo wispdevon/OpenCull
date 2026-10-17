@@ -27,6 +27,9 @@ dist-ssr
 src-tauri/target
 src-tauri/gen/schemas
 
+# Local Python benchmark bytecode
+__pycache__/
+
 # Photographs never go in the repository — not as test files, not by accident.
 *.arw
 *.ARW

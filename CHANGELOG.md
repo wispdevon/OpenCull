@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.1
+
+- Fix Linux CUDA AppImages placing ONNX Runtime provider libraries outside the path used at runtime.
+- Keep CPU fallback available when CUDA initialization fails.
+
 ## 0.5.0
 
 ### Review and grouping

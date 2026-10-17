@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 
+// AppImage's launcher resolves static ORT providers under usr; native installers use usr/bin.
 // CUDA runtimes belong to the host; package only ORT's matching provider files.
 export const CUDA_EXCLUDED_LIBRARIES = "libcuda.so*;libcudart.so*;libcublas*.so*;libcurand.so*;libcudnn*.so*;libnvrtc*.so*;libnvidia*.so*";
 export function cudaBundleSpec(platform, spec) {

@@ -15,8 +15,8 @@
       },
       "appimage": {
         "files": {
-          "/usr/bin/libonnxruntime_providers_cuda.so": "target/release/libonnxruntime_providers_cuda.so",
-          "/usr/bin/libonnxruntime_providers_shared.so": "target/release/libonnxruntime_providers_shared.so"
+          "/usr/libonnxruntime_providers_cuda.so": "target/release/libonnxruntime_providers_cuda.so",
+          "/usr/libonnxruntime_providers_shared.so": "target/release/libonnxruntime_providers_shared.so"
         }
       }
     }
