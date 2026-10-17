@@ -30,3 +30,31 @@ The combined store/native command files mix workflows. Whole-file copying is not
 ## Shared ONNX contract
 
 GPU and AI use the same minimal `ai/file_backend.rs` provider registry. AI works on CPU with no provider; GPU registers its bounded CUDA file-model runner at native startup. The provider returns original tensors for CPU retry after failure. This prevents a dependency on CUDA while retaining acceleration when both PRs merge. Native preferences belong to Interface; Ingest can use upstream preferences unchanged.
+
+## Audit findings
+
+- Upstream already caches per-photo face-analysis records. The AI PR must describe cache/session-restoration improvements accurately rather than claiming all face caching is new.
+- Ingest has no required dependency on fonts/themes/native preferences or GPU. Its review/session persistence is separate from Interface preferences.
+- Interface face interactions can use upstream face data; its settings page must not expose unavailable MobileCLIP, motion-blur or GPU controls.
+- Upstream workflow supports pull requests and manual dispatch, allowing independent cross-platform checks on scoped branches.
+
+## Published independent drafts
+
+All four branches use upstream main `a8c7f32` as their common ancestor; none contains another contribution's commits.
+
+| Draft | Branch | Scope |
+| --- | --- | --- |
+| [#4](https://github.com/NatePhotos/OpenCull/pull/4) | `contribution/gpu-runtime` | Linux CUDA/runtime/rendering |
+| [#5](https://github.com/NatePhotos/OpenCull/pull/5) | `contribution/card-review-sessions` | Card review, video and saved sessions |
+| [#6](https://github.com/NatePhotos/OpenCull/pull/6) | `contribution/ai-grouping` | Cached visual grouping and optional blur tools |
+| [#7](https://github.com/NatePhotos/OpenCull/pull/7) | `contribution/workspace-settings` | Optional theme, workspace and settings |
+
+The combined draft #3 stays open with a reference notice linking these replacements. All six pairwise merges and all 24 complete merge orders are conflict-free and produce the same final tree. Hook placement, command registration and independent store reset hunks were adjusted to avoid preventable shared-file conflicts. No force pushes were used.
+
+## Validation in progress
+
+- GPU: 276 CPU tests; CUDA suite 277 passed with two hardware tests run separately; Linux/macOS/Windows build run [38936925054](https://github.com/wispdevon/OpenCull/actions/runs/38936925054) passed. Linux CUDA desktop build passed.
+- Ingest: 43 frontend and 286 native tests; Linux CPU desktop build passed. Final cross-platform run [38938953302](https://github.com/wispdevon/OpenCull/actions/runs/38938953302).
+- AI: 42 frontend and 283 native tests; real model on CPU; Linux CPU desktop build passed. Final cross-platform run [38938948219](https://github.com/wispdevon/OpenCull/actions/runs/38938948219).
+- Interface: 73 frontend and 274 native tests; responsive browser smoke passed. Final cross-platform run [38939359447](https://github.com/wispdevon/OpenCull/actions/runs/38939359447).
+- Final combined behavioral tests, native CUDA runtime and policy/ref audit are required before closing the goal.
