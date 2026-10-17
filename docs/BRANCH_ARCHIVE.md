@@ -11,6 +11,24 @@ Later on the same date, all 43 `feature/*` branches were restored locally and on
 
 On 2026-10-17, all 43 restored `feature/*` branch names were closed again locally and on origin. Every local and remote tip was verified against its existing published `archive/2026-10-16/feature/*` annotated tag before deletion. Those tags retain the complete history. Other branches and upstream refs were preserved.
 
+## Contribution branches closed on 2026-10-17
+
+The four split upstream contributions were verified as merged: [GPU runtime #4](https://github.com/NatePhotos/OpenCull/pull/4), [card review #5](https://github.com/NatePhotos/OpenCull/pull/5), [AI grouping #6](https://github.com/NatePhotos/OpenCull/pull/6), and [workspace settings #7](https://github.com/NatePhotos/OpenCull/pull/7). The older combined [PR #3](https://github.com/NatePhotos/OpenCull/pull/3) was closed without merging and superseded by that split set.
+
+All five `contribution/*` branch names were removed locally and from origin after seven annotated archive tags were published and their peeled commits verified. The two distinct older local tips were archived separately. Other branches and upstream refs were untouched.
+
+| Archived branch tip | Commit | Published archive tag |
+|---|---|---|
+| `contribution/ai-grouping` | `1ee4b971a33c` | `archive/2026-10-17/contribution/ai-grouping` |
+| `contribution/card-review-sessions` | `c50413c8e4b0` | `archive/2026-10-17/contribution/card-review-sessions` |
+| `contribution/gpu-runtime` | `3aa61f0b3351` | `archive/2026-10-17/contribution/gpu-runtime` |
+| `contribution/upstream-improvements` | `de5d787afa23` | `archive/2026-10-17/contribution/upstream-improvements` |
+| `contribution/workspace-settings` | `2bc315afd1aa` | `archive/2026-10-17/contribution/workspace-settings` |
+| `local/contribution/ai-grouping` | `67b0fa48e70d` | `archive/2026-10-17/local/contribution/ai-grouping` |
+| `local/contribution/workspace-settings` | `c0470341ce24` | `archive/2026-10-17/local/contribution/workspace-settings` |
+
+## Earlier work branch archives
+
 For curated, cumulative branches that avoid unrelated integration history, see [Idea bundles](IDEA-BUNDLES.md).
 
 Inspect an archive without creating a branch:
