@@ -32,10 +32,18 @@ the original application, not this fork's additions.
 
 <div align="center">
   <a href="docs/images/screenshot.jpg">
-    <img src="docs/images/screenshot.jpg" alt="OpenCull 0.5.1 showing event photos, grouped scenes, face analysis, and EXIF" width="900">
+    <img src="docs/images/screenshot.jpg" alt="Culltivate 0.6.1 showing event photos, grouped scenes, face analysis, and EXIF" width="900">
   </a>
   <p><a href="docs/images/screenshot-annotated.png">View the annotated overview</a></p>
 </div>
+
+## What's new in 0.6.1
+
+- Portrait photos are analysed about three times faster, and Culltivate can use
+  full-size previews embedded in newer Panasonic RAW files.
+- Development builds add an experimental YuNet/YOLO26n face-finder choice and
+  timing details in Settings → AI. See the [changelog](CHANGELOG.md) for the
+  release details.
 
 ## Try this fork
 

@@ -1,9 +1,18 @@
 # Changelog
 
-## Unreleased
+## 0.6.1
 
-- Rebrand this fork as Culltivate while keeping OpenCull configuration and
+- Rebrand the fork as Culltivate while keeping OpenCull configuration and
   settings formats compatible.
+- Include upstream OpenCull improvements: portrait analysis runs about three
+  times faster, and newer Panasonic RAW files can provide full-size previews.
+- Add an experimental YuNet/YOLO26n face-finder choice for either AI rules
+  mode in development builds. YOLO continues to use YuNet to place eyes.
+- Allow supported YOLO graph operations to run on CUDA while unsupported
+  operations fall back to CPU.
+- Show YuNet/YOLO chunk timings, MobileCLIP grouping timings, and full-size
+  preview orientation timings in Settings → AI. Recent entries stay in memory
+  for the current session, up to 500.
 
 ## 0.5.1
 
