@@ -32,8 +32,9 @@ the original application, not this fork's additions.
 
 <div align="center">
   <a href="docs/images/screenshot.jpg">
-    <img src="docs/images/screenshot.jpg" alt="OpenCull 0.5.1 showing a family photo, detected faces, and filmstrip" width="900">
+    <img src="docs/images/screenshot.jpg" alt="OpenCull 0.5.1 showing event photos, grouped scenes, face analysis, and EXIF" width="900">
   </a>
+  <p><a href="docs/images/screenshot-annotated.png">View the annotated overview</a></p>
 </div>
 
 ## Try this fork

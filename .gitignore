@@ -57,8 +57,8 @@ __pycache__/
 *.JPEG
 *.xmp
 
-# README images are included on purpose, with the leave of the people in them.
+# README screenshots and owner-provided samples are intentionally included.
 !docs/images/screenshot.jpg
 
-# Extracted, permitted README photo used to capture the current app.
-!docs/images/readme-sample/DSC09520.JPG
+# Selected owner-provided event photos used to capture the README.
+!docs/images/readme-sample/*.jpg
