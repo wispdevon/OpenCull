@@ -172,6 +172,51 @@ mod cuda_tests {
     use super::*;
     #[test]
     #[ignore = "requires OPENCULL_AI=cuda, NVIDIA GPU, CUDA 13 and cuDNN 9"]
+    fn advanced_yolo_runs_with_cuda_and_cpu_ep_fallback() {
+        assert!(
+            crate::ai::acceleration::enabled(),
+            "run with OPENCULL_AI=cuda"
+        );
+        let model = include_bytes!("../../models/faces-turning.onnx");
+        let shape = vec![1, 3, 640, 640];
+        let data = (0..shape.iter().product::<usize>())
+            .map(|i| ((i * 19 % 251) as f32) / 250.0)
+            .collect::<Vec<_>>();
+        let inputs = vec![("images".to_owned(), shape, data)];
+        let outputs = vec!["output0".to_owned()];
+
+        let mut cpu_session = builder().unwrap().commit_from_memory(model).unwrap();
+        let cpu = evaluate(&mut cpu_session, &inputs, &outputs, |values| {
+            values
+                .iter()
+                .map(|(shape, data)| (shape.clone(), data.to_vec()))
+                .collect::<Vec<_>>()
+        })
+        .unwrap();
+        let gpu = crate::ai::cuda::run_with_cpu_fallback(model, inputs, outputs)
+            .unwrap()
+            .result
+            .unwrap();
+
+        assert_eq!(cpu.len(), gpu.len());
+        for ((cpu_shape, cpu_values), (gpu_shape, gpu_values)) in cpu.iter().zip(&gpu) {
+            assert_eq!(cpu_shape, gpu_shape);
+            assert_eq!(cpu_values.len(), gpu_values.len());
+            for (cpu_value, gpu_value) in cpu_values.iter().zip(gpu_values) {
+                assert!(
+                    (cpu_value - gpu_value).abs() <= 0.001 + 0.001 * cpu_value.abs(),
+                    "CPU {cpu_value}, CUDA {gpu_value}"
+                );
+            }
+        }
+        assert!(
+            crate::ai::acceleration::failure().is_none(),
+            "CUDA silently fell back"
+        );
+    }
+
+    #[test]
+    #[ignore = "requires OPENCULL_AI=cuda, NVIDIA GPU, CUDA 13 and cuDNN 9"]
     fn concurrent_callers_share_cuda_models_and_match_cpu() {
         assert!(
             crate::ai::acceleration::enabled(),
