@@ -37,7 +37,16 @@ the original application, not this fork's additions.
   <p><a href="docs/images/screenshot-annotated.png">View the annotated overview</a></p>
 </div>
 
-## What's new in 0.7.0 — The Performance
+## What's new in 0.7.1 — Reference comparison
+
+- Press **Shift+R** or use the toolbar comparison button to pin a reference
+  beside the current photo, then browse and mark candidates normally.
+- Zoom and pan in either pane move both photos together. Keyboard, face,
+  wheel/pinch and box zoom use the same linked view.
+- Choose **Use as reference** to pin a new candidate, or press **Escape** to
+  return to the previous workspace. See the [comparison guide](docs/features/REFERENCE_COMPARISON.md).
+
+### Performance features from 0.7.0
 
 - **Settings → Performance** measures photo workflows, identifies slow stages,
   and explains average scores, sample counts, failures and potential fixes.

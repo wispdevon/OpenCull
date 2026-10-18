@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.7.1 — Reference comparison
+
+### Added
+
+- Pin a reference photo beside the current photo with the toolbar comparison
+  button or the configurable Shift+R shortcut. Browse, rate and flag the current
+  photo while the reference stays pinned.
+- Mirror zoom and pan across both panes, including clicks, keyboard shortcuts,
+  wheel/pinch gestures, face zoom and box zoom. New candidates and replacement
+  references inherit the shared view.
+- Replace the reference with the current candidate, or close comparison with
+  Escape to restore the previous loupe, scene or grid workspace. Comparison
+  leaves source files and existing marking defaults unchanged.
+
 ## 0.7.0 — The Performance
 
 ### Added
