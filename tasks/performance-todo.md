@@ -54,7 +54,8 @@ See [measurements](performance-measurements.md) and the [feature guide](../docs/
 - [x] Bundle the reference for offline scoring, link to its public source, show score eligibility and reference version, and include scores in exports/submissions.
 - [x] Provide validated, deduplicated ingestion of explicitly approved benchmark contributions; document how published typical values are calculated and how sparse data is labeled.
 - [x] Verify score math/edge cases, data privacy, UI and native delivery; prepare verified 0.7.0 sources for the explicitly authorized draft-tag update.
-- [ ] Finish installer verification and publication. GitHub Actions currently rejects dispatch with “Actions has been disabled for this user”; Linux AppImage, Debian and RPM packages were built in Ubuntu 24.04 and verified; the extracted AppImage passes generated-fixture checks with CUDA and no global fallback. macOS/Windows installers and the publication choice remain pending.
+- [x] Publish the verified Linux 0.7.0 “The Performance” release after explicit user authorization. AppImage, Debian and RPM packages passed the recorded checks; the packaged CUDA selftest passes without whole-model fallback.
+- [ ] Produce and verify macOS/Windows installers. GitHub Actions currently rejects dispatch with “Actions has been disabled for this user”; these platforms remain explicitly pending in the published release notes.
 
 ## Fixed hardware specification ratings — user correction
 
@@ -65,4 +66,4 @@ See [measurements](performance-measurements.md) and the [feature guide](../docs/
 - [x] Push formula/specification sources and matching fixed ratings for both existing hardware rows; benchmark ingestion cannot move those ratings.
 - [ ] Verify anonymous public access to the database. GitHub reports the repository PUBLIC, but anonymous repository and raw-data requests return 404; authenticated remote contents match the local dataset/catalogue.
 - [x] Verify deterministic math, aliases/unknowns, privacy/consent, native discovery, report compatibility and UI. Final checks: 203 frontend tests, 34 launcher/importer tests, 384 CUDA-feature Rust tests (5 ignored), 382 CPU-only Rust tests (1 ignored), frontend build, CUDA desktop build and responsive browser checks.
-- [x] Refresh the unpublished 0.7.0 draft installers and verify the packaged CUDA runtime. AppImage, Debian, RPM, dataset, catalogue and SHA256SUMS are attached with matching remote digests; macOS/Windows, anonymous public access and publication remain pending.
+- [x] Publish refreshed 0.7.0 installers and verify the packaged CUDA runtime. AppImage, Debian, RPM, dataset, catalogue and SHA256SUMS are attached with matching remote digests. GitHub confirms v0.7.0 is published and latest; macOS/Windows and GitHub visibility/index repair remain pending.

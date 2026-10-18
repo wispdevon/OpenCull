@@ -336,3 +336,9 @@ Final installer SHA-256 values:
 The draft also includes the standalone speeds dataset, specification catalogue
 and matching SHA256SUMS. Publication remains pending anonymous GitHub access,
 macOS/Windows packages and the existing platform/publication choice.
+
+## Linux 0.7.0 publication
+
+After explicit user authorization, GitHub published v0.7.0 at 2026-10-18T15:35:08Z and marked it latest. All six attached asset sizes and SHA-256 digests match the verified local staging files. Published v0.6.1 and v0.5.0 remain present with seven installer assets each. The published tag remains at `996862455416d08a65b3ce3b2ebcc10e96eda2d8`; post-release bookkeeping does not move it.
+
+macOS/Windows packages remain pending, and the release notes retain the GitHub release-list and anonymous-access limitations. No automatic-update feed is configured.
