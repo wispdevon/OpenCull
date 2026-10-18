@@ -62,6 +62,7 @@ See [measurements](performance-measurements.md) and the [feature guide](../docs/
 - [x] Use reviewed manufacturer physical core counts, base clocks and GPU shader counts; never local timings, boost clocks, usable/free RAM, available threads, app build or AI provider as rating inputs.
 - [x] Detect installed memory and GPU identity independently of benchmark/provider settings. Missing/ambiguous specifications remain explicitly unknown.
 - [x] Show ratings before running a benchmark, preserve measured milliseconds and historical benchmark indices separately, and export schema-v4 ratings with provenance.
-- [x] Publish formula/specification sources and matching fixed ratings for both existing hardware rows; benchmark ingestion cannot move those ratings.
+- [x] Push formula/specification sources and matching fixed ratings for both existing hardware rows; benchmark ingestion cannot move those ratings.
+- [ ] Verify anonymous public access to the database. GitHub reports the repository PUBLIC, but anonymous repository and raw-data requests return 404; authenticated remote contents match the local dataset/catalogue.
 - [x] Verify deterministic math, aliases/unknowns, privacy/consent, native discovery, report compatibility and UI. Final checks: 203 frontend tests, 34 launcher/importer tests, 384 CUDA-feature Rust tests (5 ignored), 382 CPU-only Rust tests (1 ignored), frontend build, CUDA desktop build and responsive browser checks.
-- [ ] Refresh the unpublished 0.7.0 draft installers and verify the packaged CUDA runtime; retain the existing macOS/Windows and publication blockers.
+- [x] Refresh the unpublished 0.7.0 draft installers and verify the packaged CUDA runtime. AppImage, Debian, RPM, dataset, catalogue and SHA256SUMS are attached with matching remote digests; macOS/Windows, anonymous public access and publication remain pending.

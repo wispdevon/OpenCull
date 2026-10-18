@@ -308,3 +308,31 @@ Final source verification passed: 203 frontend tests, 34 launcher/importer tests
 frontend build and CUDA desktop debug build. Production code is at
 `6791f17` (the following documentation changes do not alter application code).
 macOS and Windows were not tested locally.
+
+Two final native Quick runs also completed, one with CPU inference and
+`CUDA_VISIBLE_DEVICES=-1`, and one with CUDA inference. Both recorded exactly
+the same hardware identity: Ryzen 5 7500F, GeForce RTX 3060 Ti and 32,768 MiB
+installed RAM. These checks validate discovery independence, not new timing
+reference samples. Their reports were not imported into the speeds database.
+
+Source and data were pushed to `main` and `dev`. Authenticated GitHub contents
+match dataset 1.1.0 and catalogue 1.0.0 byte for byte. GitHub reports repository
+visibility PUBLIC, but anonymous repository and raw-data requests currently
+return 404. Public accessibility remains an external publication blocker.
+
+The final Ubuntu 24.04 build produced AppImage, Debian and RPM packages from
+identical production inputs. All three contain regular, nonempty CUDA/shared
+ONNX provider libraries with the previously verified library hashes. The fresh
+AppImage selftest passed on 12 generated JPEG fixtures with five CUDA model-ready
+messages and no whole-model CPU fallback. All 206 bundled ELF files require
+GLIBC <= 2.39. Video playback was skipped because no video fixture was supplied.
+
+Final installer SHA-256 values:
+
+- Debian: `2aeb54a1d4a63f4974fb60ec62bd6ca22a0e6dc7fc8eaa3995075179e1929b28`
+- RPM: `ae72ee77ae261b523db0a3023b71cd928d8f4eeeeaa286d2749e4f478f52c71d`
+- AppImage: `b461d1ad988dd83c16d57277e1d337eea57a5be69fa1231a79ff9a24970a2f68`
+
+The draft also includes the standalone speeds dataset, specification catalogue
+and matching SHA256SUMS. Publication remains pending anonymous GitHub access,
+macOS/Windows packages and the existing platform/publication choice.
