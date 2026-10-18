@@ -1307,8 +1307,22 @@ fn copy_review_items(items: &[ReviewCopyItem], sources: &[PathBuf], destination:
     let mut completed = HashMap::new();
     for (i, item) in items.iter().enumerate() {
         if cancel.load(Ordering::SeqCst) { break; }
-        let owner = item.path.canonicalize().map_err(|e| format!("Reconnect {}: {e}", item.path.display()))?;
-        let display = item.display.canonicalize().map_err(|e| format!("Reconnect {}: {e}", item.display.display()))?;
+        let owner = match item.path.canonicalize() {
+            Ok(path) => path,
+            Err(e) => {
+                outcome.failed.push(format!("Reconnect {}: {e}", item.path.display()));
+                progress(i + 1);
+                continue;
+            }
+        };
+        let display = match item.display.canonicalize() {
+            Ok(path) => path,
+            Err(e) => {
+                outcome.failed.push(format!("Reconnect {}: {e}", item.display.display()));
+                progress(i + 1);
+                continue;
+            }
+        };
         if !owner.is_file() || !roots.iter().any(|root| owner.starts_with(root)) {
             return Err(format!("{} is outside the selected source folders", item.path.display()));
         }
@@ -1365,6 +1379,83 @@ pub async fn review_copy(app: AppState<'_>, items: Vec<ReviewCopyItem>, sources:
         assert_eq!(std::fs::read(raw).unwrap(), b"raw bytes"); assert_eq!(std::fs::read(jpeg).unwrap(), b"jpeg bytes");
         assert!(!source.join("A.xmp").exists()); assert_eq!(xmp::read(&dest.join("A.RAW"), None).rating, 4);
         assert_eq!(std::fs::read_dir(&source).unwrap().count(), 2); std::fs::remove_dir_all(root).unwrap();
+    }
+    #[test] fn review_copy_preserves_completed_items_when_a_later_source_disappears() {
+        let root = std::env::temp_dir().join(format!("opencull-review-copy-resume-{}", std::process::id()));
+        let source = root.join("card"); let dest = root.join("dest"); std::fs::create_dir_all(&source).unwrap(); std::fs::create_dir_all(&dest).unwrap();
+        let first = source.join("A.JPG"); let second = source.join("B.JPG");
+        std::fs::write(&first, b"first photo").unwrap(); std::fs::write(&second, b"second photo").unwrap();
+        let item = |path: PathBuf| ReviewCopyItem { display: path.clone(), path, marks: Marks::default(), framing: framing::Framing::default(), upright: (0, 0) };
+        let first_item = item(first.clone());
+
+        let (result, completed) = copy_review_items(
+            &[first_item, item(second.clone())], &[source.clone()], &dest, &AtomicBool::new(false),
+            |done| if done == 1 { std::fs::remove_file(&second).unwrap(); },
+        ).unwrap();
+
+        assert_eq!(result.failed.len(), 1);
+        assert!(result.failed[0].contains("B.JPG"));
+        assert_eq!(completed.get(first.to_string_lossy().as_ref()), Some(&dest.join("A.JPG").to_string_lossy().into_owned()));
+        assert_eq!(std::fs::read(&first).unwrap(), b"first photo");
+        assert_eq!(std::fs::read(dest.join("A.JPG")).unwrap(), b"first photo");
+
+        std::fs::write(&second, b"second photo").unwrap();
+        let (retry, retry_completed) = copy_review_items(&[item(second.clone())], &[source.clone()], &dest, &AtomicBool::new(false), |_| {}).unwrap();
+        assert!(retry.failed.is_empty());
+        assert!(retry.sidecar_failed.is_empty());
+        assert!(retry_completed.contains_key(second.to_string_lossy().as_ref()));
+        assert_eq!(std::fs::read(dest.join("A.JPG")).unwrap(), b"first photo");
+        assert_eq!(std::fs::read(dest.join("B.JPG")).unwrap(), b"second photo");
+        assert!(!dest.join("A_1.JPG").exists());
+        assert_eq!(std::fs::read(&first).unwrap(), b"first photo");
+        assert_eq!(std::fs::read(&second).unwrap(), b"second photo");
+        std::fs::remove_dir_all(root).unwrap();
+    }
+    #[test] fn review_copy_reports_a_missing_jpeg_companion_without_landing_the_raw() {
+        let root = std::env::temp_dir().join(format!("opencull-review-copy-missing-jpeg-{}", std::process::id()));
+        let source = root.join("card"); let dest = root.join("dest"); std::fs::create_dir_all(&source).unwrap(); std::fs::create_dir_all(&dest).unwrap();
+        let raw = source.join("A.RAW"); let jpeg = source.join("A.JPG");
+        std::fs::write(&raw, b"raw photo").unwrap();
+        let item = ReviewCopyItem { path: raw.clone(), display: jpeg.clone(), marks: Marks::default(), framing: framing::Framing::default(), upright: (0, 0) };
+
+        let (result, completed) = copy_review_items(&[item], &[source.clone()], &dest, &AtomicBool::new(false), |_| {}).unwrap();
+
+        assert_eq!(result.failed.len(), 1);
+        assert!(result.failed[0].contains("A.JPG"));
+        assert!(completed.is_empty());
+        assert!(!dest.join("A.RAW").exists());
+        assert_eq!(std::fs::read(&raw).unwrap(), b"raw photo");
+        std::fs::remove_dir_all(root).unwrap();
+    }
+    #[test] fn review_copy_keeps_completed_items_when_cancelled() {
+        let root = std::env::temp_dir().join(format!("opencull-review-copy-cancel-{}", std::process::id()));
+        let source = root.join("card"); let dest = root.join("dest"); std::fs::create_dir_all(&source).unwrap(); std::fs::create_dir_all(&dest).unwrap();
+        let first = source.join("A.JPG"); let second = source.join("B.JPG");
+        std::fs::write(&first, b"first photo").unwrap(); std::fs::write(&second, b"second photo").unwrap();
+        let item = |path: PathBuf| ReviewCopyItem { display: path.clone(), path, marks: Marks::default(), framing: framing::Framing::default(), upright: (0, 0) };
+        let cancel = AtomicBool::new(false);
+
+        let (result, completed) = copy_review_items(
+            &[item(first.clone()), item(second.clone())], &[source.clone()], &dest, &cancel,
+            |done| if done == 1 { cancel.store(true, Ordering::SeqCst); },
+        ).unwrap();
+
+        assert!(result.failed.is_empty());
+        assert_eq!(completed.get(first.to_string_lossy().as_ref()), Some(&dest.join("A.JPG").to_string_lossy().into_owned()));
+        assert!(!completed.contains_key(second.to_string_lossy().as_ref()));
+        assert!(dest.join("A.JPG").exists());
+        assert!(!dest.join("B.JPG").exists());
+
+        let (retry, retry_completed) = copy_review_items(&[item(second.clone())], &[source.clone()], &dest, &AtomicBool::new(false), |_| {}).unwrap();
+        assert!(retry.failed.is_empty());
+        assert!(retry.sidecar_failed.is_empty());
+        assert!(retry_completed.contains_key(second.to_string_lossy().as_ref()));
+        assert!(!dest.join("A_1.JPG").exists());
+        assert_eq!(std::fs::read(dest.join("A.JPG")).unwrap(), b"first photo");
+        assert_eq!(std::fs::read(dest.join("B.JPG")).unwrap(), b"second photo");
+        assert_eq!(std::fs::read(&first).unwrap(), b"first photo");
+        assert_eq!(std::fs::read(&second).unwrap(), b"second photo");
+        std::fs::remove_dir_all(root).unwrap();
     }
     #[test] fn destination_on_a_source_card_is_refused() {
         let root = std::env::temp_dir().join(format!("opencull-review-same-{}", std::process::id())); std::fs::create_dir_all(&root).unwrap();

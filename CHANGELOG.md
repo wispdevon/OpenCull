@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Keep successful Finish Review copies recorded when a later source file or
+  RAW/JPEG companion disappears, so retrying does not duplicate earlier copies.
+
 ## 0.6.1
 
 - Rebrand the fork as Culltivate while keeping OpenCull configuration and

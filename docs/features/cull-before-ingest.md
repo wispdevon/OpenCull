@@ -6,4 +6,11 @@ During a card review the toolbar says **Card review** beside the folder name, an
 
 Move and Ship cannot bypass this workflow. Deleting remains an explicit source action and always asks during card review. Reject never deletes. Ordinary folder culling retains its existing sidecar behavior.
 
+If a file or its JPEG companion disappears while Finish review is copying,
+the error is reported with the successful copies still recorded in the saved
+session. Reconnect the source and retry: existing completed destinations are
+skipped. A missing companion is reported before copying its RAW. Cancellation
+also retains completed copies. A destination metadata-write failure is still
+reported separately; retrying that case may copy the image again.
+
 Validation: frontend tests include local-only marks/crops/undo and forced deletion confirmation. Rust tests check unchanged source bytes, destination sidecars, paired copying, source-destination refusal, and session persistence. Run `npm test`, `npm run build`, and a native desktop smoke test. This branch works independently; integration with multi-card selection is separate.
