@@ -1323,11 +1323,29 @@ fn copy_review_items(items: &[ReviewCopyItem], sources: &[PathBuf], destination:
                 continue;
             }
         };
-        if !owner.is_file() || !roots.iter().any(|root| owner.starts_with(root)) {
-            return Err(format!("{} is outside the selected source folders", item.path.display()));
+        let owner_error = if !owner.is_file() {
+            Some(format!("{} is not a file", item.path.display()))
+        } else if !roots.iter().any(|root| owner.starts_with(root)) {
+            Some(format!("{} is outside the selected source folders", item.path.display()))
+        } else {
+            None
+        };
+        if let Some(error) = owner_error {
+            outcome.failed.push(error);
+            progress(i + 1);
+            continue;
         }
-        if !display.is_file() || !roots.iter().any(|root| display.starts_with(root)) {
-            return Err(format!("{} is outside the selected source folders", item.display.display()));
+        let display_error = if !display.is_file() {
+            Some(format!("{} is not a file", item.display.display()))
+        } else if !roots.iter().any(|root| display.starts_with(root)) {
+            Some(format!("{} is outside the selected source folders", item.display.display()))
+        } else {
+            None
+        };
+        if let Some(error) = display_error {
+            outcome.failed.push(error);
+            progress(i + 1);
+            continue;
         }
         let companions = if display != owner { vec![display] } else { vec![] };
         let job = transfer::Job { owner, companions };
@@ -1411,6 +1429,30 @@ pub async fn review_copy(app: AppState<'_>, items: Vec<ReviewCopyItem>, sources:
         assert_eq!(std::fs::read(&second).unwrap(), b"second photo");
         std::fs::remove_dir_all(root).unwrap();
     }
+    #[test] fn review_copy_preserves_completed_items_when_a_later_item_is_outside_source_roots() {
+        let root = std::env::temp_dir().join(format!("opencull-review-copy-outside-retry-{}", std::process::id()));
+        let source = root.join("card"); let dest = root.join("dest"); std::fs::create_dir_all(&source).unwrap(); std::fs::create_dir_all(&dest).unwrap();
+        let valid = source.join("A.JPG"); let outside = root.join("outside.JPG");
+        std::fs::write(&valid, b"valid photo").unwrap(); std::fs::write(&outside, b"outside photo").unwrap();
+        let item = |path: PathBuf| ReviewCopyItem { display: path.clone(), path, marks: Marks::default(), framing: framing::Framing::default(), upright: (0, 0) };
+        let progress = std::cell::RefCell::new(Vec::new());
+
+        let (result, completed) = copy_review_items(
+            &[item(valid.clone()), item(outside.clone())], &[source.clone()], &dest, &AtomicBool::new(false),
+            |done| progress.borrow_mut().push(done),
+        ).unwrap();
+
+        assert_eq!(result.failed.len(), 1);
+        assert!(result.failed[0].contains("outside.JPG"));
+        assert_eq!(progress.borrow().as_slice(), &[1, 2]);
+        assert_eq!(completed.get(valid.to_string_lossy().as_ref()), Some(&dest.join("A.JPG").to_string_lossy().into_owned()));
+        assert_eq!(result.placed, [dest.join("A.JPG")]);
+        assert_eq!(std::fs::read(dest.join("A.JPG")).unwrap(), b"valid photo");
+        assert!(!dest.join("outside.JPG").exists());
+        assert_eq!(std::fs::read(&valid).unwrap(), b"valid photo");
+        assert_eq!(std::fs::read(&outside).unwrap(), b"outside photo");
+        std::fs::remove_dir_all(root).unwrap();
+    }
     #[test] fn review_copy_reports_a_missing_jpeg_companion_without_landing_the_raw() {
         let root = std::env::temp_dir().join(format!("opencull-review-copy-missing-jpeg-{}", std::process::id()));
         let source = root.join("card"); let dest = root.join("dest"); std::fs::create_dir_all(&source).unwrap(); std::fs::create_dir_all(&dest).unwrap();
@@ -1467,9 +1509,27 @@ pub async fn review_copy(app: AppState<'_>, items: Vec<ReviewCopyItem>, sources:
         std::fs::create_dir_all(&source).unwrap(); std::fs::create_dir_all(&destination).unwrap();
         let outside = root.join("outside.JPG"); std::fs::write(&outside, b"outside source").unwrap();
         let item = ReviewCopyItem { path: outside.clone(), display: outside.clone(), marks: Marks::default(), framing: framing::Framing::default(), upright: (0, 0) };
-        assert!(copy_review_items(&[item], &[source], &destination, &AtomicBool::new(false), |_| {}).is_err());
+        let (result, completed) = copy_review_items(&[item], &[source], &destination, &AtomicBool::new(false), |_| {}).unwrap();
+        assert_eq!(result.failed.len(), 1);
+        assert!(completed.is_empty());
         assert_eq!(std::fs::read(&outside).unwrap(), b"outside source");
         assert_eq!(std::fs::read_dir(destination).unwrap().count(), 0);
+        std::fs::remove_dir_all(root).unwrap();
+    }
+    #[test] fn review_copy_reports_directories_instead_of_copying_them() {
+        let root = std::env::temp_dir().join(format!("opencull-review-copy-directory-{}", std::process::id()));
+        let source = root.join("card"); let destination = root.join("destination");
+        let directory = source.join("nested");
+        std::fs::create_dir_all(&directory).unwrap(); std::fs::create_dir_all(&destination).unwrap();
+        let item = ReviewCopyItem { path: directory.clone(), display: directory.clone(), marks: Marks::default(), framing: framing::Framing::default(), upright: (0, 0) };
+
+        let (result, completed) = copy_review_items(&[item], &[source], &destination, &AtomicBool::new(false), |_| {}).unwrap();
+
+        assert_eq!(result.failed.len(), 1);
+        assert!(result.failed[0].contains("not a file"));
+        assert!(completed.is_empty());
+        assert_eq!(std::fs::read_dir(&destination).unwrap().count(), 0);
+        assert!(directory.is_dir());
         std::fs::remove_dir_all(root).unwrap();
     }
 }
