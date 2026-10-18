@@ -262,3 +262,20 @@ pointed inside the namespace; those runs were excluded. Replacing only the
 example's two provider symlinks with byte-identical library copies restored
 CUDA. Packaged libraries are checked separately. No photo library or normal
 app cache/configuration was used for the reference runs.
+
+Final score-feature verification: 188 frontend tests, 32 launcher/importer
+tests, 376 CUDA-feature Rust tests (5 ignored), and 374 CPU-only Rust tests
+(1 ignored) passed. Desktop debug build, native X11 smoke test, compact browser
+layout, computed score display, score JSON export and cancellation checks pass.
+
+Linux AppImage, Debian and RPM installers were built in the isolated Ubuntu
+24.04 root from application commit `b9500e0a04bec5092d459a9bdce8756edb5e5350`.
+Provider payloads are regular, nonempty and byte-identical across all formats.
+The extracted AppImage passes the 12-generated-JPEG selftest with five CUDA
+model-ready messages and no global fallback. Video playback was skipped because
+the fixture contains no video. All 206 bundled ELF files require GLIBC <= 2.39.
+The final release documentation does not change application code or data.
+
+GitHub Actions rejects dispatch with “Actions has been disabled for this user.”
+macOS/Windows packages and publication remain pending; no platform checks are
+claimed for those systems.

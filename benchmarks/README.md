@@ -6,6 +6,16 @@ The initial references are maintainer seeds, not fleet-wide or statistically rep
 
 No compiler or test process was intentionally active during timed runs, but the desktop session remained active and spot-checked GPU use varied from 11% to 30%; treat these as one machine's reference measurements, not a fully idle-device baseline. Each run used unique XDG cache, config, data, and state directories. “Cold” means an app-cache miss; OS filesystem cache was not controlled. Release timings came from the Ubuntu 24 release binary run on the Linux host after its provider libraries were copied byte-identically out of the isolated build root. Two earlier release attempts with no completed CUDA inference were excluded. The workload does not measure physical-card throughput, camera sensor decoding, or all hardware. The seed's `method` and hardware/build fields describe what was actually measured; later additions must be explicitly reviewed and must not silently move the frozen reference anchors. Published system rows report each stage's mean per-run average, median, minimum, maximum, and run count. These are measurements from the listed systems, not claims about the wider Culltivate user population.
 
+| Build profile | Runs | System index¹ | GPU-assisted AI index¹ | Basic warm average² | Advanced warm average² |
+|---|---:|---:|---:|---:|---:|
+| Debug · turbo JPEG · CUDA | 3 | 1002 | 998 | 4.835 ms | 8.852 ms |
+| Release · turbo JPEG · CUDA | 3 | 1063 | 986 | 6.064 ms | 10.278 ms |
+
+¹ Median of the three run indices. Each build has its own frozen reference;
+compare only matching build, platform and fixture cohorts.
+² Median across the three per-run arithmetic averages. Each run samples the
+same face photo five times for basic AI and three times for advanced AI.
+
 ## What is compared
 
 The cohort key is the exact operating system, architecture, build string, and fixture version. App version and hardware are public descriptive fields, not part of the cohort key. A reference is created from the median of each scored stage's per-run arithmetic mean across at least three completed Thorough runs. For each score, the dimensionless index is `1000 × exp(Σ weight × ln(referenceMeanMs / measuredMeanMs))`; higher is faster, and 1000 is the frozen reference. The system index weights are `preview-thumbnail-cold` 0.15, `preview-fit-cold` 0.25, `image-decode` 0.20, `portrait-orientation` 0.20, `scan-pairing` 0.10, and `ingest-copy` 0.10. The CUDA-assisted AI index weights `face-analysis-warm` and `advanced-face-warm` equally at 0.5 each. It measures the full AI workflow, including CPU setup and pre/post-processing, and may include CPU operators inside YOLO graphs. A GPU score requires typed evidence for all four model stages, CUDA calls in both weighted warm stages, and zero whole-model CPU or fallback calls across the report. Missing or mixed inference evidence leaves that score unavailable.
