@@ -88,6 +88,9 @@ zune-jpeg = "0.5.15"
 # this crate's own code stays quick to recompile.
 [profile.dev]
 opt-level = 1
+# Incremental artifacts repeatedly produced undefined hidden LLVM symbols on
+# Linux/Rust 1.99; a non-incremental rebuild links reliably.
+incremental = false
 
 [profile.dev.package."*"]
 opt-level = 3
