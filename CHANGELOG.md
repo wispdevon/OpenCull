@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.7.1.1 — Smooth-scrolling hotfix
+
+Internal package version: `0.7.1+1`; release tag: `v0.7.1.1`.
+
+### Fixed
+
+- Consume filmstrip and scene-overview wheel input once with a non-passive
+  listener, preventing blank thumbnails after reference comparison. Preserve
+  fractional high-resolution input, horizontal scrolling, modifier gestures
+  and scrollbar navigation.
+- Reduce Linux/NVIDIA thumbnail tile corruption by defaulting to CPU tile
+  painting while retaining GPU compositing. Preserve an explicit
+  `WEBKIT_SKIA_ENABLE_CPU_RENDERING` override. Physical G903 testing found
+  minimal residual artifacting; complete elimination is not claimed.
+- Remove broken repository-status badges and inline images from the README;
+  retain plain documentation, screenshot and download links.
+
+### Validation scope
+
+- Linux x86_64 was tested; macOS and Windows were not tested for this hotfix.
+
 ## 0.7.1 — Reference comparison
 
 ### Added

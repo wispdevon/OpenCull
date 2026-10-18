@@ -1,24 +1,14 @@
 <a id="readme-top"></a>
 
-[![Release][release-shield]][release-url]
-[![Build][build-shield]][build-url]
-[![Issues][issues-shield]][issues-url]
-[![GPL-3.0-or-later][license-shield]][license-url]
+# Culltivate
 
-<div align="center">
-  <a href="https://github.com/NatePhotos/OpenCull">
-    <img src="docs/images/logo.png" alt="Culltivate logo" width="96" height="96">
-  </a>
+Private, fast photo culling for photographers.
 
-  <h1>Culltivate</h1>
-  <p>Private, fast photo culling for photographers.</p>
-  <p>
-    <a href="https://github.com/wispdevon/OpenCull/releases/latest">Download</a> ·
-    <a href="#try-this-fork">Run from source</a> ·
-    <a href="docs/HOW-IT-WORKS.md">How it works</a> ·
-    <a href="https://github.com/NatePhotos/OpenCull">Original project</a>
-  </p>
-</div>
+[Download](https://github.com/wispdevon/OpenCull/releases/latest) ·
+[Run from source](#try-this-fork) ·
+[How it works](docs/HOW-IT-WORKS.md) ·
+[License](LICENSE) ·
+[Original project](https://github.com/NatePhotos/OpenCull)
 
 Culltivate is an offline desktop app for reviewing RAW and JPEG shoots. It opens
 camera previews without importing or decoding the RAW files, helps compare
@@ -30,14 +20,24 @@ This repository is Wisp's fork of [OpenCull by NatePhotos](https://github.com/Na
 The combined development version is on `dev`; the upstream releases contain
 the original application, not this fork's additions.
 
-<div align="center">
-  <a href="docs/images/screenshot.jpg">
-    <img src="docs/images/screenshot.jpg" alt="Culltivate 0.6.1 showing event photos, grouped scenes, face analysis, and EXIF" width="900">
-  </a>
-  <p><a href="docs/images/screenshot-annotated.png">View the annotated overview</a></p>
-</div>
+[Workspace screenshot](docs/images/screenshot.jpg) ·
+[Annotated overview](docs/images/screenshot-annotated.png)
 
-## What's new in 0.7.1 — Reference comparison
+## What's new in 0.7.1.1 — Smooth-scrolling hotfix
+
+- Fix blank filmstrip thumbnails after reference comparison by handling each
+  wheel event once. High-resolution smooth scrolling retains fractional input.
+- Reduce image tile corruption on Linux/NVIDIA by painting tiles on the CPU
+  while keeping GPU compositing enabled. Some residual artifacting has been
+  reported; this release does not claim to eliminate it entirely.
+- Keep linked comparison zoom, ratings, keyboard navigation and source files
+  unchanged. See the [changelog](CHANGELOG.md).
+
+Release tag: `v0.7.1.1`. The internal package version is `0.7.1+1` to meet
+Rust/Tauri semantic-version requirements. The release provides Linux x86_64
+installers; macOS and Windows were not tested for this hotfix.
+
+### Reference comparison from 0.7.1
 
 - Press **Shift+R** or use the toolbar comparison button to pin a reference
   beside the current photo, then browse and mark candidates normally.
@@ -183,6 +183,9 @@ This fork follows upstream OpenCull while maintaining its own changes on
 `dev`. Several earlier Culltivate additions have since landed upstream; these
 are the changes still specific to this fork:
 
+- **Reference comparison.** Pin a reference beside the current photo with
+  linked zoom and pan, then browse and mark candidates. See the
+  [comparison guide](docs/features/REFERENCE_COMPARISON.md).
 - **Culltivate identity.** This repository gives the fork its own name and
   release identity while retaining OpenCull as its upstream base.
 - **Experimental face-finder choice.** Development builds let you choose
@@ -219,10 +222,9 @@ are the changes still specific to this fork:
 | `H` / `.` | Histogram and EXIF / face panel |
 | `Caps Lock` | Toggle speed culling |
 | `R` | Crop and straighten |
+| `Shift+R` | Pin or close reference comparison |
 
-<div align="center">
-  <img src="docs/images/shortcuts.png" alt="OpenCull keyboard shortcut settings" width="520">
-</div>
+[Keyboard settings screenshot](docs/images/shortcuts.png)
 
 </details>
 
@@ -241,7 +243,9 @@ The optional Linux CUDA build also uses [NVIDIA CUDA][CUDA-url] and
 
 ## Development and checks
 
-For curated branches and their prerequisites, see [Pulling complete ideas](docs/IDEA-BUNDLES.md). Original feature branches remain available.
+For explicitly requested idea bundles and their prerequisites, see
+[Pulling complete ideas](docs/IDEA-BUNDLES.md). Earlier feature branch tips
+are preserved as [archive tags](docs/BRANCH_ARCHIVE.md).
 
 Run these from the repository root with the requirements above installed:
 
@@ -277,14 +281,7 @@ this fork, use [wispdevon/OpenCull issues][issues-url].
 
 <p align="right"><a href="#readme-top">Back to top</a></p>
 
-[release-shield]: https://img.shields.io/github/v/release/wispdevon/OpenCull?include_prereleases&style=for-the-badge
-[release-url]: https://github.com/wispdevon/OpenCull/releases
-[build-shield]: https://img.shields.io/github/actions/workflow/status/wispdevon/OpenCull/build.yml?branch=main&style=for-the-badge
-[build-url]: https://github.com/wispdevon/OpenCull/actions/workflows/build.yml
-[issues-shield]: https://img.shields.io/github/issues/wispdevon/OpenCull.svg?style=for-the-badge
 [issues-url]: https://github.com/wispdevon/OpenCull/issues
-[license-shield]: https://img.shields.io/badge/license-GPL--3.0--or--later-blue?style=for-the-badge
-[license-url]: LICENSE
 [Tauri-badge]: https://img.shields.io/badge/Tauri-24C8D8?style=for-the-badge&logo=tauri&logoColor=white
 [Tauri-url]: https://tauri.app
 [Rust-badge]: https://img.shields.io/badge/Rust-000000?style=for-the-badge&logo=rust&logoColor=white
