@@ -17,6 +17,11 @@ const MARGIN = 1500;
  * the same the strip may be scrolled away by hand and is left where it is
  * put, and when it changes the strip comes back.
  *
+ * Give the scroller an isolated stacking context (`isolate`). WebKitGTK can
+ * otherwise promote the entire wide content row to a graphics layer because
+ * it overlaps composited photo/face previews. Fast high-resolution wheel
+ * scrolling then leaves blank or stale tiles even though the cells exist.
+ *
  * This is done here and not by a list library because the strip has to be
  * scrolled and redrawn in ONE step. The library learned where a strip was
  * from the scroll event that follows a scroll — a frame later at best, and

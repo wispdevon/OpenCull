@@ -45,3 +45,32 @@ fit and maximum zoom limits still apply. New candidates and replacement
 references inherit the shared view. Closing comparison discards that view.
 Four-photo layouts, face matching, manual grouping and editor integration are
 separate work.
+
+## Native scrolling regression check
+
+On WebKitGTK, overlapping photo and face layers can promote the entire wide
+virtual thumbnail row into a graphics backing. High-resolution mouse scrolling
+can then leave blank or stale tiles despite loaded thumbnail elements. Both
+the filmstrip and scene overview isolate their scroll viewport's stacking
+context. Wheel deltas and smooth/inertial scrolling behavior are unchanged.
+
+For a native check, start a debug app with a local inspector endpoint:
+
+```sh
+WEBKIT_INSPECTOR_HTTP_SERVER=127.0.0.1:9223 npm run desktop
+```
+
+Open a folder with faces, show the face panel, and use a high-resolution wheel
+to scroll quickly before, during and after comparison. Include Scene View's
+two rows, zooming, hover effects and a scaled interface. Check actual painted
+thumbnails; DOM presence and successful image loads alone do not catch this
+failure. Then, with the strip visible:
+
+```sh
+node scripts/check-native-strips.mjs http://127.0.0.1:9223
+```
+
+This read-only check uses WebKit's layer tree to reject an independently
+composited content row wider than its viewport. It requires native WebKitGTK
+and complements the existing self-test for virtual cell coverage. It does
+not replace visual testing with the affected mouse and graphics driver.

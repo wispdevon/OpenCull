@@ -108,7 +108,7 @@ export function Filmstrip({ only, height: fixedHeight, resizable = true }: { onl
   return (
     <div className="relative flex shrink-0 flex-col bg-strip" style={{ height }}>
       {resizable ? <FilmstripResizeHandle /> : <div style={{ height: HANDLE }} className="shrink-0 bg-[var(--ui-surface-262626)]" />}
-      <div ref={scroller} onWheel={onWheel} onScroll={onScroll} className="relative min-h-0 flex-1 overflow-x-auto overflow-y-hidden">
+      <div ref={scroller} onWheel={onWheel} onScroll={onScroll} className="relative isolate min-h-0 flex-1 overflow-x-auto overflow-y-hidden">
         <div className="relative h-full" style={{ width: length }}>
           {rows.slice(from, to).map((row, i) => {
             const at = from + i;
