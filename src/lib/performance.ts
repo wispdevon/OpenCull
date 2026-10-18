@@ -111,12 +111,33 @@ export function diagnosticReport(report: BenchmarkReport): DiagnosticReport {
 
 export function ntfySummary(report: DiagnosticReport): string {
   const failures = report.stages.reduce((n, s) => n + s.failures, 0);
-  const slow = [...report.stages].filter((s) => s.count).sort((a, b) => b.totalMs - a.totalMs).slice(0, 3);
-  return [
+  const measured = report.stages.filter((s) => s.count > 0 && s.status !== "skipped");
+  const measuredMs = measured.reduce((sum, s) => sum + s.totalMs, 0);
+  const slow = [...measured].sort((a, b) => b.totalMs - a.totalMs).slice(0, 3);
+  const e = report.environment;
+  const text = [
     `Culltivate ${report.kind}${report.mode ? ` (${report.mode})` : ""}`,
     `- System: ${report.systemId}`,
-    `- Duration: ${Math.max(0, (report.finishedAtMs - report.startedAtMs) / 1000).toFixed(1)} s · ${failures} failures`,
-    ...slow.map((s) => `- ${s.label}: ${(s.totalMs / 1000).toFixed(1)} s total · ${s.medianMs.toFixed(1)} ms/run`),
+    `- App: v${e.appVersion} · ${e.build}`,
+    `- OS: ${e.os} / ${e.arch}`,
+    `- CPU: ${e.cpu ?? "Unavailable"} · ${e.logicalCores} cores`,
+    `- GPU: ${e.gpu ?? "Unavailable"}`,
+    `- RAM: ${e.memoryMb === null ? "Unavailable" : `${e.memoryMb} MB`}`,
+    `- AI: ${e.aiProvider ?? "Unavailable"}`,
+    `- Fixtures: ${e.fixtureVersion}`,
+    `- Timing: ${Math.max(0, (report.finishedAtMs - report.startedAtMs) / 1000).toFixed(1)} s elapsed · ${(measuredMs / 1000).toFixed(1)} s measured · ${measured.length} stages · ${failures} failures`,
+    ...slow.map((s) => `- ${s.label}: ${(s.totalMs / 1000).toFixed(1)} s total · ${(s.totalMs / s.count).toFixed(1)} ms score · ${s.medianMs.toFixed(1)} ms typical`),
     ...report.recommendations.slice(0, 1).map((r) => `- Suggestion: ${Array.from(r.action).slice(0, 160).join("")}${Array.from(r.action).length > 160 ? "…" : ""}`),
   ].join("\n");
+  // Match native delivery's UTF-8 bound, below Discord's 2,000-character limit.
+  const encoder = new TextEncoder();
+  if (encoder.encode(text).length <= 1_900) return text;
+  let result = "";
+  let bytes = 0;
+  for (const character of text) {
+    bytes += encoder.encode(character).length;
+    if (bytes > 1_897) break;
+    result += character;
+  }
+  return `${result}…`;
 }

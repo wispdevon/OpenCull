@@ -24,14 +24,29 @@ describe("performance reports", () => {
   });
   it("keeps notification previews to three stages and one short suggestion", () => {
     const report = diagnosticReport(exampleReport(Array.from({ length: 5 }, (_, i) => stage([100 + i], { id: `test-${i}`, label: `Stage ${i}` }))));
-    report.environment.cpu = "CPU should stay out of the short message";
+    report.environment.cpu = "AMD Ryzen 5 7500F";
     report.recommendations = Array.from({ length: 3 }, () => ({ stageId: "test-0", priority: "high" as const, action: "a".repeat(300), evidence: "Verbose evidence should stay out" }));
     const summary = ntfySummary(report);
     expect(summary.match(/^- Stage /gm)).toHaveLength(3);
     expect(summary.match(/^- Suggestion:/gm)).toHaveLength(1);
     expect(summary).toContain(report.systemId);
-    expect(summary).not.toMatch(/Verbose evidence|CPU should/);
-    expect(summary.length).toBeLessThan(1_000);
+    expect(summary).not.toMatch(/Verbose evidence/);
+    expect(summary).toContain("CPU: AMD Ryzen 5 7500F");
+    expect(new TextEncoder().encode(summary).length).toBeLessThanOrEqual(1_900);
+  });
+  it("records all visible environment fields, elapsed and measured totals", () => {
+    const source = exampleReport([stage([10, 10, 100]), stage([500], { status: "skipped" })]);
+    source.environment = { appVersion: "0.7.0", build: "debug turbo-jpeg cuda", os: "linux", arch: "x86_64", cpu: "AMD Ryzen 5 7500F", logicalCores: 12, memoryMb: 31616, gpu: "NVIDIA GeForce RTX 3060 Ti", aiProvider: "CUDA", fixtureVersion: "4-6000x4000-texture-gpu-ai" };
+    const message = ntfySummary(diagnosticReport(source));
+    for (const value of ["v0.7.0", "debug turbo-jpeg cuda", "linux / x86_64", "AMD Ryzen 5 7500F", "12 cores", "31616 MB", "NVIDIA GeForce RTX 3060 Ti", "AI: CUDA", "4-6000x4000-texture-gpu-ai", "0.1 s elapsed", "0.1 s measured", "1 stages", "40.0 ms score", "10.0 ms typical"]) expect(message).toContain(value);
+  });
+  it("bounds large Unicode notification previews without splitting characters", () => {
+    const report = diagnosticReport(exampleReport(Array.from({ length: 3 }, (_, i) => stage([1], { id: String(i), label: "顔".repeat(120) }))));
+    Object.assign(report.environment, { cpu: "顔".repeat(100), gpu: "顔".repeat(100), aiProvider: "顔".repeat(100) });
+    const message = ntfySummary(report);
+    expect(new TextEncoder().encode(message).length).toBeLessThanOrEqual(1900);
+    expect(message).not.toContain("\uFFFD");
+    expect(message).toContain("App: vtest");
   });
   it("uses finite samples, an even median, and hides unreliable p95", () => {
     const summary = summarizeStage(stage([8, 2, NaN, Infinity, -2]));

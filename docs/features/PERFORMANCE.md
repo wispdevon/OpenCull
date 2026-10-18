@@ -137,8 +137,10 @@ Diagnostic reporting is disabled until approved. Destinations are installed and
 read-only: the app has no webhook URL, ntfy URL or bearer-token configuration
 controls. Choose **Preview and approve**. The preview renders the message as
 bullet points; exact webhook JSON is available under **Raw JSON**. Notifications
-include system ID, duration, failures, the three slowest stages and at most one
-short suggestion. The app never uploads photos.
+include system ID, app version/build, OS/architecture, CPU/core count, GPU, RAM,
+AI provider and fixture version. Elapsed time, measured stage time, stage count,
+failures, the three slowest stages and at most one short suggestion accompany
+that system context. The app never uploads photos.
 
 Benchmark summaries use the fixed `https://ntfy.sh/culltivate-perf` topic;
 sanitized work-session operation logs use `https://ntfy.sh/culltivate-logs`.
@@ -146,13 +148,14 @@ Both include a stable, randomly generated installation alias such as
 `calm-otter-123456`. This is unrelated to the hostname, account or hardware
 serial number. Raw application logs and photo paths are not uploaded.
 
-Approval enables automatic reporting after completed benchmarks and stopped
-recordings for the current app session. Payload-version changes require a new
+Approval enables reporting for the current app session. Benchmarks are sent
+only through **Run and submit**; **Run benchmark** stays local. Stopped
+recordings send automatically while approval remains enabled. Payload-version changes require a new
 preview. Restarting the app requires approval again.
 The most recent report remains available for local export or manual retry.
 
 Generic webhooks receive aggregate JSON, including hardware context and coverage.
-Discord and ntfy receive the same short message, bounded to 1,000 UTF-8 bytes;
+Discord and ntfy receive the same short message, bounded to 1,900 UTF-8 bytes;
 Discord mentions are disabled. The preview uses the exact outgoing message.
 Both use HTTP POST. Remote destinations
 require HTTPS; private test helpers support loopback HTTP for local tests.

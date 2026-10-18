@@ -15,7 +15,7 @@ const CURRENT_FIELDS_VERSION: u32 = 2;
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
 const MAX_URL_BYTES: usize = 2_048;
 const MAX_REPORT_BYTES: usize = 128 * 1024;
-const MAX_DIAGNOSTIC_SUMMARY_BYTES: usize = 1_000;
+const MAX_DIAGNOSTIC_SUMMARY_BYTES: usize = 1_900;
 const MAX_SUMMARY_RECOMMENDATION_CHARS: usize = 160;
 const MAX_TOKEN_BYTES: usize = 2_048;
 const MAX_STAGES: usize = 100;
@@ -588,27 +588,66 @@ fn build_diagnostic_summary(report: &DiagnosticReport) -> String {
         .iter()
         .map(|stage| stage.failures as u64)
         .sum();
-    let mut lines = vec![
-        heading,
-        format!("- System: {}", report.system_id),
-        format!(
-            "- Duration: {} · {failures} failures",
-            format_duration(duration)
-        ),
-    ];
-
-    let mut slowest: Vec<&StageSummary> = report
+    let measured: Vec<&StageSummary> = report
         .stages
         .iter()
         .filter(|stage| stage.status != StageStatus::Skipped && stage.count > 0)
         .collect();
+    let measured_ms: f64 = measured.iter().map(|stage| stage.total_ms).sum();
+    let mut lines = vec![
+        heading,
+        format!("- System: {}", report.system_id),
+        format!(
+            "- App: {} · build {}",
+            report.environment.app_version, report.environment.build
+        ),
+        format!(
+            "- OS: {}/{}",
+            report.environment.os, report.environment.arch
+        ),
+        format!(
+            "- CPU: {} · {} cores",
+            report.environment.cpu.as_deref().unwrap_or("unknown"),
+            report.environment.logical_cores
+        ),
+        format!(
+            "- GPU: {}",
+            report.environment.gpu.as_deref().unwrap_or("unknown")
+        ),
+        format!(
+            "- RAM: {}",
+            report
+                .environment
+                .memory_mb
+                .map(|memory| format!("{memory} MB"))
+                .unwrap_or_else(|| "unknown".to_owned())
+        ),
+        format!(
+            "- AI: {}",
+            report
+                .environment
+                .ai_provider
+                .as_deref()
+                .unwrap_or("unknown")
+        ),
+        format!("- Fixture: {}", report.environment.fixture_version),
+        format!(
+            "- Timing: {} elapsed · {} measured · {} stages · {failures} failures",
+            format!("{:.1} s", duration as f64 / 1_000.0),
+            format!("{:.1} s", measured_ms / 1_000.0),
+            measured.len()
+        ),
+    ];
+
+    let mut slowest = measured;
     slowest.sort_by(|left, right| right.total_ms.total_cmp(&left.total_ms));
     for stage in slowest.into_iter().take(3) {
         lines.push(format!(
-            "- {}: {} total · {}/run",
+            "- {}: {:.1} s total · {:.1} ms score · {:.1} ms typical",
             stage.label,
-            format_duration(stage.total_ms as u64),
-            format_duration(stage.median_ms as u64)
+            stage.total_ms / 1_000.0,
+            stage.total_ms / stage.count as f64,
+            stage.median_ms
         ));
     }
     if let Some(recommendation) = report.recommendations.first() {
@@ -977,16 +1016,6 @@ fn looks_like_exif_timestamp(value: &str) -> bool {
             && window[7] == b':'
             && window[8..10].iter().all(|byte| byte.is_ascii_digit())
     })
-}
-
-fn format_duration(milliseconds: u64) -> String {
-    if milliseconds < 1_000 {
-        format!("{milliseconds} ms")
-    } else if milliseconds < 60_000 {
-        format!("{:.1} s", milliseconds as f64 / 1_000.0)
-    } else {
-        format!("{:.1} min", milliseconds as f64 / 60_000.0)
-    }
 }
 
 fn truncate_utf8(value: &str, max_bytes: usize) -> String {
@@ -1392,7 +1421,7 @@ mod tests {
     }
 
     #[test]
-    fn shared_summary_shows_only_three_stages_one_tip_and_no_hardware_details() {
+    fn shared_summary_includes_benchmark_metadata_and_only_three_stages_one_tip() {
         let mut report = test_report();
         report.environment.gpu = Some("Private GPU model".to_owned());
         let mut stages = Vec::new();
@@ -1431,27 +1460,50 @@ mod tests {
         let lines: Vec<&str> = message.lines().collect();
         assert_eq!(lines[0], "Culltivate benchmark (quick)");
         assert_eq!(lines[1], "- System: Fern-482731");
-        assert_eq!(lines[2], "- Duration: 1.5 s · 0 failures");
-        assert_eq!(lines[3], "- Slow one: 100 ms total · 30 ms/run");
-        assert_eq!(lines[4], "- Slow two: 90 ms total · 25 ms/run");
-        assert_eq!(lines[5], "- Slow three: 80 ms total · 20 ms/run");
-        assert_eq!(lines[6], "- Suggestion: Investigate slow preview reuse");
-        assert_eq!(lines.len(), 7);
+        assert_eq!(lines[2], "- App: 0.6.1 · build test");
+        assert_eq!(lines[3], "- OS: linux/x86_64");
+        assert_eq!(
+            lines[4],
+            "- CPU: Intel(R) Core(TM) i7 CPU @ 2.80GHz · 8 cores"
+        );
+        assert_eq!(lines[5], "- GPU: Private GPU model");
+        assert_eq!(lines[6], "- RAM: 16384 MB");
+        assert_eq!(lines[7], "- AI: ONNX CPU");
+        assert_eq!(lines[8], "- Fixture: v1");
+        assert_eq!(
+            lines[9],
+            "- Timing: 1.5 s elapsed · 0.3 s measured · 4 stages · 0 failures"
+        );
+        assert_eq!(
+            lines[10],
+            "- Slow one: 0.1 s total · 33.3 ms score · 30.0 ms typical"
+        );
+        assert_eq!(
+            lines[11],
+            "- Slow two: 0.1 s total · 30.0 ms score · 25.0 ms typical"
+        );
+        assert_eq!(
+            lines[12],
+            "- Slow three: 0.1 s total · 26.7 ms score · 20.0 ms typical"
+        );
+        assert_eq!(lines[13], "- Suggestion: Investigate slow preview reuse");
+        assert_eq!(lines.len(), 14);
         for omitted in [
             "Hidden fourth",
-            "Private GPU model",
-            "Intel(R) Core",
-            "ONNX CPU",
             "Verbose evidence",
             "Second recommendation",
             "coverage",
         ] {
             assert!(
                 !message.contains(omitted),
-                "unexpected summary field: {omitted}"
+                "unexpected detail in summary: {omitted}"
             );
         }
-        assert!(message.len() <= 1_000);
+        assert!(message.contains("Private GPU model"));
+        assert!(message.contains("Intel(R) Core"));
+        assert!(message.contains("ONNX CPU"));
+        assert!(message.len() <= MAX_DIAGNOSTIC_SUMMARY_BYTES);
+        assert!(message.chars().count() <= 2_000);
     }
 
     #[test]
@@ -1658,7 +1710,7 @@ mod tests {
     }
 
     #[test]
-    fn shared_summary_caps_one_suggestion_and_stays_within_1000_utf8_bytes() {
+    fn shared_summary_caps_one_suggestion_and_stays_within_1900_utf8_bytes() {
         let mut report = test_report();
         report.recommendations = (0..MAX_RECOMMENDATIONS)
             .map(|index| Recommendation {
@@ -1671,6 +1723,58 @@ mod tests {
         let message = build_diagnostic_summary(&report);
         assert!(message.len() <= MAX_DIAGNOSTIC_SUMMARY_BYTES);
         assert!(message.ends_with('…'));
+        assert_eq!(message.matches("- Suggestion:").count(), 1);
+    }
+
+    #[test]
+    fn shared_summary_keeps_all_metadata_with_maximum_valid_field_sizes() {
+        let mut report = test_report();
+        report.system_id = "s".repeat(80);
+        report.finished_at_ms = report.started_at_ms + MAX_REPORT_AGE_MS;
+        report.environment.app_version = "a".repeat(40);
+        report.environment.build = "b".repeat(80);
+        report.environment.os = "o".repeat(40);
+        report.environment.arch = "x".repeat(40);
+        report.environment.cpu = Some("c".repeat(100));
+        report.environment.logical_cores = 512;
+        report.environment.gpu = Some("g".repeat(100));
+        report.environment.memory_mb = Some(16_777_216);
+        report.environment.ai_provider = Some("i".repeat(100));
+        report.environment.fixture_version = "f".repeat(40);
+        report.stages = (0..MAX_STAGES)
+            .map(|index| {
+                let mut stage = report.stages[0].clone();
+                stage.id = format!("stage-{index}");
+                stage.label = "L".repeat(100);
+                stage.count = 10_000_000;
+                stage.total_ms = 1.0e15;
+                stage.median_ms = 1.0e15;
+                stage.max_ms = 1.0e15;
+                stage.failures = 1_000_000;
+                stage.throughput_per_second = Some(1.0e15);
+                stage
+            })
+            .collect();
+        report.recommendations[0].action = "A".repeat(400);
+
+        assert!(validate_report(&report).is_ok());
+        let message = build_diagnostic_summary(&report);
+
+        assert!(message.len() <= MAX_DIAGNOSTIC_SUMMARY_BYTES);
+        assert!(message.chars().count() <= 2_000);
+        assert!(message.contains(&format!("- System: {}", "s".repeat(80))));
+        assert!(message.contains(&format!(
+            "- App: {} · build {}",
+            "a".repeat(40),
+            "b".repeat(80)
+        )));
+        assert!(message.contains(&format!("- OS: {}/{}", "o".repeat(40), "x".repeat(40))));
+        assert!(message.contains(&format!("- CPU: {} · 512 cores", "c".repeat(100))));
+        assert!(message.contains(&format!("- GPU: {}", "g".repeat(100))));
+        assert!(message.contains("- RAM: 16777216 MB"));
+        assert!(message.contains(&format!("- AI: {}", "i".repeat(100))));
+        assert!(message.contains(&format!("- Fixture: {}", "f".repeat(40))));
+        assert_eq!(message.matches("- LLLLL").count(), 3);
         assert_eq!(message.matches("- Suggestion:").count(), 1);
     }
 }

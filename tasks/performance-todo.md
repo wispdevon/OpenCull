@@ -16,6 +16,8 @@ See [measurements](performance-measurements.md) and the [feature guide](../docs/
 
 - [x] NVIDIA benchmark inference — Independent CUDA sessions, actual logical-device model name, observed per-stage provider usage, and benchmark-local fallback. RTX 3060 Ti Thorough, CPU-only and forced GPU-unavailable runs passed; CUDA/CPU output equivalence passed.
 
+- [x] System analytics in reports — Include app version/build, OS/architecture, CPU/cores, GPU, RAM, AI provider and fixture version alongside elapsed/measured totals in bounded notification summaries and approval previews.
+
 ## Measurement-led work completed
 
 - [x] Investigate preview/cache latency. Native cold/warm and foreground-under-active-background stages are implemented. Warm preview reads were below 0.1 ms on the measured machine; no cache-limit change is justified by these fixtures.
@@ -37,7 +39,7 @@ See [measurements](performance-measurements.md) and the [feature guide](../docs/
 
 ## Final gates
 
-- [x] Frontend tests: 165 passed, plus 11 launcher tests. CUDA-feature Rust suite: 372 passed, five optional/hardware tests ignored; isolated CUDA/CPU equivalence also passed explicitly on the RTX 3060 Ti.
+- [x] Frontend tests: 167 passed, plus 11 launcher tests. CUDA-feature Rust suite: 373 passed, five optional/hardware tests ignored; isolated CUDA/CPU equivalence also passed explicitly on the RTX 3060 Ti.
 - [x] Frontend production build and native debug no-bundle build pass. No lint script exists and none was claimed.
 - [x] Linux native self-test passes with a disposable photo set and isolated XDG profile; browser flow passes at 1440×1000 and 960×600 with no page errors or outbound non-local requests.
 - [x] Report privacy/consent, disabled networking, credentials and synthetic-fixture limits reviewed. Documentation links and fixture checksum verified.

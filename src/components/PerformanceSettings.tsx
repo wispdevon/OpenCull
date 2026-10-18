@@ -386,7 +386,7 @@ export function PerformanceSettings() {
           </DialogHeader>
           <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1 text-xs">
             <ul className="list-disc space-y-1 pl-4 text-muted-foreground">
-              <li>System ID, timings, failures and a short suggestion.</li>
+              <li>System ID, app/build, OS and architecture, CPU and cores, GPU, RAM, AI provider, fixture version, timings, failures and suggestions.</li>
               <li>Photos and filenames stay on this device.</li>
               <li>Benchmarks → culltivate-perf · session logs → culltivate-logs{previewWebhookConfigured ? " · webhook included" : ""}.</li>
             </ul>
