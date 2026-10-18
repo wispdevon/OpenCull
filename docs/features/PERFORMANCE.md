@@ -30,6 +30,12 @@ fixture preparation and cleanup. Throughput uses all successfully measured work.
 P95 is shown only for 20 or more samples. Expensive model stages use fewer
 samples. Failures have counts; raw exception messages are omitted.
 
+The horizontal timing breakdown shows each function's share of cumulative
+measured time. Functions totaling less than one second each are combined into
+**etc**; expand that group to inspect them. Colors stay tied to function IDs,
+and the legend includes labels and durations. Measured time can overlap in work
+recordings, so the bar is not an elapsed-time timeline.
+
 Cold and warm refer to the app's private preview/model caches, not a flushed OS
 filesystem cache. Run with the app and machine otherwise idle; the benchmark
 does not pause live scans. Compare the same mode, fixture version, build features and hardware,
@@ -65,22 +71,35 @@ before recording stops are omitted. An empty recording stays local.
 ## Optional reporting
 
 Diagnostic reporting is disabled until configured and approved. Configure a
-webhook URL and/or a full ntfy topic URL, such as `https://ntfy.sh/your-topic`,
+webhook URL and/or full ntfy topic URLs,
 then choose **Preview and approve**. The preview shows the outgoing webhook JSON
 and ntfy message. It includes app/build and anonymous hardware context, aggregate
 results, coverage and evidence-linked recommendations; sample arrays and stage
 details are not sent. The app never uploads photos.
+
+Benchmark summaries default to `https://ntfy.sh/culltivate-perf`; sanitized
+work-session operation logs default to `https://ntfy.sh/culltivate-logs`.
+Both include a stable, randomly generated installation alias such as
+`calm-otter-123456`. This is unrelated to the hostname, account or hardware
+serial number. Raw application logs and photo paths are not uploaded.
 
 Approval enables automatic reporting after completed benchmarks and stopped
 recordings for the current app session. Endpoint changes or payload-version
 changes require a new preview. Restarting the app requires approval again.
 The most recent report remains available for local export or manual retry.
 
-The webhook receives aggregate JSON. The ntfy endpoint receives a compact
+Generic webhooks receive aggregate JSON. Discord execute-webhook destinations
+receive a supported compact message payload with mentions disabled. The preview
+shows the exact payload for the configured destination. The ntfy endpoint receives a compact
 summary, bounded to 3,500 UTF-8 bytes. Both use HTTP POST. Remote destinations
 require HTTPS; loopback HTTP is supported for local testing. Optional bearer
 tokens remain in memory and are excluded from settings exports. URL settings
 also stay out of portable settings backups.
+
+The webhook URL is stored base64-encoded in local preferences and masked in the
+settings field. Encoding prevents a plain URL from appearing in the file; it is
+not encryption. No configured webhook credential is embedded in the application
+source or browser bundle.
 
 Each destination has its own outcome. Requests have a ten-second timeout and
 redirects are refused. Delivery failures do not invalidate measurements or

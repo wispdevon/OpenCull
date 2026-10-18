@@ -5,10 +5,11 @@ See [measurements](performance-measurements.md) and the [feature guide](../docs/
 
 ## Implemented and verified
 
+- [x] Timing overview follow-up — Horizontal function colors, cumulative duration/share legend and expandable **etc** for functions below one second each. Separate benchmark/log ntfy topics, random readable installation ID, locally encoded webhook preferences and Discord-compatible delivery. Threshold, identity/storage, routing, preview and local mock delivery regressions cover the change.
 - [x] P0 — Typed stage measurements, aggregate reports, rankings and evidence-linked suggestions. Owner: coordinator. Privacy tests exclude unknown fields, samples and raw stage details from delivery.
 - [x] P0 — Isolated Quick/Thorough native runner. Owner: native agent. Thirty native stages, generated 24 MP fixtures, private caches and sessions, active background-load observation, real bundled face inference, bounded runs, cancellation and cleanup. Native integration and repeated runtime runs pass.
 - [x] P0 — Settings → Performance. Owner: UI agent. Run/cancel/progress, median/total rankings, p95 only with 20+ samples, coverage, suggestions, recording, export and reporting preview. Frontend build/tests and Chromium interaction checks pass.
-- [x] P0 — Approved webhook/ntfy reporting. Owner: reporting agent. Exact payload preview, per-session field/destination approval, memory-only credentials, aggregate JSON/compact summary, bounded requests and independent results. Ten local mock-server tests pass; no real diagnostic destination was contacted.
+- [x] P0 — Approved webhook/ntfy reporting. Owner: reporting agent. Exact payload preview, per-session field/destination approval, memory-only bearer tokens, aggregate JSON/compact summary, bounded requests and independent results. Local mock-server tests pass; no real diagnostic destination was contacted.
 - [x] P1 — Bounded opt-in workflow recording. Owner: coordinator. Fixed operation names, at most 500 completed request timings per operation, no arguments or raw errors. Delivery is asynchronous; empty recordings stay local. Consent changes invalidate queued sends and stale completion updates.
 
 ## Measurement-led work completed
@@ -32,7 +33,7 @@ See [measurements](performance-measurements.md) and the [feature guide](../docs/
 
 ## Final gates
 
-- [x] Frontend tests: 136 passed, plus 11 launcher tests. Full Rust suite: 357 passed, one existing optional-model test ignored.
+- [x] Frontend tests: 145 passed, plus 11 launcher tests. Full Rust suite: 360 passed, one existing optional-model test ignored.
 - [x] Frontend production build and native debug no-bundle build pass. No lint script exists and none was claimed.
 - [x] Linux native self-test passes with a disposable photo set and isolated XDG profile; browser flow passes at 1440×1000 and 960×600 with no page errors or outbound non-local requests.
 - [x] Report privacy/consent, disabled networking, credentials and synthetic-fixture limits reviewed. Documentation links and fixture checksum verified.

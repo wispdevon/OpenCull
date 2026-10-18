@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Activity, Download, RotateCcw, ShieldCheck } from "lucide-react";
+import { Activity, ChevronDown, Download, RotateCcw, ShieldCheck } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { inTauri } from "@/lib/api";
@@ -24,11 +24,13 @@ import {
   type Recommendation,
   type StageSummary,
 } from "@/lib/performance";
+import { getSystemId, loadWebhookUrl, saveWebhookUrl, DEFAULT_LOGS_NTFY_URL, DEFAULT_PERF_NTFY_URL } from "@/lib/performance-preferences";
 import {
   getLatestReport,
   performanceApi,
   subscribePerformance,
 } from "@/lib/performance-api";
+import { ETC_THRESHOLD_MS, timingBreakdown } from "@/lib/performance-breakdown";
 
 let sessionWebhookToken = "";
 let sessionNtfyToken = "";
@@ -51,8 +53,10 @@ export function PerformanceSettings() {
   const [rankBy, setRankBy] = useState<"total" | "latency">("total");
   const [recording, setRecording] = useState(() => performanceApi.isRecording());
   const [reporting, setReporting] = useState(() => performanceApi.reportingState());
-  const [webhookUrl, setWebhookUrl] = useState(() => load("performanceWebhookUrl", ""));
-  const [ntfyUrl, setNtfyUrl] = useState(() => load("performanceNtfyUrl", ""));
+  const [systemId] = useState(() => getSystemId());
+  const [webhookUrl, setWebhookUrl] = useState(() => loadWebhookUrl());
+  const [ntfyUrl, setNtfyUrl] = useState(() => load("performanceNtfyUrl", DEFAULT_PERF_NTFY_URL));
+  const [logsUrl, setLogsUrl] = useState(() => load("performanceLogsNtfyUrl", DEFAULT_LOGS_NTFY_URL));
   const [webhookToken, setWebhookToken] = useState(sessionWebhookToken);
   const [ntfyToken, setNtfyToken] = useState(sessionNtfyToken);
   const [busy, setBusy] = useState(false);
@@ -62,6 +66,8 @@ export function PerformanceSettings() {
   const [previewReport, setPreviewReport] = useState<BenchmarkReport | null>(null);
   const [previewPayload, setPreviewPayload] = useState<{ webhookJson: string; ntfyMessage: string } | null>(null);
   const [approval, setApproval] = useState("");
+  const destinationRevision = useRef(0);
+  const previewDestinations = useRef<{ webhook: string; ntfy: string; logs: string } | null>(null);
 
   const refresh = useCallback(async () => {
     if (refreshInFlight.current) return;
@@ -156,24 +162,40 @@ export function PerformanceSettings() {
     }
   };
 
-  const changeDestination = (kind: "webhook" | "ntfy", value: string) => {
+  const changeDestination = (kind: "webhook" | "ntfy" | "logs", value: string) => {
+    destinationRevision.current += 1;
+    previewDestinations.current = null;
+    setPreviewOpen(false);
     invalidateApproval();
     if (kind === "webhook") {
       setWebhookUrl(value);
-      save("performanceWebhookUrl", value);
-    } else {
+      saveWebhookUrl(value);
+    } else if (kind === "ntfy") {
       setNtfyUrl(value);
       save("performanceNtfyUrl", value);
+    } else {
+      setLogsUrl(value);
+      save("performanceLogsNtfyUrl", value);
     }
   };
 
   const reviewDestinations = async () => {
+    const revision = destinationRevision.current;
+    const destinations = { webhook: webhookUrl.trim(), ntfy: ntfyUrl.trim(), logs: logsUrl.trim() };
     setPreviewLoading(true);
     setError(null);
     try {
-      const example = getLatestReport() ?? await performanceApi.previewReport();
+      let example = getLatestReport() ?? await performanceApi.previewReport();
+      if (!destinations.ntfy && destinations.logs && example.kind !== "recording") {
+        example = { ...example, kind: "recording", mode: null };
+      } else if (destinations.ntfy && !destinations.logs && example.kind !== "benchmark") {
+        example = { ...example, kind: "benchmark", mode: "quick" };
+      }
+      const payload = await performanceApi.previewPayload(diagnosticReport(example), destinations.webhook);
+      if (revision !== destinationRevision.current) return;
+      previewDestinations.current = destinations;
       setPreviewReport(example);
-      setPreviewPayload(await performanceApi.previewPayload(diagnosticReport(example)));
+      setPreviewPayload(payload);
       setPreviewOpen(true);
     } catch (cause) {
       setError(readableError(cause));
@@ -183,11 +205,14 @@ export function PerformanceSettings() {
   };
 
   const approveDestinations = async () => {
+    const destinations = previewDestinations.current;
+    if (!destinations) return;
     setBusy(true);
     setError(null);
     try {
-      const token = await performanceApi.approve(webhookUrl.trim(), ntfyUrl.trim());
+      const token = await performanceApi.approve(destinations.webhook, destinations.ntfy, destinations.logs);
       setApproval(token);
+      previewDestinations.current = null;
       setPreviewOpen(false);
       await refresh();
     } catch (cause) {
@@ -240,10 +265,11 @@ export function PerformanceSettings() {
   const previewDiagnostic = previewReport ? diagnosticReport(previewReport) : null;
   const activeReport = report ?? status.report;
   const ranked = activeReport ? rankedStages(activeReport, rankBy) : [];
+  const totalRanked = activeReport ? rankedStages(activeReport, "total") : [];
   const showP95 = ranked.some((stage) => stage.p95Ms !== null);
   const suggestions = activeReport ? recommendations(activeReport) : [];
   const isRunning = status.state === "running";
-  const hasDestination = Boolean(webhookUrl.trim() || ntfyUrl.trim());
+  const hasDestination = Boolean(webhookUrl.trim() || ntfyUrl.trim() || logsUrl.trim());
   const canStartBenchmark = !isRunning && !recording && !busy;
 
   return (
@@ -328,6 +354,9 @@ export function PerformanceSettings() {
       <ReportingSection
         webhookUrl={webhookUrl}
         ntfyUrl={ntfyUrl}
+        logsUrl={logsUrl}
+        systemId={systemId}
+        ntfyLabel={reporting.reportKind === "recording" ? "Logs topic" : "Performance ntfy"}
         webhookToken={webhookToken}
         ntfyToken={ntfyToken}
         reporting={reporting}
@@ -337,6 +366,7 @@ export function PerformanceSettings() {
         busy={busy}
         onWebhookUrl={(value) => changeDestination("webhook", value)}
         onNtfyUrl={(value) => changeDestination("ntfy", value)}
+        onLogsUrl={(value) => changeDestination("logs", value)}
         onWebhookToken={(value) => {
           sessionWebhookToken = value;
           setWebhookToken(value);
@@ -358,6 +388,7 @@ export function PerformanceSettings() {
         <ReportResults
           report={activeReport}
           ranked={ranked}
+          totalRanked={totalRanked}
           rankBy={rankBy}
           showP95={showP95}
           suggestions={suggestions}
@@ -366,7 +397,7 @@ export function PerformanceSettings() {
         />
       )}
 
-      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+      <Dialog open={previewOpen} onOpenChange={(open) => { if (!open) previewDestinations.current = null; setPreviewOpen(open); }}>
         <DialogContent className="flex max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] flex-col overflow-hidden sm:max-w-3xl">
           <DialogHeader className="shrink-0">
             <DialogTitle>Review diagnostic reporting</DialogTitle>
@@ -376,17 +407,30 @@ export function PerformanceSettings() {
           </DialogHeader>
           <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1 text-xs">
             <p className="rounded-md border border-border bg-muted/30 p-3 leading-relaxed">
-              Included: app/build, OS and hardware availability, aggregate stage timings and failure counts, coverage, and measured recommendations. No photos, filenames, photo paths, EXIF, raw error text, endpoints, or bearer credentials are included in the report payload.
+              Included: system ID, app/build, OS and hardware availability, aggregate stage timings and failure counts, coverage, and measured recommendations. No photos, filenames, photo paths, EXIF, raw error text, endpoints, or bearer credentials are included in the report payload. Benchmarks use the performance ntfy topic; work-session recordings use the logs topic.
             </p>
             {previewDiagnostic && previewPayload && webhookUrl.trim() && (
-              <PreviewBlock title={`Webhook JSON · ${webhookUrl.trim()}`} value={previewPayload.webhookJson} />
+              <PreviewBlock title="Webhook payload preview" value={previewPayload.webhookJson} />
             )}
-            {previewDiagnostic && previewPayload && ntfyUrl.trim() && (
-              <PreviewBlock title={`ntfy message · ${ntfyUrl.trim()}`} value={previewPayload.ntfyMessage} />
+            {previewDiagnostic && previewPayload && (ntfyUrl.trim() || logsUrl.trim()) && (
+              <PreviewBlock
+                title={`${previewReport?.kind === "recording" ? "Logs" : "Performance"} ntfy message preview`}
+                value={previewPayload.ntfyMessage}
+              />
+            )}
+            {previewDiagnostic && previewPayload && logsUrl.trim() && previewReport?.kind !== "recording" && (
+              <p className="rounded-md border border-border bg-muted/30 p-3 leading-relaxed">
+                This preview covers a benchmark. Work-session recording summaries use the configured logs topic and the same aggregate fields.
+              </p>
+            )}
+            {previewDiagnostic && previewPayload && ntfyUrl.trim() && previewReport?.kind === "recording" && (
+              <p className="rounded-md border border-border bg-muted/30 p-3 leading-relaxed">
+                This preview covers a work-session recording. Benchmark summaries use the configured performance topic and the same aggregate fields.
+              </p>
             )}
           </div>
           <DialogFooter className="shrink-0">
-            <Button variant="outline" disabled={busy} onClick={() => setPreviewOpen(false)}>Cancel</Button>
+            <Button variant="outline" disabled={busy} onClick={() => { previewDestinations.current = null; setPreviewOpen(false); }}>Cancel</Button>
             <Button disabled={busy || !hasDestination || !inTauri} onClick={() => void approveDestinations()}>
               <ShieldCheck aria-hidden="true" />
               Approve and enable
@@ -401,6 +445,9 @@ export function PerformanceSettings() {
 function ReportingSection({
   webhookUrl,
   ntfyUrl,
+  logsUrl,
+  systemId,
+  ntfyLabel,
   webhookToken,
   ntfyToken,
   reporting,
@@ -410,6 +457,7 @@ function ReportingSection({
   busy,
   onWebhookUrl,
   onNtfyUrl,
+  onLogsUrl,
   onWebhookToken,
   onNtfyToken,
   onReview,
@@ -418,6 +466,9 @@ function ReportingSection({
 }: {
   webhookUrl: string;
   ntfyUrl: string;
+  logsUrl: string;
+  systemId: string;
+  ntfyLabel: string;
   webhookToken: string;
   ntfyToken: string;
   reporting: ReturnType<typeof performanceApi.reportingState>;
@@ -427,6 +478,7 @@ function ReportingSection({
   busy: boolean;
   onWebhookUrl: (value: string) => void;
   onNtfyUrl: (value: string) => void;
+  onLogsUrl: (value: string) => void;
   onWebhookToken: (value: string) => void;
   onNtfyToken: (value: string) => void;
   onReview: () => void;
@@ -441,7 +493,7 @@ function ReportingSection({
         <div className="max-w-xl">
           <h2 id="performance-reporting-heading" className="text-sm font-semibold text-foreground">Optional diagnostic reporting</h2>
           <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-            Reports stay on this device unless you configure and approve a destination. Webhook gets aggregate JSON; ntfy gets a compact summary. Each destination reports its own delivery status.
+            Reports stay on this device unless you approve delivery. Benchmark summaries use the performance ntfy topic, while work-session recordings use the logs topic. The optional webhook receives a compact aggregate report.
           </p>
         </div>
         <div className="flex shrink-0 gap-2">
@@ -455,16 +507,26 @@ function ReportingSection({
         </div>
       </div>
 
+      <dl className="mt-3 flex flex-wrap items-baseline gap-x-2 text-xs">
+        <dt className="text-muted-foreground">System ID</dt>
+        <dd className="font-mono font-medium text-foreground" title="Random installation identifier; it contains no hardware or hostname information.">{systemId}</dd>
+      </dl>
+
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
         <label className="space-y-1.5 text-xs font-medium text-foreground">
-          <span>Webhook URL</span>
-          <input className="h-8 w-full min-w-0 rounded-md border border-input bg-background px-2.5 py-1 text-xs text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/50" type="url" autoComplete="url" placeholder="https://example.com/diagnostics" value={webhookUrl} onChange={(event) => onWebhookUrl(event.currentTarget.value)} />
-          <span className="block font-normal leading-relaxed text-muted-foreground">Receives the structured aggregate report.</span>
+          <span>Discord or webhook URL</span>
+          <input className="h-8 w-full min-w-0 rounded-md border border-input bg-background px-2.5 py-1 text-xs text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/50" type="password" autoComplete="new-password" disabled={busy || previewLoading} placeholder="Configured webhook (masked)" value={webhookUrl} onChange={(event) => onWebhookUrl(event.currentTarget.value)} />
+          <span className="block font-normal leading-relaxed text-muted-foreground">Stored locally in encoded form, not as a public endpoint in the app bundle. Review it with the aggregate preview.</span>
         </label>
         <label className="space-y-1.5 text-xs font-medium text-foreground">
-          <span>ntfy topic URL</span>
-          <input className="h-8 w-full min-w-0 rounded-md border border-input bg-background px-2.5 py-1 text-xs text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/50" type="url" autoComplete="url" placeholder="https://ntfy.sh/my-topic" value={ntfyUrl} onChange={(event) => onNtfyUrl(event.currentTarget.value)} />
-          <span className="block font-normal leading-relaxed text-muted-foreground">Receives a short status and the slowest measured stages.</span>
+          <span>Performance ntfy topic</span>
+          <input className="h-8 w-full min-w-0 rounded-md border border-input bg-background px-2.5 py-1 text-xs text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/50" type="url" autoComplete="url" disabled={busy || previewLoading} placeholder={DEFAULT_PERF_NTFY_URL} value={ntfyUrl} onChange={(event) => onNtfyUrl(event.currentTarget.value)} />
+          <span className="block font-normal leading-relaxed text-muted-foreground">Receives benchmark summaries.</span>
+        </label>
+        <label className="space-y-1.5 text-xs font-medium text-foreground">
+          <span>Logs ntfy topic</span>
+          <input className="h-8 w-full min-w-0 rounded-md border border-input bg-background px-2.5 py-1 text-xs text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/50" type="url" autoComplete="url" disabled={busy || previewLoading} placeholder={DEFAULT_LOGS_NTFY_URL} value={logsUrl} onChange={(event) => onLogsUrl(event.currentTarget.value)} />
+          <span className="block font-normal leading-relaxed text-muted-foreground">Receives bounded work-session timing summaries.</span>
         </label>
         <label className="space-y-1.5 text-xs font-medium text-foreground">
           <span>Webhook bearer token <span className="font-normal text-muted-foreground">(optional)</span></span>
@@ -481,15 +543,15 @@ function ReportingSection({
       <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-border/70 pt-3">
         <div className="min-w-0 flex-1" aria-live="polite">
           {reporting.approved ? (
-            <p className="text-xs text-foreground">Approved for {destinationNames(reporting.webhookUrl, reporting.ntfyUrl)}{reporting.sending ? " · sending…" : ""}</p>
+            <p className="text-xs text-foreground">Approved for {destinationNames(reporting.webhookUrl, reporting.ntfyUrl, reporting.logsUrl)}{reporting.sending ? " · sending…" : ""}</p>
           ) : (
             <p className="text-xs text-muted-foreground">Automatic delivery is off until you review the payload and approve a destination.</p>
           )}
           {reporting.error && <p className="mt-1 text-xs text-destructive">{reporting.error}</p>}
           {reporting.reportId && <p className="mt-1 break-all text-[11px] text-muted-foreground">Latest report: {reporting.reportId}</p>}
         </div>
-        {result && <DeliverySummary result={result} />}
-        {failed && reporting.approved && <Button size="sm" variant="outline" disabled={busy || reporting.sending} onClick={onRetry}><RotateCcw aria-hidden="true" />Retry delivery</Button>}
+        {result && <DeliverySummary result={result} ntfyLabel={ntfyLabel} />}
+        {failed && reporting.approved && <Button size="sm" variant="outline" disabled={busy || reporting.sending} onClick={onRetry}><RotateCcw aria-hidden="true" />Retry latest report</Button>}
       </div>
     </section>
   );
@@ -498,6 +560,7 @@ function ReportingSection({
 function ReportResults({
   report,
   ranked,
+  totalRanked,
   rankBy,
   showP95,
   suggestions,
@@ -506,6 +569,7 @@ function ReportResults({
 }: {
   report: BenchmarkReport;
   ranked: StageSummary[];
+  totalRanked: StageSummary[];
   rankBy: "total" | "latency";
   showP95: boolean;
   suggestions: Recommendation[];
@@ -514,6 +578,9 @@ function ReportResults({
 }) {
   const durationMs = Math.max(0, report.finishedAtMs - report.startedAtMs);
   const failedStages = report.stages.filter((stage) => stage.status === "failed" || stage.failures > 0).length;
+  const majorStages = ranked.filter((stage) => stage.totalMs >= ETC_THRESHOLD_MS);
+  const minorStages = ranked.filter((stage) => stage.totalMs < ETC_THRESHOLD_MS);
+  const minorTotalMs = minorStages.reduce((sum, stage) => sum + stage.totalMs, 0);
   return (
     <section className="space-y-3" aria-labelledby="performance-results-heading">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -528,11 +595,13 @@ function ReportResults({
 
       <EnvironmentSummary report={report} />
 
+      <TimingOverview reportId={report.id} stages={totalRanked} elapsedMs={durationMs} />
+
       <div className="rounded-lg border border-border p-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h3 className="text-xs font-semibold">Measured stages</h3>
-            <p className="mt-0.5 text-[11px] text-muted-foreground">Total cost ranks cumulative time. Typical latency ranks median sample time. Nested workflow totals are reported separately from stages.</p>
+            <p className="mt-0.5 text-[11px] text-muted-foreground">Total cost ranks cumulative time; typical latency ranks median sample time. Expand “etc” for sample and P95 details on functions under one second. Nested workflow totals are separate from stages.</p>
           </div>
           <div className="flex gap-1" role="group" aria-label="Rank stages by">
             <Button size="sm" variant={rankBy === "total" ? "secondary" : "ghost"} aria-pressed={rankBy === "total"} onClick={() => onRankBy("total")}>Total cost</Button>
@@ -542,21 +611,33 @@ function ReportResults({
         {ranked.length ? (
           <div className="mt-3 overflow-x-auto">
             <table className="w-full min-w-[720px] border-collapse text-left text-xs">
-              <thead className="text-[11px] text-muted-foreground">
-                <tr className="border-b border-border">
-                  <th className="py-2 pr-3 font-medium">Stage</th>
-                  <th className="px-2 py-2 font-medium">Cache</th>
-                  <th className="px-2 py-2 text-right font-medium">Samples</th>
-                  <th className="px-2 py-2 text-right font-medium">Total</th>
-                  <th className="px-2 py-2 text-right font-medium">Median</th>
-                  <th className="px-2 py-2 text-right font-medium">Max</th>
-                  {showP95 && <th className="px-2 py-2 text-right font-medium" title="Shown only when there are at least 20 samples">P95</th>}
-                  <th className="px-2 py-2 text-right font-medium">Throughput</th>
-                  <th className="pl-2 py-2 text-right font-medium">Failures</th>
-                </tr>
-              </thead>
+              <caption className="sr-only">Measured function stages and their timing and reliability data</caption>
+              <StageTableHead showP95={showP95} />
               <tbody>
-                {ranked.map((stage, index) => <StageRow key={`${stage.id}-${index}`} stage={stage} detail={report.stages.find((entry) => entry.id === stage.id)?.detail ?? null} rank={index + 1} showP95={showP95} />)}
+                {majorStages.map((stage) => <StageRow key={stage.id} stage={stage} detail={report.stages.find((entry) => entry.id === stage.id)?.detail ?? null} rank={ranked.indexOf(stage) + 1} showP95={showP95} />)}
+                {minorStages.length > 0 && (
+                  <tr>
+                    <td colSpan={showP95 ? 9 : 8} className="py-2">
+                      <details className="group rounded-md border border-border/70 bg-muted/20 px-2 py-1.5">
+                        <summary className="flex cursor-pointer list-none flex-wrap items-center gap-2 [&::-webkit-details-marker]:hidden">
+                          <span className="font-medium">etc</span>
+                          <span className="text-muted-foreground">· {minorStages.length} stages with totals under 1 second each</span>
+                          <span className="ml-auto tabular-nums text-muted-foreground">{formatDuration(minorTotalMs)} combined</span>
+                          <ChevronDown aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />
+                        </summary>
+                        <div className="mt-2 overflow-x-auto border-t border-border/70 pt-1">
+                          <table className="w-full min-w-[720px] border-collapse text-left text-xs">
+                            <caption className="sr-only">Individual stages grouped under etc, each below one second</caption>
+                            <StageTableHead showP95={showP95} />
+                            <tbody>
+                              {minorStages.map((stage) => <StageRow key={stage.id} stage={stage} detail={report.stages.find((entry) => entry.id === stage.id)?.detail ?? null} rank={ranked.indexOf(stage) + 1} showP95={showP95} />)}
+                            </tbody>
+                          </table>
+                        </div>
+                      </details>
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
@@ -567,6 +648,110 @@ function ReportResults({
 
       <CoverageResults coverage={report.coverage} />
       <RecommendationsResults recommendations={suggestions} />
+    </section>
+  );
+}
+
+function StageTableHead({ showP95 }: { showP95: boolean }) {
+  return (
+    <thead className="text-[11px] text-muted-foreground">
+      <tr className="border-b border-border">
+        <th scope="col" className="py-2 pr-3 font-medium">Stage</th>
+        <th scope="col" className="px-2 py-2 font-medium">Cache</th>
+        <th scope="col" className="px-2 py-2 text-right font-medium">Samples</th>
+        <th scope="col" className="px-2 py-2 text-right font-medium">Total</th>
+        <th scope="col" className="px-2 py-2 text-right font-medium">Median</th>
+        <th scope="col" className="px-2 py-2 text-right font-medium">Max</th>
+        {showP95 && <th scope="col" className="px-2 py-2 text-right font-medium" title="Shown only when there are at least 20 samples">P95</th>}
+        <th scope="col" className="px-2 py-2 text-right font-medium">Throughput</th>
+        <th scope="col" className="pl-2 py-2 text-right font-medium">Failures</th>
+      </tr>
+    </thead>
+  );
+}
+
+function TimingOverview({ reportId, stages, elapsedMs }: { reportId: string; stages: StageSummary[]; elapsedMs: number }) {
+  const breakdown = timingBreakdown(stages);
+  if (!breakdown.totalMs) {
+    return (
+      <section className="rounded-lg border border-border p-3" aria-labelledby="performance-timing-heading">
+        <h3 id="performance-timing-heading" className="text-xs font-semibold">Where measured time went</h3>
+        <p className="mt-2 text-xs text-muted-foreground">No completed function timings are available for this report.</p>
+      </section>
+    );
+  }
+
+  const barSegments = [...breakdown.functions, ...(breakdown.etc ? [breakdown.etc] : [])];
+  const listId = `performance-timing-legend-${safeFilePart(reportId)}`;
+  const etcLabel = breakdown.minorFunctions.length === 1 ? "function" : "functions";
+  return (
+    <section className="rounded-lg border border-border p-3" aria-labelledby="performance-timing-heading">
+      <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1">
+        <div>
+          <h3 id="performance-timing-heading" className="text-xs font-semibold">Where measured time went</h3>
+          <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+            Each color is one measured function, sized by cumulative time. Functions with a cumulative total below one second are grouped as “etc.” Stage time can overlap, so the measured sum may differ from elapsed time.
+          </p>
+        </div>
+        <dl className="flex gap-4 text-xs tabular-nums">
+          <div><dt className="text-[11px] text-muted-foreground">Measured</dt><dd className="font-medium text-foreground">{formatDuration(breakdown.totalMs)}</dd></div>
+          <div><dt className="text-[11px] text-muted-foreground">Elapsed</dt><dd className="font-medium text-foreground">{formatDuration(elapsedMs)}</dd></div>
+        </dl>
+      </div>
+
+      <figure className="mt-3">
+        <div
+          className="flex h-6 w-full overflow-hidden rounded-md border border-border bg-muted/40"
+          role="img"
+          aria-label={`Horizontal time breakdown: ${breakdown.functions.length} functions with cumulative totals of at least one second and ${breakdown.minorFunctions.length} shorter functions grouped as etc.`}
+          aria-describedby={listId}
+        >
+          {barSegments.map((segment) => (
+            <span
+              key={segment.id}
+              className="h-full min-w-0 border-r border-background/70 last:border-r-0"
+              style={{ width: `${segment.sharePercent}%`, backgroundColor: segment.color }}
+              title={`${segment.label}: ${formatDuration(segment.totalMs)} (${segment.sharePercent.toFixed(1)}%)`}
+              aria-hidden="true"
+            />
+          ))}
+        </div>
+        <figcaption className="mt-1.5 text-[11px] text-muted-foreground">
+          The bar covers {formatDuration(breakdown.totalMs)} of recorded stage time across {stages.length} measured functions.
+        </figcaption>
+      </figure>
+
+      <ul id={listId} className="mt-3 grid gap-2 text-xs sm:grid-cols-2">
+        {breakdown.functions.map((segment) => (
+          <li key={segment.id} className="flex min-w-0 items-center gap-2">
+            <span className="size-2.5 shrink-0 rounded-sm border border-foreground/15" style={{ backgroundColor: segment.color }} aria-hidden="true" />
+            <span className="min-w-0 flex-1 truncate" title={segment.label}>{segment.label}</span>
+            <span className="shrink-0 tabular-nums text-muted-foreground">{formatDuration(segment.totalMs)} · {segment.sharePercent.toFixed(1)}%</span>
+          </li>
+        ))}
+        {breakdown.etc && (
+          <li className="sm:col-span-2">
+            <details className="group rounded-md border border-border/70 bg-muted/20 px-2 py-1.5">
+              <summary className="flex cursor-pointer list-none flex-wrap items-center gap-2 [&::-webkit-details-marker]:hidden">
+                <span className="size-2.5 shrink-0 rounded-sm border border-foreground/15" style={{ backgroundColor: breakdown.etc.color }} aria-hidden="true" />
+                <span className="font-medium">etc</span>
+                <span className="text-muted-foreground">· {breakdown.minorFunctions.length} {etcLabel} under 1 second each</span>
+                <span className="ml-auto tabular-nums text-muted-foreground">{formatDuration(breakdown.etc.totalMs)} · {breakdown.etc.sharePercent.toFixed(1)}%</span>
+                <ChevronDown aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />
+              </summary>
+              <ul className="mt-2 grid gap-2 border-t border-border/70 pt-2 text-[11px] sm:grid-cols-2">
+                {breakdown.minorFunctions.map((segment) => (
+                  <li key={segment.id} className="flex min-w-0 items-center gap-2">
+                    <span className="size-2.5 shrink-0 rounded-sm border border-foreground/15" style={{ backgroundColor: segment.color }} aria-hidden="true" />
+                    <span className="min-w-0 flex-1 truncate" title={segment.label}>{segment.label}</span>
+                    <span className="shrink-0 tabular-nums text-muted-foreground">{formatDuration(segment.totalMs)} · {segment.sharePercent.toFixed(1)}%</span>
+                  </li>
+                ))}
+              </ul>
+            </details>
+          </li>
+        )}
+      </ul>
     </section>
   );
 }
@@ -669,11 +854,11 @@ function RecommendationsResults({ recommendations: items }: { recommendations: R
   );
 }
 
-function DeliverySummary({ result }: { result: DeliveryResult }) {
+function DeliverySummary({ result, ntfyLabel }: { result: DeliveryResult; ntfyLabel: string }) {
   return (
     <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px]" aria-live="polite">
       <span>Webhook: <DeliveryStatus status={result.webhook.status} />{result.webhook.error && <span className="ml-1 text-destructive" title={result.webhook.error}>({clip(result.webhook.error)})</span>}</span>
-      <span>ntfy: <DeliveryStatus status={result.ntfy.status} />{result.ntfy.error && <span className="ml-1 text-destructive" title={result.ntfy.error}>({clip(result.ntfy.error)})</span>}</span>
+      <span>{ntfyLabel}: <DeliveryStatus status={result.ntfy.status} />{result.ntfy.error && <span className="ml-1 text-destructive" title={result.ntfy.error}>({clip(result.ntfy.error)})</span>}</span>
     </div>
   );
 }
@@ -692,8 +877,8 @@ function PreviewBlock({ title, value }: { title: string; value: string }) {
   );
 }
 
-function destinationNames(webhook: string, ntfy: string): string {
-  const destinations = [webhook && "webhook", ntfy && "ntfy"].filter(Boolean);
+function destinationNames(webhook: string, ntfy: string, logs: string): string {
+  const destinations = [webhook && "webhook", ntfy && "performance ntfy", logs && "logs ntfy"].filter(Boolean);
   return destinations.length ? destinations.join(" and ") : "no destinations";
 }
 

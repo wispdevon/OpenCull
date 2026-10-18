@@ -18,6 +18,15 @@ beforeEach(() => {
 afterEach(() => { delete (window as unknown as Record<string, unknown>).__TAURI_INTERNALS__; });
 
 describe("performance controller", () => {
+  it("approves distinct performance and log topics with the current system-ID schema", async () => {
+    const { performanceApi } = await import("./performance-api");
+    await performanceApi.approve("https://example.com/hook", "https://ntfy.sh/culltivate-perf", "https://ntfy.sh/culltivate-logs");
+    expect(invoke).toHaveBeenCalledWith("diagnostics_approve", {
+      webhookUrl: "https://example.com/hook", ntfyUrl: "https://ntfy.sh/culltivate-perf",
+      logsUrl: "https://ntfy.sh/culltivate-logs", fieldsVersion: 2,
+    });
+    expect(performanceApi.reportingState().logsUrl).toBe("https://ntfy.sh/culltivate-logs");
+  });
   it("explains invalid reporting destinations without sending a report", async () => {
     const { performanceApi } = await import("./performance-api");
     invoke.mockRejectedValueOnce("https_required");
@@ -48,6 +57,7 @@ describe("performance controller", () => {
     expect(send.report.stages[0].count).toBe(1);
     expect(JSON.stringify(send.report)).not.toMatch(/private|photo\.jpg|samplesMs|Token/);
     expect(performanceApi.reportingState().result?.webhook.status).toBe("sent");
+    expect(performanceApi.reportingState().reportKind).toBe("recording");
   });
   it("revokes consent immediately and keeps further recordings local", async () => {
     const { performanceApi } = await import("./performance-api");

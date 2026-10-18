@@ -29,6 +29,7 @@ describe("performance reports", () => {
     const json = JSON.stringify(diagnosticReport(input));
     expect(json).not.toMatch(/private|secret|samplesMs|detail|hostname/);
     expect(JSON.parse(json).stages[0].count).toBe(1);
+    expect(JSON.parse(json)).toMatchObject({ schemaVersion: 2, systemId: expect.stringMatching(/^[a-z]+-[a-z]+-\d{6}$/) });
   });
   it("prioritizes reliability failures even without completed samples", () => {
     const suggestions = recommendations(exampleReport([stage([], { failures: 2, status: "failed" })]));

@@ -3,6 +3,11 @@ import { exportSettings, parseSettingsImport } from "./settings-transfer";
 import wisp from "./presets/wisp.json";
 const document = (values: unknown, version = 1) => JSON.stringify({ format: "opencull-settings", version, values });
 describe("portable settings", () => {
+  it("keeps diagnostic endpoints, encoded credentials and installation identity out of backups", () => {
+    const values = { theme: "dark", performanceWebhookEncoded: "encoded-credential", performanceWebhookUrl: "https://example.com/hook",
+      performanceNtfyUrl: "https://ntfy.sh/private-perf", performanceLogsNtfyUrl: "https://ntfy.sh/private-logs", performanceSystemId: "calm-otter-123456" };
+    expect(JSON.parse(exportSettings(values)).values).toEqual({ theme: "dark" });
+  });
   it("round-trips face-view options without exporting a hovered face", () => {
     const values = { aiMobileClipGrouping: true, mobileClipGrouping: "loose", spaceZoomToFace: true, experimentalFaceOutlines: true, experimentalFaceSpotlight: false, experimentalTransitions: true, experimentalHideFilmstripOnCrop: true };
     expect(parseSettingsImport(exportSettings({ ...values, hoveredFace: { display: "/private/photo.raw" } }))).toEqual(values);

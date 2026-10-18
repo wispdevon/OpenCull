@@ -1895,7 +1895,7 @@ mod tests {
         let diagnostic = diagnostic_json(&report);
         let diagnostic: crate::diagnostic_delivery::DiagnosticReport =
             serde_json::from_value(diagnostic).unwrap();
-        let preview = crate::diagnostic_delivery::diagnostics_preview(diagnostic).unwrap();
+        let preview = crate::diagnostic_delivery::diagnostics_preview(diagnostic, None).unwrap();
         assert!(preview.webhook_json.contains("6000x4000-texture"));
         assert!(!preview.webhook_json.contains("representative.RAF"));
     }
@@ -1928,7 +1928,7 @@ mod tests {
             })
             .collect::<Vec<_>>();
         serde_json::json!({
-            "schemaVersion": report.schema_version, "id": report.id,
+            "schemaVersion": 2, "id": report.id, "systemId": "Fern-482731",
             "kind": report.kind, "mode": report.mode,
             "startedAtMs": report.started_at_ms, "finishedAtMs": timestamp_ms(),
             "environment": report.environment, "stages": stages,

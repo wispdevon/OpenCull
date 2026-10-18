@@ -1,5 +1,6 @@
 /** Versioned, aggregate-only diagnostic schema. Never include photo identifiers. */
-export const FIELD_VERSION = 1;
+import { getSystemId } from "./performance-preferences";
+export const FIELD_VERSION = 2;
 export type BenchmarkMode = "quick" | "thorough";
 export interface PerformanceEnvironment {
   appVersion: string; build: string; os: string; arch: string;
@@ -31,7 +32,7 @@ export interface Recommendation {
   stageId: string; priority: "high" | "medium" | "low"; evidence: string; action: string;
 }
 export interface DiagnosticReport extends Omit<BenchmarkReport, "stages"> {
-  stages: StageSummary[]; recommendations: Recommendation[];
+  systemId: string; stages: StageSummary[]; recommendations: Recommendation[];
 }
 export interface DestinationResult { status: "sent" | "failed" | "disabled"; error: string | null }
 export interface DeliveryResult { webhook: DestinationResult; ntfy: DestinationResult }
@@ -92,7 +93,7 @@ export function diagnosticReport(report: BenchmarkReport): DiagnosticReport {
   // Explicit field construction excludes unknown fields, samples and stage details.
   const e = report.environment;
   return {
-    schemaVersion: FIELD_VERSION, id: report.id, kind: report.kind, mode: report.mode,
+    schemaVersion: FIELD_VERSION, systemId: getSystemId(), id: report.id, kind: report.kind, mode: report.mode,
     startedAtMs: report.startedAtMs, finishedAtMs: report.finishedAtMs,
     environment: { appVersion: e.appVersion, build: e.build, os: e.os, arch: e.arch, cpu: e.cpu,
       logicalCores: e.logicalCores, memoryMb: e.memoryMb, gpu: e.gpu, aiProvider: e.aiProvider, fixtureVersion: e.fixtureVersion },
@@ -107,6 +108,7 @@ export function ntfySummary(report: DiagnosticReport): string {
   const slow = [...report.stages].filter((s) => s.count).sort((a, b) => b.totalMs - a.totalMs).slice(0, 3);
   return [
     `Culltivate ${report.kind}: ${failures ? `${failures} failures` : "completed"}`,
+    `System: ${report.systemId}`,
     `${report.environment.os}/${report.environment.arch}, ${report.environment.logicalCores} cores; ${Math.round((report.finishedAtMs - report.startedAtMs) / 1000)} s`,
     ...slow.map((s) => `${s.label}: median ${s.medianMs.toFixed(1)} ms, total ${s.totalMs.toFixed(1)} ms`),
     ...report.recommendations.slice(0, 2).map((r) => r.action),

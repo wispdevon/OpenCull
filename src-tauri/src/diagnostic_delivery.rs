@@ -10,7 +10,7 @@ use reqwest::{header, redirect::Policy, Client, Url};
 use serde::{de::Deserializer, Deserialize, Serialize};
 use tauri::State;
 
-const CURRENT_FIELDS_VERSION: u32 = 1;
+const CURRENT_FIELDS_VERSION: u32 = 2;
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
 const MAX_URL_BYTES: usize = 2_048;
 const MAX_REPORT_BYTES: usize = 128 * 1024;
@@ -33,6 +33,7 @@ const MEDIA_EXTENSIONS: [&str; 25] = [
 pub struct DiagnosticReport {
     pub schema_version: u32,
     pub id: String,
+    pub system_id: String,
     pub kind: ReportKind,
     #[serde(deserialize_with = "required_option")]
     pub mode: Option<BenchmarkMode>,
@@ -186,18 +187,19 @@ pub struct DiagnosticPreview {
     pub ntfy_message: String,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 struct ApprovedDestination {
-    raw: String,
     url: Url,
+    is_discord_webhook: bool,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 struct Approval {
     id: String,
     fields_version: u32,
     webhook: Option<ApprovedDestination>,
     ntfy: Option<ApprovedDestination>,
+    logs: Option<ApprovedDestination>,
 }
 
 /// Managed as Tauri application state. Neither tokens nor reports are stored.
@@ -211,9 +213,10 @@ pub fn diagnostics_approve(
     state: State<'_, DiagnosticDelivery>,
     webhook_url: String,
     ntfy_url: String,
+    logs_url: String,
     fields_version: u32,
 ) -> Result<String, String> {
-    approve(&state, &webhook_url, &ntfy_url, fields_version)
+    approve(&state, &webhook_url, &ntfy_url, &logs_url, fields_version)
 }
 
 #[tauri::command]
@@ -233,9 +236,12 @@ fn disable(state: &DiagnosticDelivery) -> Result<(), String> {
 /// Return the exact native payloads for the consent preview shown in Settings.
 /// This performs no network request and stores neither the report nor secrets.
 #[tauri::command]
-pub fn diagnostics_preview(report: DiagnosticReport) -> Result<DiagnosticPreview, String> {
+pub fn diagnostics_preview(
+    report: DiagnosticReport,
+    webhook_url: Option<String>,
+) -> Result<DiagnosticPreview, String> {
     validate_report(&report)?;
-    let webhook = serde_json::to_vec(&report).map_err(|_| "invalid_report".to_owned())?;
+    let webhook = webhook_payload(&report, webhook_url.as_deref())?;
     if webhook.len() > MAX_REPORT_BYTES {
         return Err("report_too_large".to_owned());
     }
@@ -288,7 +294,7 @@ async fn send_diagnostics(
     }
 
     validate_report(&report)?;
-    let webhook_body = serde_json::to_vec(&report).map_err(|_| "invalid_report".to_owned())?;
+    let webhook_body = webhook_payload_for_destination(&report, active.webhook.as_ref())?;
     if webhook_body.len() > MAX_REPORT_BYTES {
         return Err("report_too_large".to_owned());
     }
@@ -325,7 +331,11 @@ async fn send_diagnostics(
     // A disable or destination change can arrive while the first endpoint is
     // responding. Recheck before starting another destination request.
     let ntfy = if approval_is_current(state, &active) {
-        send_ntfy(&client, active.ntfy.as_ref(), ntfy_token, &report).await
+        let destination = match report.kind {
+            ReportKind::Benchmark => active.ntfy.as_ref(),
+            ReportKind::Recording => active.logs.as_ref(),
+        };
+        send_ntfy(&client, destination, ntfy_token, &report).await
     } else {
         disabled()
     };
@@ -346,6 +356,7 @@ fn approve(
     state: &DiagnosticDelivery,
     webhook_url: &str,
     ntfy_url: &str,
+    logs_url: &str,
     fields_version: u32,
 ) -> Result<String, String> {
     if fields_version != CURRENT_FIELDS_VERSION {
@@ -353,7 +364,8 @@ fn approve(
     }
     let webhook = parse_destination(webhook_url, false)?;
     let ntfy = parse_destination(ntfy_url, true)?;
-    if webhook.is_none() && ntfy.is_none() {
+    let logs = parse_destination(logs_url, true)?;
+    if webhook.is_none() && ntfy.is_none() && logs.is_none() {
         return Err("destination_required".to_owned());
     }
 
@@ -363,6 +375,7 @@ fn approve(
         fields_version,
         webhook,
         ntfy,
+        logs,
     };
     let mut active = state
         .approval
@@ -416,10 +429,148 @@ fn parse_destination(raw: &str, is_ntfy: bool) -> Result<Option<ApprovedDestinat
         return Err("ntfy_topic_required".to_owned());
     }
 
+    let is_discord_host = is_discord_host(url.host_str().unwrap_or_default());
+    let is_discord_webhook = !is_ntfy && is_discord_webhook_url(&url);
+    if !is_ntfy && is_discord_host && !is_discord_webhook {
+        return Err("invalid_discord_webhook".to_owned());
+    }
+
     Ok(Some(ApprovedDestination {
-        raw: raw.to_owned(),
         url,
+        is_discord_webhook,
     }))
+}
+
+fn is_discord_host(host: &str) -> bool {
+    matches!(
+        host.to_ascii_lowercase().as_str(),
+        "discord.com"
+            | "canary.discord.com"
+            | "ptb.discord.com"
+            | "discordapp.com"
+            | "canary.discordapp.com"
+            | "ptb.discordapp.com"
+    )
+}
+
+fn is_discord_webhook_url(url: &Url) -> bool {
+    if !is_discord_host(url.host_str().unwrap_or_default()) {
+        return false;
+    }
+    let segments: Vec<&str> = url
+        .path_segments()
+        .into_iter()
+        .flatten()
+        .filter(|segment| !segment.is_empty())
+        .collect();
+    segments.len() == 4
+        && segments[0] == "api"
+        && segments[1] == "webhooks"
+        && !segments[2].is_empty()
+        && !segments[3].is_empty()
+        && segments[2].bytes().all(|byte| byte.is_ascii_digit())
+        && segments[3]
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b'-'))
+}
+
+fn webhook_payload(
+    report: &DiagnosticReport,
+    webhook_url: Option<&str>,
+) -> Result<Vec<u8>, String> {
+    if webhook_url.is_some_and(|url| {
+        Url::parse(url)
+            .ok()
+            .is_some_and(|url| is_discord_webhook_url(&url))
+    }) {
+        serde_json::to_vec(&discord_webhook_payload(report))
+            .map_err(|_| "invalid_report".to_owned())
+    } else {
+        serde_json::to_vec(report).map_err(|_| "invalid_report".to_owned())
+    }
+}
+
+fn webhook_payload_for_destination(
+    report: &DiagnosticReport,
+    destination: Option<&ApprovedDestination>,
+) -> Result<Vec<u8>, String> {
+    if destination.is_some_and(|destination| destination.is_discord_webhook) {
+        serde_json::to_vec(&discord_webhook_payload(report))
+            .map_err(|_| "invalid_report".to_owned())
+    } else {
+        serde_json::to_vec(report).map_err(|_| "invalid_report".to_owned())
+    }
+}
+
+fn discord_webhook_payload(report: &DiagnosticReport) -> serde_json::Value {
+    serde_json::json!({
+        "content": build_discord_message(report),
+        "allowed_mentions": { "parse": [] },
+    })
+}
+
+fn build_discord_message(report: &DiagnosticReport) -> String {
+    let duration = report.finished_at_ms.saturating_sub(report.started_at_ms);
+    let mode = report
+        .mode
+        .map(|mode| match mode {
+            BenchmarkMode::Quick => "quick",
+            BenchmarkMode::Thorough => "thorough",
+        })
+        .unwrap_or("recording");
+    let failures: u64 = report
+        .stages
+        .iter()
+        .map(|stage| stage.failures as u64)
+        .sum();
+    let mut lines = vec![
+        format!(
+            "Culltivate {} ({mode}) · system {}",
+            report.kind.as_str(),
+            report.system_id
+        ),
+        format!(
+            "Run {} · {} {} · {} cores · {} · {} failures",
+            report.id,
+            report.environment.os,
+            report.environment.arch,
+            report.environment.logical_cores,
+            format_duration(duration),
+            failures
+        ),
+    ];
+
+    let mut slowest: Vec<&StageSummary> = report
+        .stages
+        .iter()
+        .filter(|stage| stage.status != StageStatus::Skipped)
+        .collect();
+    slowest.sort_by(|left, right| right.total_ms.total_cmp(&left.total_ms));
+    for stage in slowest.into_iter().take(5) {
+        lines.push(format!(
+            "{}: {} total, {} median ({})",
+            stage.label,
+            format_duration(stage.total_ms as u64),
+            format_duration(stage.median_ms as u64),
+            stage.status.as_str()
+        ));
+    }
+    for recommendation in report.recommendations.iter().take(3) {
+        lines.push(format!(
+            "Suggestion: {} ({})",
+            recommendation.action, recommendation.evidence
+        ));
+    }
+    truncate_chars(&lines.join("\n"), 2_000)
+}
+
+fn truncate_chars(value: &str, max_chars: usize) -> String {
+    if value.chars().count() <= max_chars {
+        return value.to_owned();
+    }
+    let mut truncated: String = value.chars().take(max_chars.saturating_sub(1)).collect();
+    truncated.push('…');
+    truncated
 }
 
 fn authority_has_userinfo(raw: &str) -> bool {
@@ -493,9 +644,8 @@ async fn send_request(
     body: Vec<u8>,
     token: Option<header::HeaderValue>,
 ) -> DestinationResult {
-    debug_assert!(!destination.raw.is_empty());
     let mut request = client
-        .post(destination.url.clone())
+        .post(request_url(destination))
         .header(header::CONTENT_TYPE, content_type)
         .body(body);
     if let Some(token) = token {
@@ -516,6 +666,20 @@ async fn send_request(
         Err(error) if error.is_timeout() => failed("timeout"),
         Err(_) => failed("network"),
     }
+}
+
+fn request_url(destination: &ApprovedDestination) -> Url {
+    let mut url = destination.url.clone();
+    if destination.is_discord_webhook {
+        let mut query: Vec<(String, String)> = url
+            .query_pairs()
+            .filter(|(key, _)| key != "wait")
+            .map(|(key, value)| (key.into_owned(), value.into_owned()))
+            .collect();
+        query.push(("wait".to_owned(), "true".to_owned()));
+        url.query_pairs_mut().clear().extend_pairs(query);
+    }
+    url
 }
 
 fn sent() -> DestinationResult {
@@ -542,6 +706,7 @@ fn failed(category: &str) -> DestinationResult {
 fn validate_report(report: &DiagnosticReport) -> Result<(), String> {
     if report.schema_version != CURRENT_FIELDS_VERSION
         || !is_identifier(&report.id, 128)
+        || !is_identifier(&report.system_id, 80)
         || report.finished_at_ms < report.started_at_ms
         || report.finished_at_ms - report.started_at_ms > MAX_REPORT_AGE_MS
         || (report.kind == ReportKind::Benchmark && report.mode.is_none())
@@ -778,7 +943,11 @@ fn build_ntfy_message(report: &DiagnosticReport) -> String {
         format!("{failures} failures")
     };
     let mut lines = vec![
-        format!("Culltivate {} ({mode}): {status}", report.kind.as_str()),
+        format!(
+            "Culltivate {} ({mode}): {status} · system {}",
+            report.kind.as_str(),
+            report.system_id
+        ),
         format!(
             "{} {} · {} cores · {} measured stages · {} failures",
             report.environment.os,
@@ -844,6 +1013,16 @@ impl ReportKind {
         match self {
             Self::Benchmark => "benchmark",
             Self::Recording => "recording",
+        }
+    }
+}
+
+impl StageStatus {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Passed => "passed",
+            Self::Failed => "failed",
+            Self::Skipped => "skipped",
         }
     }
 }
@@ -968,8 +1147,9 @@ mod tests {
 
     fn test_report() -> DiagnosticReport {
         DiagnosticReport {
-            schema_version: 1,
+            schema_version: 2,
             id: "test-run-1".to_owned(),
+            system_id: "Fern-482731".to_owned(),
             kind: ReportKind::Benchmark,
             mode: Some(BenchmarkMode::Quick),
             started_at_ms: 1_000,
@@ -1018,17 +1198,35 @@ mod tests {
     }
 
     fn approve_for(state: &DiagnosticDelivery, webhook_url: String, ntfy_url: String) -> String {
-        approve(state, &webhook_url, &ntfy_url, 1).unwrap()
+        approve(state, &webhook_url, &ntfy_url, "", 2).unwrap()
+    }
+
+    fn approve_with_logs(
+        state: &DiagnosticDelivery,
+        webhook_url: String,
+        ntfy_url: String,
+        logs_url: String,
+    ) -> String {
+        approve(state, &webhook_url, &ntfy_url, &logs_url, 2).unwrap()
     }
 
     #[test]
     fn approval_accepts_https_and_loopback_http_only() {
         let state = DiagnosticDelivery::default();
-        assert!(approve(&state, "http://example.com/hook", "", 1).is_err());
-        assert!(approve(&state, "https://user@example.com/hook", "", 1).is_err());
-        assert!(approve(&state, "", "https://ntfy.sh", 1).is_err());
-        assert!(approve(&state, "", "https://ntfy.sh/topic", 1).is_ok());
-        assert!(approve(&state, "http://127.0.0.1:8123/hook", "", 1).is_ok());
+        assert!(approve(&state, "http://example.com/hook", "", "", 2).is_err());
+        assert!(approve(&state, "https://user@example.com/hook", "", "", 2).is_err());
+        assert!(approve(&state, "", "https://ntfy.sh", "", 2).is_err());
+        assert!(approve(&state, "", "https://ntfy.sh/topic", "", 2).is_ok());
+        assert!(approve(&state, "http://127.0.0.1:8123/hook", "", "", 2).is_ok());
+        assert!(approve(&state, "https://discord.com/not-a-webhook", "", "", 2).is_err());
+        assert!(approve(
+            &state,
+            "https://discord.com/api/webhooks/123456/test-token",
+            "",
+            "",
+            2
+        )
+        .is_ok());
     }
 
     #[test]
@@ -1139,8 +1337,100 @@ mod tests {
         let message = String::from_utf8(ntfy_request.body).unwrap();
         assert!(message.contains("Fit preview"));
         assert!(message.contains("Reuse cached previews"));
+        assert!(message.contains("system Fern-482731"));
         assert!(!message.contains("webhook-secret"));
         assert!(!message.contains("ntfy-secret"));
+    }
+
+    #[test]
+    fn discord_preview_uses_the_supported_compact_payload_without_mentions() {
+        let report = test_report();
+        let discord_url = "https://discord.com/api/webhooks/123456/test-token";
+        let preview = diagnostics_preview(report.clone(), Some(discord_url.to_owned())).unwrap();
+        let preview_value: serde_json::Value = serde_json::from_str(&preview.webhook_json).unwrap();
+        let destination = parse_destination(discord_url, false).unwrap().unwrap();
+        let send_value: serde_json::Value = serde_json::from_slice(
+            &webhook_payload_for_destination(&report, Some(&destination)).unwrap(),
+        )
+        .unwrap();
+
+        assert_eq!(preview_value, send_value);
+        assert_eq!(
+            preview_value["allowed_mentions"]["parse"],
+            serde_json::json!([])
+        );
+        let content = preview_value["content"].as_str().unwrap();
+        assert!(content.contains("system Fern-482731"));
+        assert!(content.contains("Fit preview"));
+        assert!(content.chars().count() <= 2_000);
+        assert!(!preview.webhook_json.contains("test-token"));
+    }
+
+    #[test]
+    fn discord_delivery_url_requests_server_confirmation_and_preserves_other_query_values() {
+        let destination = parse_destination(
+            "https://discord.com/api/webhooks/123456/test-token?thread_id=789&wait=false",
+            false,
+        )
+        .unwrap()
+        .unwrap();
+        let query: std::collections::HashMap<String, String> = request_url(&destination)
+            .query_pairs()
+            .into_owned()
+            .collect();
+
+        assert_eq!(query.get("wait").map(String::as_str), Some("true"));
+        assert_eq!(query.get("thread_id").map(String::as_str), Some("789"));
+    }
+
+    #[test]
+    fn recording_reports_route_to_logs_while_benchmarks_use_performance_topic() {
+        let (performance_address, performance_thread) = mock_server("200 OK", "");
+        let (logs_address, logs_thread) = mock_server("200 OK", "");
+        let state = DiagnosticDelivery::default();
+        let approval = approve_with_logs(
+            &state,
+            String::new(),
+            endpoint(performance_address, "/culltivate-perf"),
+            endpoint(logs_address, "/culltivate-logs"),
+        );
+
+        let benchmark_result = tauri::async_runtime::block_on(send_diagnostics(
+            &state,
+            &approval,
+            test_report(),
+            None,
+            None,
+        ))
+        .unwrap();
+        let mut recording_report = test_report();
+        recording_report.kind = ReportKind::Recording;
+        recording_report.mode = None;
+        let recording_result = tauri::async_runtime::block_on(send_diagnostics(
+            &state,
+            &approval,
+            recording_report,
+            None,
+            None,
+        ))
+        .unwrap();
+
+        assert_eq!(benchmark_result.ntfy.status, DeliveryStatus::Sent);
+        assert_eq!(recording_result.ntfy.status, DeliveryStatus::Sent);
+        let performance_request = performance_thread.join().unwrap();
+        let logs_request = logs_thread.join().unwrap();
+        assert!(performance_request
+            .headers
+            .starts_with("POST /culltivate-perf HTTP/1.1"));
+        assert!(logs_request
+            .headers
+            .starts_with("POST /culltivate-logs HTTP/1.1"));
+        assert!(String::from_utf8(performance_request.body)
+            .unwrap()
+            .contains("system Fern-482731"));
+        assert!(String::from_utf8(logs_request.body)
+            .unwrap()
+            .contains("Culltivate recording"));
     }
 
     #[test]
@@ -1220,12 +1510,20 @@ mod tests {
         value["unexpected"] = serde_json::json!("private");
         assert!(serde_json::from_value::<DiagnosticReport>(value).is_err());
 
+        let mut value = serde_json::to_value(test_report()).unwrap();
+        value.as_object_mut().unwrap().remove("systemId");
+        assert!(serde_json::from_value::<DiagnosticReport>(value).is_err());
+
         let mut report = test_report();
         report.recommendations[0].action = "Open /home/alice/photo.jpg".to_owned();
         assert_eq!(validate_report(&report).unwrap_err(), "invalid_report");
 
         report.recommendations[0].action = "Investigate measured latency".to_owned();
         report.environment.cpu = Some("photographer@example.com".to_owned());
+        assert_eq!(validate_report(&report).unwrap_err(), "invalid_report");
+
+        report.environment.cpu = None;
+        report.system_id = "photos@home".to_owned();
         assert_eq!(validate_report(&report).unwrap_err(), "invalid_report");
     }
 
@@ -1245,7 +1543,7 @@ mod tests {
             "Fit preview: 0 samples, median 0.0 ms, max 0.0 ms, 1 failures.".to_owned();
         assert!(validate_report(&report).is_ok());
 
-        let preview = diagnostics_preview(report.clone()).unwrap();
+        let preview = diagnostics_preview(report.clone(), None).unwrap();
         assert_eq!(
             preview.webhook_json,
             String::from_utf8(serde_json::to_vec(&report).unwrap()).unwrap()
