@@ -144,6 +144,16 @@ pub struct Stage {
     pub failures: u64,
     pub status: StageStatus,
     pub detail: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub inference: Option<InferenceUsage>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct InferenceUsage {
+    pub cuda_calls: u64,
+    pub cpu_calls: u64,
+    pub cpu_fallback_calls: u64,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -162,6 +172,7 @@ pub struct Report {
     pub id: String,
     pub kind: ReportKind,
     pub mode: Option<Mode>,
+    pub outcome: RunState,
     pub started_at_ms: u64,
     pub finished_at_ms: u64,
     pub environment: Environment,
@@ -352,13 +363,15 @@ fn finish_run(id: String, mode: Mode, cancel: Arc<AtomicBool>) {
         Ok(mut report) => {
             report.finished_at_ms = finished_at_ms;
             state.status.completed = progress.completed;
-            state.status.state = if progress.cancel.load(Ordering::SeqCst) {
+            let outcome = if progress.cancel.load(Ordering::SeqCst) {
                 RunState::Cancelled
             } else if timed_out {
                 RunState::Failed
             } else {
                 RunState::Completed
             };
+            report.outcome = outcome;
+            state.status.state = outcome;
             if timed_out && !progress.cancel.load(Ordering::SeqCst) {
                 state.status.error =
                     Some("Benchmark reached its time limit; see skipped stages.".into());
@@ -503,6 +516,7 @@ fn measure(
         failures,
         status,
         detail,
+        inference: None,
     };
     progress.complete();
     stage
@@ -686,6 +700,7 @@ fn measure_foreground_preview_under_load(
         failures,
         status,
         detail,
+        inference: None,
     };
     progress.complete();
     stage
@@ -703,6 +718,19 @@ fn skip_unexercised_judge(stage: &mut Stage, face_found: bool) {
 
 fn annotate_ai_stage(stage: &mut Stage, earlier: ai::onnx::BenchmarkUsage, try_cuda: bool) {
     let usage = ai::onnx::benchmark_usage().since(earlier);
+    annotate_ai_stage_with_usage(stage, usage, try_cuda);
+}
+
+fn annotate_ai_stage_with_usage(
+    stage: &mut Stage,
+    usage: ai::onnx::BenchmarkUsage,
+    try_cuda: bool,
+) {
+    stage.inference = Some(InferenceUsage {
+        cuda_calls: usage.cuda_calls,
+        cpu_calls: usage.cpu_calls,
+        cpu_fallback_calls: usage.cpu_fallback_calls,
+    });
     let provider = ai_provider_summary(usage, try_cuda);
     let detail = stage.detail.get_or_insert_with(String::new);
     if !detail.is_empty() {
@@ -1610,6 +1638,7 @@ fn run_benchmark(
         id: progress.id.clone(),
         kind: ReportKind::Benchmark,
         mode: Some(mode),
+        outcome: RunState::Completed,
         started_at_ms,
         finished_at_ms: timestamp_ms(),
         environment: {
@@ -1978,6 +2007,47 @@ mod tests {
     }
 
     #[test]
+    fn stage_inference_evidence_is_typed_camel_case_and_absent_for_other_stages() {
+        let mut stage = Stage {
+            id: "face-analysis-warm".into(),
+            label: "Warm face analysis".into(),
+            category: "ai".into(),
+            cache: CacheState::Warm,
+            samples_ms: vec![10.0],
+            units: 1,
+            bytes: 1,
+            failures: 0,
+            status: StageStatus::Passed,
+            detail: Some("warm analysis".into()),
+            inference: None,
+        };
+        annotate_ai_stage_with_usage(
+            &mut stage,
+            ai::onnx::BenchmarkUsage {
+                cuda_calls: 7,
+                cpu_calls: 2,
+                cpu_fallback_calls: 1,
+                failure_kind: Some("runtime"),
+            },
+            true,
+        );
+        let value = serde_json::to_value(&stage).unwrap();
+        assert_eq!(
+            value["inference"],
+            serde_json::json!({
+                "cudaCalls": 7,
+                "cpuCalls": 2,
+                "cpuFallbackCalls": 1,
+            })
+        );
+        assert!(value["detail"].as_str().unwrap().contains("Observed provider"));
+
+        stage.inference = None;
+        let value = serde_json::to_value(stage).unwrap();
+        assert!(value.get("inference").is_none());
+    }
+
+    #[test]
     fn accelerated_ai_coverage_needs_a_successful_cuda_model_call() {
         let fallback = ai::onnx::BenchmarkUsage {
             cuda_calls: 0,
@@ -2035,6 +2105,11 @@ mod tests {
         .0;
 
         assert_eq!(report.stages.len(), TOTAL_STAGES);
+        assert_eq!(report.outcome, RunState::Completed);
+        assert_eq!(
+            serde_json::to_value(&report).unwrap()["outcome"],
+            "completed"
+        );
         assert_eq!(report.environment.fixture_version, FIXTURE_VERSION);
         assert_eq!(report.environment.ai_provider.as_deref(), Some("CPU benchmark inference"));
         assert!(report
