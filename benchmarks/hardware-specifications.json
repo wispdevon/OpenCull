@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "formulaVersion": 1,
+  "version": "1.0.0",
+  "description": "Specification capacity heuristic using physical CPU cores, reference base clocks, shader cores and installed RAM capacity. Ratings do not predict application speed or compare architecture efficiency. Reference GPU clocks represent NVIDIA's reference design; board clocks and memory technology can vary. Current clocks, boost clocks, thread availability, benchmark timings and application settings do not enter the formula.",
+  "sources": {
+    "amd-ryzen-5-7500f": {
+      "title": "AMD Ryzen 5 7500F official specifications",
+      "url": "https://www.amd.com/en/products/processors/desktops/ryzen/7000-series/amd-ryzen-5-7500F.html",
+      "retrievedAt": "2026-10-18"
+    },
+    "nvidia-geforce-rtx-3060-ti": {
+      "title": "NVIDIA GeForce graphics cards: RTX 30 Series reference specifications",
+      "url": "https://www.nvidia.com/en-us/geforce/graphics-cards/compare/",
+      "retrievedAt": "2026-10-18"
+    }
+  },
+  "cpus": [
+    {
+      "id": "amd-ryzen-5-7500f",
+      "model": "AMD Ryzen 5 7500F",
+      "aliases": ["AMD Ryzen 5 7500F 6-Core Processor"],
+      "physicalCores": 6,
+      "baseClockMHz": 3700,
+      "sourceId": "amd-ryzen-5-7500f"
+    }
+  ],
+  "gpus": [
+    {
+      "id": "nvidia-geforce-rtx-3060-ti",
+      "model": "NVIDIA GeForce RTX 3060 Ti",
+      "aliases": ["GeForce RTX 3060 Ti"],
+      "shaderCores": 4864,
+      "baseClockMHz": 1410,
+      "vramGiB": 8,
+      "sourceId": "nvidia-geforce-rtx-3060-ti"
+    }
+  ]
+}

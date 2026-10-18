@@ -15,9 +15,11 @@
   stay on the device.
 - Include app version/build, CPU, GPU, RAM, OS, AI provider and fixture version
   alongside elapsed and measured timing totals in notification summaries.
-- Compare systems with versioned overall and GPU-assisted AI scores, backed by
-  a public reference database bundled for offline use. References distinguish
-  debug and release builds and expose their sample counts and hardware.
+- Show fixed system and GPU specification ratings before running a benchmark.
+  A versioned formula uses published component specifications and installed RAM;
+  benchmark timings, app build and CPU/GPU utilization cannot change the rating.
+- Bundle a public typical-speeds database with measured timing ranges, hardware,
+  sample counts and provenance. Hardware ratings and measured results stay separate.
 
 ### Changed
 

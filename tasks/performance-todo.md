@@ -55,3 +55,12 @@ See [measurements](performance-measurements.md) and the [feature guide](../docs/
 - [x] Provide validated, deduplicated ingestion of explicitly approved benchmark contributions; document how published typical values are calculated and how sparse data is labeled.
 - [x] Verify score math/edge cases, data privacy, UI and native delivery; prepare verified 0.7.0 sources for the explicitly authorized draft-tag update.
 - [ ] Finish installer verification and publication. GitHub Actions currently rejects dispatch with “Actions has been disabled for this user”; Linux AppImage, Debian and RPM packages were built in Ubuntu 24.04 and verified; the extracted AppImage passes generated-fixture checks with CUDA and no global fallback. macOS/Windows installers and the publication choice remain pending.
+
+## Fixed hardware specification ratings — user correction
+
+- [x] Replace primary benchmark-derived system/GPU numbers with a transparent, versioned specification formula. Identical supported CPU/GPU/installed-RAM inputs always receive identical ratings.
+- [x] Use reviewed manufacturer physical core counts, base clocks and GPU shader counts; never local timings, boost clocks, usable/free RAM, available threads, app build or AI provider as rating inputs.
+- [x] Detect installed memory and GPU identity independently of benchmark/provider settings. Missing/ambiguous specifications remain explicitly unknown.
+- [x] Show ratings before running a benchmark, preserve measured milliseconds and historical benchmark indices separately, and export schema-v4 ratings with provenance.
+- [ ] Publish formula/specification sources and matching fixed ratings for both existing hardware rows; benchmark ingestion cannot move those ratings.
+- [ ] Verify deterministic math, aliases/unknowns, privacy/consent, native discovery, report compatibility and UI; refresh the unpublished 0.7.0 draft after verification.

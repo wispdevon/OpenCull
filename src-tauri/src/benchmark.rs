@@ -5,8 +5,9 @@
 //! session, saves settings, contacts a service, or downloads a model.
 
 use std::fs;
-use std::io::Cursor;
+use std::io::{Cursor, Read};
 use std::path::{Path, PathBuf};
+use std::process::{Command, Stdio};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{mpsc, Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
@@ -36,6 +37,7 @@ const THOROUGH_SAMPLES: usize = 24;
 const ASTRONAUT_PNG: &[u8] = include_bytes!("../resources/benchmark/astronaut.png");
 static NEXT_RUN: AtomicU64 = AtomicU64::new(1);
 static RUNNER: OnceLock<Mutex<RunnerState>> = OnceLock::new();
+static HARDWARE_SPECS: OnceLock<HardwareSpecs> = OnceLock::new();
 
 #[derive(Clone, Copy, Debug, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
@@ -129,6 +131,16 @@ pub struct Environment {
     pub gpu: Option<String>,
     pub ai_provider: Option<String>,
     pub fixture_version: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub hardware_specs: Option<HardwareSpecs>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HardwareSpecs {
+    pub cpu_model: Option<String>,
+    pub gpu_model: Option<String>,
+    pub installed_memory_mb: Option<u64>,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -269,6 +281,7 @@ pub fn benchmark_environment() -> Environment {
         gpu: gpu_vendor(),
         ai_provider,
         fixture_version: FIXTURE_VERSION.to_string(),
+        hardware_specs: hardware_specs(),
     }
 }
 
@@ -1926,6 +1939,292 @@ fn total_memory_mb() -> Option<u64> {
     }
 }
 
+fn hardware_specs() -> Option<HardwareSpecs> {
+    let specs = HARDWARE_SPECS.get_or_init(discover_hardware_specs);
+    (specs.cpu_model.is_some() || specs.gpu_model.is_some() || specs.installed_memory_mb.is_some())
+        .then(|| specs.clone())
+}
+
+fn discover_hardware_specs() -> HardwareSpecs {
+    HardwareSpecs {
+        cpu_model: hardware_cpu_model(),
+        gpu_model: nvidia_gpu_model(),
+        installed_memory_mb: installed_memory_mb(),
+    }
+}
+
+fn hardware_cpu_model() -> Option<String> {
+    if let Some(model) = cpu_name() {
+        return Some(model);
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        let output = bounded_command_output(
+            "/usr/sbin/sysctl",
+            &["-n", "machdep.cpu.brand_string"],
+            Duration::from_secs(1),
+            512,
+        )?;
+        return safe_cpu_name(std::str::from_utf8(&output).ok()?.trim());
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        None
+    }
+}
+
+fn installed_memory_mb() -> Option<u64> {
+    #[cfg(target_os = "linux")]
+    {
+        return linux_installed_memory_mb();
+    }
+    #[cfg(target_os = "macos")]
+    {
+        let output = bounded_command_output(
+            "/usr/sbin/sysctl",
+            &["-n", "hw.memsize"],
+            Duration::from_secs(1),
+            64,
+        )?;
+        let bytes = std::str::from_utf8(&output)
+            .ok()?
+            .trim()
+            .parse::<u64>()
+            .ok()?;
+        return bytes_to_memory_mb(bytes);
+    }
+    #[cfg(not(any(target_os = "linux", target_os = "macos")))]
+    {
+        None
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn linux_installed_memory_mb() -> Option<u64> {
+    const UDEV_RECORD: &str = "/run/udev/data/+dmi:id";
+    const MAX_UDEV_BYTES: usize = 64 * 1024;
+
+    if let Some(bytes) = read_bounded_file(UDEV_RECORD, MAX_UDEV_BYTES) {
+        if let Ok(properties) = std::str::from_utf8(&bytes) {
+            if let Some(memory_mb) = parse_udev_installed_memory_mb(properties) {
+                return Some(memory_mb);
+            }
+        }
+    }
+
+    let output = bounded_command_output(
+        "udevadm",
+        &[
+            "info",
+            "--query=property",
+            "--path=/sys/devices/virtual/dmi/id",
+        ],
+        Duration::from_secs(2),
+        MAX_UDEV_BYTES,
+    )?;
+    parse_udev_installed_memory_mb(std::str::from_utf8(&output).ok()?)
+}
+
+fn read_bounded_file(path: &str, max_bytes: usize) -> Option<Vec<u8>> {
+    let file = fs::File::open(path).ok()?;
+    let mut bytes = Vec::with_capacity(max_bytes.min(4096));
+    file.take(max_bytes.saturating_add(1) as u64)
+        .read_to_end(&mut bytes)
+        .ok()?;
+    (bytes.len() <= max_bytes).then_some(bytes)
+}
+
+#[derive(Default)]
+struct MemoryModule {
+    size_seen: bool,
+    size_bytes: Option<u64>,
+    present_seen: bool,
+    present: Option<bool>,
+    invalid: bool,
+}
+
+fn parse_udev_installed_memory_mb(properties: &str) -> Option<u64> {
+    let mut modules = std::collections::BTreeMap::<usize, MemoryModule>::new();
+    for line in properties.lines() {
+        let line = line.strip_prefix("E:").unwrap_or(line);
+        let Some((key, value)) = line.split_once('=') else {
+            continue;
+        };
+        let Some(rest) = key.strip_prefix("MEMORY_DEVICE_") else {
+            continue;
+        };
+        let Some((index, field)) = rest.split_once('_') else {
+            continue;
+        };
+        if index.is_empty() || index.len() > 6 || !index.bytes().all(|byte| byte.is_ascii_digit()) {
+            continue;
+        }
+        let Ok(index) = index.parse::<usize>() else {
+            continue;
+        };
+        if index > 4096 || !matches!(field, "SIZE" | "PRESENT") {
+            continue;
+        }
+
+        let module = modules.entry(index).or_default();
+        let value = value.trim();
+        match field {
+            "SIZE" => {
+                let Some(size_bytes) = value.parse::<u64>().ok() else {
+                    module.invalid = true;
+                    continue;
+                };
+                if module.size_seen && module.size_bytes != Some(size_bytes) {
+                    module.invalid = true;
+                } else {
+                    module.size_seen = true;
+                    module.size_bytes = Some(size_bytes);
+                }
+            }
+            "PRESENT" => {
+                let present = match value {
+                    "0" => false,
+                    "1" => true,
+                    _ => {
+                        module.invalid = true;
+                        continue;
+                    }
+                };
+                if module.present_seen && module.present != Some(present) {
+                    module.invalid = true;
+                } else {
+                    module.present_seen = true;
+                    module.present = Some(present);
+                }
+            }
+            _ => unreachable!(),
+        }
+    }
+
+    // Populated DIMMs may have no PRESENT property; explicitly absent slots
+    // still carry PRESENT=0 and must not contribute even if a size is present.
+    let total_bytes = modules.values().try_fold(0u64, |total, module| {
+        if !module.invalid && module.present == Some(false) {
+            return Some(total);
+        }
+        if module.invalid || !module.size_seen {
+            return None;
+        }
+        let size_bytes = module.size_bytes.filter(|bytes| *bytes > 0)?;
+        total.checked_add(size_bytes)
+    })?;
+    bytes_to_memory_mb(total_bytes)
+}
+
+fn bytes_to_memory_mb(bytes: u64) -> Option<u64> {
+    let memory_mb = bytes / (1024 * 1024);
+    (memory_mb > 0).then_some(memory_mb)
+}
+
+fn nvidia_gpu_model() -> Option<String> {
+    #[cfg(any(target_os = "linux", target_os = "windows"))]
+    {
+        let output = bounded_command_output(
+            "nvidia-smi",
+            &["--query-gpu=name", "--format=csv,noheader"],
+            Duration::from_secs(2),
+            4096,
+        )?;
+        return parse_nvidia_gpu_model(std::str::from_utf8(&output).ok()?);
+    }
+    #[cfg(not(any(target_os = "linux", target_os = "windows")))]
+    {
+        None
+    }
+}
+
+fn parse_nvidia_gpu_model(output: &str) -> Option<String> {
+    let mut models = output
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty());
+    let model = models.next()?;
+    if models.next().is_some() {
+        return None;
+    }
+    safe_gpu_model(model)
+}
+
+fn safe_gpu_model(value: &str) -> Option<String> {
+    if value.contains('/') || value.contains('\\') {
+        return None;
+    }
+    let cleaned = value
+        .chars()
+        .filter(|ch| {
+            ch.is_ascii_alphanumeric() || matches!(ch, ' ' | '-' | '_' | '(' | ')' | '.' | '+')
+        })
+        .collect::<String>()
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ");
+    let lower = cleaned.to_ascii_lowercase();
+    if cleaned.is_empty()
+        || cleaned.len() > 100
+        || ![
+            "nvidia", "geforce", "quadro", "tesla", "rtx", "gtx", "titan",
+        ]
+        .iter()
+        .any(|marker| lower.contains(marker))
+    {
+        None
+    } else {
+        Some(cleaned)
+    }
+}
+
+fn bounded_command_output(
+    program: &str,
+    args: &[&str],
+    timeout: Duration,
+    max_bytes: usize,
+) -> Option<Vec<u8>> {
+    let mut child = Command::new(program)
+        .args(args)
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .env_remove("CUDA_VISIBLE_DEVICES")
+        .env_remove("OPENCULL_AI")
+        .spawn()
+        .ok()?;
+    let Some(stdout) = child.stdout.take() else {
+        let _ = child.kill();
+        let _ = child.wait();
+        return None;
+    };
+    let reader = std::thread::spawn(move || {
+        let mut output = Vec::new();
+        stdout
+            .take(max_bytes.saturating_add(1) as u64)
+            .read_to_end(&mut output)
+            .map(|_| output)
+    });
+
+    let deadline = Instant::now() + timeout;
+    let status = loop {
+        match child.try_wait() {
+            Ok(Some(status)) => break Some(status),
+            Ok(None) if Instant::now() < deadline => {
+                std::thread::sleep(Duration::from_millis(20));
+            }
+            _ => {
+                let _ = child.kill();
+                let _ = child.wait();
+                break None;
+            }
+        }
+    }?;
+    let output = reader.join().ok()?.ok()?;
+    (status.success() && output.len() <= max_bytes).then_some(output)
+}
+
 fn gpu_vendor() -> Option<String> {
     #[cfg(target_os = "linux")]
     {
@@ -1979,6 +2278,117 @@ mod tests {
         assert_eq!(Mode::parse("thorough").unwrap(), Mode::Thorough);
         assert!(Mode::parse("unbounded").is_err());
         assert!(Mode::Thorough.samples() >= 20);
+    }
+
+    #[test]
+    fn installed_memory_uses_unique_positive_present_modules() {
+        let properties = concat!(
+            "E:MEMORY_DEVICE_1_SIZE=17179869184\n",
+            "MEMORY_DEVICE_1_SIZE=17179869184\n",
+            "MEMORY_DEVICE_2_PRESENT=0\n",
+            "MEMORY_DEVICE_2_SIZE=8589934592\n",
+            "MEMORY_DEVICE_3_PRESENT=1\n",
+            "MEMORY_DEVICE_3_SIZE=8589934592\n",
+            "MEMORY_DEVICE_4_PRESENT=0\n",
+            "MEMORY_DEVICE_4_SIZE=0\n",
+            "ID_SERIAL=private-device-serial\n",
+        );
+
+        assert_eq!(parse_udev_installed_memory_mb(properties), Some(24 * 1024));
+    }
+
+    #[test]
+    fn installed_memory_ignores_conflicting_or_invalid_module_records() {
+        let properties = concat!(
+            "MEMORY_DEVICE_1_SIZE=17179869184\n",
+            "MEMORY_DEVICE_1_SIZE=8589934592\n",
+            "MEMORY_DEVICE_2_SIZE=4294967296\n",
+            "MEMORY_DEVICE_3_PRESENT=0\n",
+            "MEMORY_DEVICE_3_SIZE=8589934592\n",
+            "MEMORY_DEVICE_4_PRESENT=unknown\n",
+            "MEMORY_DEVICE_4_SIZE=8589934592\n",
+            "MEMORY_DEVICE_5_SIZE=not-a-size\n",
+            "ID_SERIAL=must-not-be-parsed\n",
+        );
+
+        assert_eq!(parse_udev_installed_memory_mb(properties), None);
+        assert_eq!(
+            parse_udev_installed_memory_mb("ID_SERIAL=private-device-serial\n"),
+            None
+        );
+    }
+
+    #[test]
+    fn installed_memory_rejects_every_incomplete_populated_module() {
+        for incomplete in [
+            "MEMORY_DEVICE_2_PRESENT=1\n",
+            "MEMORY_DEVICE_2_SIZE=0\n",
+            "MEMORY_DEVICE_2_SIZE=invalid\n",
+            "MEMORY_DEVICE_2_PRESENT=unknown\nMEMORY_DEVICE_2_SIZE=8589934592\n",
+            "MEMORY_DEVICE_2_PRESENT=0\nMEMORY_DEVICE_2_PRESENT=1\nMEMORY_DEVICE_2_SIZE=8589934592\n",
+        ] {
+            let properties = format!("MEMORY_DEVICE_1_SIZE=17179869184\n{incomplete}");
+            assert_eq!(parse_udev_installed_memory_mb(&properties), None, "{incomplete}");
+        }
+    }
+
+    #[test]
+    fn nvidia_model_requires_one_sanitized_model_row() {
+        assert_eq!(
+            parse_nvidia_gpu_model("NVIDIA GeForce RTX 3060 Ti\n"),
+            Some("NVIDIA GeForce RTX 3060 Ti".into())
+        );
+        assert_eq!(
+            parse_nvidia_gpu_model("NVIDIA GeForce RTX 3060 Ti\nNVIDIA GeForce RTX 3060 Ti\n"),
+            None
+        );
+        assert_eq!(
+            parse_nvidia_gpu_model("NVIDIA GeForce RTX 3060 Ti\nserial=private"),
+            None
+        );
+        assert_eq!(parse_nvidia_gpu_model(""), None);
+        assert_eq!(parse_nvidia_gpu_model("unknown GPU"), None);
+    }
+
+    #[test]
+    fn hardware_specs_serialize_only_safe_inventory_fields() {
+        let properties = concat!(
+            "MEMORY_DEVICE_1_SIZE=17179869184\n",
+            "ID_SERIAL=private-device-serial\n",
+            "ID_VENDOR=private-hardware-vendor\n",
+        );
+        let specs = HardwareSpecs {
+            cpu_model: safe_cpu_name("AMD Ryzen 9 7950X"),
+            gpu_model: parse_nvidia_gpu_model("NVIDIA GeForce RTX 3060 Ti\n"),
+            installed_memory_mb: parse_udev_installed_memory_mb(properties),
+        };
+        let serialized = serde_json::to_string(&specs).unwrap();
+
+        assert!(serialized.contains("\"cpuModel\":\"AMD Ryzen 9 7950X\""));
+        assert!(serialized.contains("\"gpuModel\":\"NVIDIA GeForce RTX 3060 Ti\""));
+        assert!(serialized.contains("\"installedMemoryMb\":16384"));
+        assert!(!serialized.contains("private-device-serial"));
+        assert!(!serialized.contains("private-hardware-vendor"));
+    }
+
+    #[test]
+    fn environment_omits_hardware_specs_when_inventory_is_unknown() {
+        let environment = Environment {
+            app_version: "0.7.0".into(),
+            build: "release".into(),
+            os: "unknown".into(),
+            arch: "unknown".into(),
+            cpu: None,
+            logical_cores: 1,
+            memory_mb: None,
+            gpu: None,
+            ai_provider: None,
+            fixture_version: FIXTURE_VERSION.into(),
+            hardware_specs: None,
+        };
+
+        let value = serde_json::to_value(environment).unwrap();
+        assert!(value.get("hardwareSpecs").is_none());
     }
 
     #[test]
@@ -2155,6 +2565,14 @@ mod tests {
     }
 
     fn diagnostic_json(report: &Report) -> serde_json::Value {
+        // This native-only fixture has no model catalogue; retain installed RAM
+        // while leaving CPU/GPU ratings unknown. Frontend tests cover matching.
+        let installed_memory_mb = report.environment.hardware_specs.as_ref()
+            .and_then(|specs| specs.installed_memory_mb);
+        let ram = installed_memory_mb.map(|memory_mb| {
+            let installed_gib = memory_mb as f64 / 1024.0;
+            serde_json::json!({ "installedGiB": installed_gib, "points": installed_gib * 100.0 })
+        });
         let stages = report
             .stages
             .iter()
@@ -2182,11 +2600,18 @@ mod tests {
             })
             .collect::<Vec<_>>();
         serde_json::json!({
-            "schemaVersion": 3, "id": report.id, "systemId": "Fern-482731",
+            "schemaVersion": 4, "id": report.id, "systemId": "Fern-482731",
             "kind": report.kind, "mode": report.mode, "outcome": report.outcome,
             "startedAtMs": report.started_at_ms, "finishedAtMs": timestamp_ms(),
             "environment": report.environment, "stages": stages,
             "coverage": report.coverage, "recommendations": [],
+            "hardwareRatings": {
+                "formulaVersion": 1, "catalogueVersion": "1.0.0",
+                "profile": { "cpuId": null, "gpuId": null, "installedMemoryMb": installed_memory_mb },
+                "system": { "value": null, "reason": "unknown-cpu" },
+                "gpu": { "value": null, "reason": "unknown-gpu" },
+                "components": { "cpu": null, "gpu": null, "ram": ram }
+            },
             "performanceScores": {
                 "scoringVersion": 1, "databaseVersion": "1.0.0", "cohortId": null,
                 "system": { "value": null, "reason": "unsupported-report", "referenceId": null },

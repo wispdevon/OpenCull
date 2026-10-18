@@ -20,7 +20,8 @@ const MAX_STAGE_COUNT = 100;
 const MAX_COVERAGE_COUNT = 100;
 const MAX_MEASUREMENT_MS = 1e12;
 const RAW_SCHEMA_VERSION = 1;
-const DIAGNOSTIC_SCHEMA_VERSION = 3;
+const LEGACY_DIAGNOSTIC_SCHEMA_VERSION = 3;
+const DIAGNOSTIC_SCHEMA_VERSION = 4;
 const EXPECTED_BUILD = /^(debug|release) (turbo-jpeg|rust-jpeg)( cuda)?$/;
 const KNOWN_OS = new Set(["linux", "macos", "windows"]);
 const KNOWN_ARCH = new Set(["x86_64", "aarch64", "x86", "arm", "armv7"]);
@@ -31,9 +32,14 @@ const EXPECTED_TOP_LEVEL = [
   "schemaVersion", "id", "kind", "mode", "outcome", "startedAtMs", "finishedAtMs",
   "environment", "stages", "coverage", "systemId", "recommendations", "performanceScores",
 ];
+const HARDWARE_REPORT_TOP_LEVEL = [...EXPECTED_TOP_LEVEL, "hardwareRatings"];
 const ENVIRONMENT_KEYS = [
-  "appVersion", "build", "os", "arch", "cpu", "logicalCores", "memoryMb", "gpu", "aiProvider", "fixtureVersion",
+  "appVersion", "build", "os", "arch", "cpu", "logicalCores", "memoryMb", "gpu", "aiProvider", "fixtureVersion", "hardwareSpecs",
 ];
+const HARDWARE_SPEC_KEYS = ["cpuModel", "gpuModel", "installedMemoryMb"];
+const HARDWARE_RATING_REASONS = new Set([
+  "unknown-cpu", "unknown-gpu", "unknown-memory", "invalid-memory", "invalid-catalogue", "ambiguous-cpu", "ambiguous-gpu",
+]);
 const RAW_STAGE_KEYS = [
   "id", "label", "category", "cache", "samplesMs", "units", "bytes", "failures", "status", "detail", "inference",
 ];
@@ -113,6 +119,62 @@ function safeHardwareName(value) {
   return value.trim();
 }
 
+function validateHardwareSpecs(value) {
+  if (value === undefined || value === null) return null;
+  exactKeys(value, HARDWARE_SPEC_KEYS, HARDWARE_SPEC_KEYS, "invalid_hardware_profile");
+  const cpuModel = value.cpuModel === null ? null : safeHardwareName(value.cpuModel);
+  const gpuModel = value.gpuModel === null ? null : safeHardwareName(value.gpuModel);
+  const installedMemoryMb = value.installedMemoryMb === null
+    ? null : safeInteger(value.installedMemoryMb, 1, 16_777_216);
+  if (cpuModel === null && gpuModel === null && installedMemoryMb === null) return null;
+  return { cpuModel, gpuModel, installedMemoryMb };
+}
+
+function validateHardwareRatingResult(value) {
+  exactKeys(value, ["value", "reason"], ["value", "reason"], "invalid_hardware_ratings");
+  if (value.value !== null && !Number.isSafeInteger(value.value)) fail("invalid_hardware_ratings");
+  if (value.value !== null) finiteNumber(value.value, 0, Number.MAX_SAFE_INTEGER, "invalid_hardware_ratings");
+  if (value.reason !== null && !HARDWARE_RATING_REASONS.has(value.reason)) fail("invalid_hardware_ratings");
+  if ((value.value === null) === (value.reason === null)) fail("invalid_hardware_ratings");
+}
+
+function validateHardwareRatings(value) {
+  exactKeys(value, ["formulaVersion", "catalogueVersion", "profile", "system", "gpu", "components"],
+    ["formulaVersion", "catalogueVersion", "profile", "system", "gpu", "components"], "invalid_hardware_ratings");
+  if (value.formulaVersion !== 1 || typeof value.catalogueVersion !== "string"
+    || !/^\d+\.\d+\.\d+$/u.test(value.catalogueVersion)) fail("invalid_hardware_ratings");
+  exactKeys(value.profile, ["cpuId", "gpuId", "installedMemoryMb"], ["cpuId", "gpuId", "installedMemoryMb"], "invalid_hardware_ratings");
+  for (const id of [value.profile.cpuId, value.profile.gpuId]) {
+    if (id !== null && !isIdentifier(id, 100)) fail("invalid_hardware_ratings");
+  }
+  if (value.profile.installedMemoryMb !== null) safeInteger(value.profile.installedMemoryMb, 1, 16_777_216);
+  validateHardwareRatingResult(value.system);
+  validateHardwareRatingResult(value.gpu);
+  exactKeys(value.components, ["cpu", "gpu", "ram"], ["cpu", "gpu", "ram"], "invalid_hardware_ratings");
+  if (value.components.cpu !== null) {
+    exactKeys(value.components.cpu, ["physicalCores", "baseClockMHz", "points", "sourceId"],
+      ["physicalCores", "baseClockMHz", "points", "sourceId"], "invalid_hardware_ratings");
+    finiteNumber(value.components.cpu.physicalCores, Number.MIN_VALUE, Number.MAX_SAFE_INTEGER, "invalid_hardware_ratings");
+    finiteNumber(value.components.cpu.baseClockMHz, Number.MIN_VALUE, Number.MAX_SAFE_INTEGER, "invalid_hardware_ratings");
+    finiteNumber(value.components.cpu.points, Number.MIN_VALUE, Number.MAX_SAFE_INTEGER, "invalid_hardware_ratings");
+    if (!isIdentifier(value.components.cpu.sourceId, 100)) fail("invalid_hardware_ratings");
+  }
+  if (value.components.gpu !== null) {
+    exactKeys(value.components.gpu, ["shaderCores", "baseClockMHz", "vramGiB", "points", "sourceId"],
+      ["shaderCores", "baseClockMHz", "vramGiB", "points", "sourceId"], "invalid_hardware_ratings");
+    finiteNumber(value.components.gpu.shaderCores, Number.MIN_VALUE, Number.MAX_SAFE_INTEGER, "invalid_hardware_ratings");
+    finiteNumber(value.components.gpu.baseClockMHz, Number.MIN_VALUE, Number.MAX_SAFE_INTEGER, "invalid_hardware_ratings");
+    finiteNumber(value.components.gpu.vramGiB, Number.MIN_VALUE, Number.MAX_SAFE_INTEGER, "invalid_hardware_ratings");
+    finiteNumber(value.components.gpu.points, Number.MIN_VALUE, Number.MAX_SAFE_INTEGER, "invalid_hardware_ratings");
+    if (!isIdentifier(value.components.gpu.sourceId, 100)) fail("invalid_hardware_ratings");
+  }
+  if (value.components.ram !== null) {
+    exactKeys(value.components.ram, ["installedGiB", "points"], ["installedGiB", "points"], "invalid_hardware_ratings");
+    finiteNumber(value.components.ram.installedGiB, Number.MIN_VALUE, Number.MAX_SAFE_INTEGER, "invalid_hardware_ratings");
+    finiteNumber(value.components.ram.points, Number.MIN_VALUE, Number.MAX_SAFE_INTEGER, "invalid_hardware_ratings");
+  }
+}
+
 function normalizeProvider(value) {
   if (value === null) return null;
   boundedString(value, { max: 120 });
@@ -128,7 +190,7 @@ function normalizeProvider(value) {
 }
 
 function validateEnvironment(environment, scoreFixtureVersion) {
-  exactKeys(environment, ENVIRONMENT_KEYS, ENVIRONMENT_KEYS);
+  exactKeys(environment, ENVIRONMENT_KEYS, ENVIRONMENT_KEYS.filter((key) => key !== "hardwareSpecs"));
   const appVersion = boundedString(environment.appVersion, { max: 80 });
   if (!/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/u.test(appVersion)) fail("invalid_hardware_profile");
   const build = boundedString(environment.build, { max: 80 });
@@ -144,7 +206,10 @@ function validateEnvironment(environment, scoreFixtureVersion) {
   const cpu = safeHardwareName(environment.cpu);
   const gpu = safeHardwareName(environment.gpu);
   const aiProvider = normalizeProvider(environment.aiProvider);
-  return { appVersion, build, os, arch, fixtureVersion, logicalCores, memoryMb, cpu, gpu, aiProvider, providerKnown: aiProvider !== null };
+  const normalized = { appVersion, build, os, arch, fixtureVersion, logicalCores, memoryMb, cpu, gpu, aiProvider, providerKnown: aiProvider !== null };
+  const hardwareSpecs = validateHardwareSpecs(environment.hardwareSpecs);
+  if (hardwareSpecs !== null) normalized.hardwareSpecs = hardwareSpecs;
+  return normalized;
 }
 
 function cohortFor(environment) {
@@ -295,18 +360,25 @@ function normalizeStage(stage, expectedSamples, expectedUnitsPerSample, allowZer
   return { id: stage.id, meanMs: totalMs / count, count, inference };
 }
 
-function normalizeReport(report, expectedSamples, expectedUnits, optionalSamples, scoreFixtureVersion, gpuWeightIds) {
-  exactKeys(report, EXPECTED_TOP_LEVEL,
-    ["schemaVersion", "id", "kind", "mode", "outcome", "startedAtMs", "finishedAtMs", "environment", "stages", "coverage"]);
+function normalizeReport(report, expectedSamples, expectedUnits, optionalSamples, scoreFixtureVersion, gpuWeightIds, hardwareContract) {
+  const schemaVersion = report?.schemaVersion;
+  const isHardwareDiagnostic = schemaVersion === DIAGNOSTIC_SCHEMA_VERSION;
+  exactKeys(report, isHardwareDiagnostic ? HARDWARE_REPORT_TOP_LEVEL : EXPECTED_TOP_LEVEL,
+    ["schemaVersion", "id", "kind", "mode", "outcome", "startedAtMs", "finishedAtMs", "environment", "stages", "coverage",
+      ...(isHardwareDiagnostic ? ["hardwareRatings"] : [])]);
   if (!Array.isArray(report.stages)) fail("incomplete_stages");
   const representations = new Set(report.stages.map((stage) =>
     isObject(stage) && Object.hasOwn(stage, "samplesMs") ? "raw" : "summary"));
   if (representations.size > 1) fail("unsupported_report");
   const aggregateShape = representations.has("summary");
-  const expectedSchemaVersion = aggregateShape ? DIAGNOSTIC_SCHEMA_VERSION : RAW_SCHEMA_VERSION;
-  if (report.schemaVersion !== expectedSchemaVersion || report.kind !== "benchmark" || report.mode !== "thorough" || report.outcome !== "completed") {
+  const validSchemaVersion = aggregateShape
+    ? [LEGACY_DIAGNOSTIC_SCHEMA_VERSION, DIAGNOSTIC_SCHEMA_VERSION].includes(schemaVersion)
+    : schemaVersion === RAW_SCHEMA_VERSION;
+  if (!validSchemaVersion || (isHardwareDiagnostic && !aggregateShape)
+    || report.kind !== "benchmark" || report.mode !== "thorough" || report.outcome !== "completed") {
     fail("unsupported_report");
   }
+  if (isHardwareDiagnostic) validateHardwareRatings(report.hardwareRatings);
   if (!isIdentifier(report.id)) fail("invalid_report");
   safeInteger(report.startedAtMs, 1, Number.MAX_SAFE_INTEGER);
   safeInteger(report.finishedAtMs, report.startedAtMs + 1, Number.MAX_SAFE_INTEGER);
@@ -315,6 +387,8 @@ function normalizeReport(report, expectedSamples, expectedUnits, optionalSamples
     fail("invalid_report");
   }
   const environment = validateEnvironment(report.environment, scoreFixtureVersion);
+  const hardwareIdentity = environment.hardwareSpecs ?? { cpuModel: null, gpuModel: null, installedMemoryMb: null };
+  const hardwareRatings = hardwareContract.rateHardware(hardwareIdentity, hardwareContract.catalogue);
   if (environment.fixtureVersion !== scoreFixtureVersion) fail("unsupported_fixture");
   if (report.stages.length < Object.keys(expectedSamples).length
     || report.stages.length > Object.keys(expectedSamples).length + Object.keys(optionalSamples).length || report.stages.length > MAX_STAGE_COUNT) {
@@ -354,6 +428,8 @@ function normalizeReport(report, expectedSamples, expectedUnits, optionalSamples
     id: report.id,
     systemId: report.systemId ?? null,
     environment,
+    hardwareSpecs: environment.hardwareSpecs ?? null,
+    hardwareRatings,
     cohort: cohortFor(environment),
     stages: stageStats,
     originalStages,
@@ -388,7 +464,7 @@ function sameProfile(left, right) {
 }
 
 function publicProfile(report) {
-  return {
+  const profile = {
     cohort: report.cohort,
     appVersion: report.environment.appVersion,
     cpu: report.environment.cpu,
@@ -397,6 +473,8 @@ function publicProfile(report) {
     gpu: report.environment.gpu,
     aiProvider: report.environment.aiProvider,
   };
+  if (report.hardwareSpecs !== null) profile.hardwareSpecs = report.hardwareSpecs;
+  return profile;
 }
 
 function cohortId(cohort) {
@@ -457,7 +535,7 @@ function medianScore(values) {
   return roundMs(median(values));
 }
 
-function validateDatabase(database, scoring) {
+function validateDatabase(database, scoring, hardwareContract) {
   exactKeys(database, ["schemaVersion", "scoringVersion", "version", "sourceUrl", "references", "systems"],
     ["schemaVersion", "scoringVersion", "version", "sourceUrl", "references", "systems"], "invalid_database");
   if (database.schemaVersion !== DATABASE_SCHEMA_VERSION || database.scoringVersion !== scoring.SCORING_VERSION) fail("invalid_database");
@@ -487,7 +565,7 @@ function validateDatabase(database, scoring) {
   }
   const systemIds = new Set();
   for (const system of database.systems) {
-    exactKeys(system, ["id", "cohort", "appVersion", "cpu", "logicalCores", "memoryMb", "gpu", "aiProvider", "runCount", "installationCount", "stages", "systemScore", "gpuScore"],
+    exactKeys(system, ["id", "cohort", "appVersion", "cpu", "logicalCores", "memoryMb", "gpu", "aiProvider", "runCount", "installationCount", "stages", "systemScore", "gpuScore", "hardwareSpecs", "hardwareRatings"],
       ["id", "cohort", "appVersion", "cpu", "logicalCores", "memoryMb", "gpu", "aiProvider", "runCount", "installationCount", "stages", "systemScore", "gpuScore"], "invalid_database");
     validateCohort(system.cohort, scoring.SCORE_FIXTURE_VERSION);
     if (!isIdentifier(system.id) || systemIds.has(system.id)) fail("invalid_database");
@@ -502,6 +580,17 @@ function validateDatabase(database, scoring) {
     safeInteger(system.installationCount, 1, 100_000);
     if (system.installationCount > system.runCount) fail("invalid_database");
     const profile = { cohort: system.cohort, appVersion: system.appVersion, cpu: system.cpu, logicalCores: system.logicalCores, memoryMb: system.memoryMb, gpu: system.gpu, aiProvider: system.aiProvider };
+    const hasHardwareSpecs = Object.hasOwn(system, "hardwareSpecs");
+    const hasHardwareRatings = Object.hasOwn(system, "hardwareRatings");
+    if (hasHardwareSpecs !== hasHardwareRatings) fail("invalid_database");
+    if (hasHardwareSpecs) {
+      const hardwareSpecs = validateHardwareSpecs(system.hardwareSpecs);
+      if (hardwareSpecs === null) fail("invalid_database");
+      validateHardwareRatings(system.hardwareRatings);
+      const expectedRatings = hardwareContract.rateHardware(hardwareSpecs, hardwareContract.catalogue);
+      if (stableJson(expectedRatings) !== stableJson(system.hardwareRatings)) fail("invalid_database");
+      profile.hardwareSpecs = hardwareSpecs;
+    }
     if (system.id !== profileId(profile)) fail("invalid_database");
     validateStageStatisticMap(system.stages, scoring.THOROUGH_STAGE_SAMPLES, scoring.FRONTEND_STAGE_SAMPLES, system.runCount);
     validateScoreValue(system.systemScore);
@@ -563,6 +652,27 @@ function validateOptions(options) {
   safeInteger(options.installationCount, 1, 100_000);
 }
 
+async function loadHardwareContract() {
+  try {
+    const ratings = await import("../src/lib/hardware-ratings.ts");
+    const catalogue = JSON.parse(await readFile(new URL("./hardware-specifications.json", import.meta.url), "utf8"));
+    if (typeof ratings.rateHardware !== "function" || !isObject(catalogue)
+      || catalogue.schemaVersion !== 1 || catalogue.formulaVersion !== 1
+      || typeof catalogue.version !== "string" || !/^\d+\.\d+\.\d+$/u.test(catalogue.version)) {
+      fail("hardware_ratings_unavailable");
+    }
+    const rateHardware = ratings.rateHardware;
+    const probe = rateHardware({ cpuModel: null, gpuModel: null, installedMemoryMb: null }, catalogue);
+    validateHardwareRatings(probe);
+    if (probe.system.reason === "invalid-catalogue" || probe.gpu.reason === "invalid-catalogue"
+      || probe.catalogueVersion !== catalogue.version) fail("hardware_ratings_unavailable");
+    return { rateHardware, catalogue };
+  } catch (error) {
+    if (error instanceof ImportError) throw error;
+    fail("hardware_ratings_unavailable");
+  }
+}
+
 function isValidDate(value) {
   if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/u.test(value)) return false;
   const date = new Date(`${value}T00:00:00Z`);
@@ -588,6 +698,7 @@ export async function prepareImport({ reportValues, database, options }) {
     || !isObject(scoring.FRONTEND_STAGE_UNITS) || !isObject(scoring.SYSTEM_WEIGHTS) || !isObject(scoring.GPU_WEIGHTS)) {
     fail("scoring_contract_unavailable");
   }
+  const hardwareContract = await loadHardwareContract();
   if (!Array.isArray(reportValues) || reportValues.length < 3 || reportValues.length > MAX_REPORTS) fail("three_runs_required");
   validateOptions(options);
   const units = { ...scoring.THOROUGH_STAGE_UNITS, ...scoring.FRONTEND_STAGE_UNITS };
@@ -598,6 +709,7 @@ export async function prepareImport({ reportValues, database, options }) {
     scoring.FRONTEND_STAGE_SAMPLES,
     scoring.SCORE_FIXTURE_VERSION,
     Object.keys(scoring.GPU_WEIGHTS),
+    hardwareContract,
   ));
   const ids = new Set();
   const aggregateHashes = new Set();
@@ -619,7 +731,7 @@ export async function prepareImport({ reportValues, database, options }) {
     && (suppliedSystemIds.length !== reports.length || distinctSystemIds.size !== options.installationCount)) fail("mixed_installations");
   if (first.cohort.fixtureVersion !== scoring.SCORE_FIXTURE_VERSION) fail("unsupported_fixture");
 
-  const knownDb = validateDatabase(database, scoring);
+  const knownDb = validateDatabase(database, scoring, hardwareContract);
   const cohortRecordExists = knownDb.referenceCohorts.has(stableJson(first.cohort));
   let newReference = null;
   if (options.createReference) {
@@ -666,8 +778,12 @@ export async function prepareImport({ reportValues, database, options }) {
     systemScore: normalizedSystemScore,
     gpuScore: normalizedGpuScore,
   };
+  if (first.hardwareSpecs !== null) {
+    system.hardwareSpecs = first.hardwareSpecs;
+    system.hardwareRatings = first.hardwareRatings;
+  }
   candidateDatabase.systems = [...database.systems, system];
-  validateDatabase(candidateDatabase, scoring);
+  validateDatabase(candidateDatabase, scoring, hardwareContract);
 
   return {
     database: candidateDatabase,

@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "scoringVersion": 1,
-  "version": "1.0.2",
+  "version": "1.1.0",
   "sourceUrl": "https://github.com/wispdevon/OpenCull/blob/main/benchmarks/typical-speeds.json",
   "references": [
     {
@@ -63,7 +63,7 @@
   ],
   "systems": [
     {
-      "id": "system-caafea15e0ab9d43",
+      "id": "system-49c24df64d07ccd0",
       "cohort": {
         "os": "linux",
         "arch": "x86_64",
@@ -291,10 +291,51 @@
         }
       },
       "systemScore": 1002,
-      "gpuScore": 998
+      "gpuScore": 998,
+      "hardwareSpecs": {
+        "cpuModel": "AMD Ryzen 5 7500F 6-Core Processor",
+        "gpuModel": "NVIDIA GeForce RTX 3060 Ti",
+        "installedMemoryMb": 32768
+      },
+      "hardwareRatings": {
+        "formulaVersion": 1,
+        "catalogueVersion": "1.0.0",
+        "profile": {
+          "cpuId": "amd-ryzen-5-7500f",
+          "gpuId": "nvidia-geforce-rtx-3060-ti",
+          "installedMemoryMb": 32768
+        },
+        "system": {
+          "value": 2063,
+          "reason": null
+        },
+        "gpu": {
+          "value": 1372,
+          "reason": null
+        },
+        "components": {
+          "cpu": {
+            "physicalCores": 6,
+            "baseClockMHz": 3700,
+            "points": 2220,
+            "sourceId": "amd-ryzen-5-7500f"
+          },
+          "gpu": {
+            "shaderCores": 4864,
+            "baseClockMHz": 1410,
+            "vramGiB": 8,
+            "points": 1371.648,
+            "sourceId": "nvidia-geforce-rtx-3060-ti"
+          },
+          "ram": {
+            "installedGiB": 32,
+            "points": 3200
+          }
+        }
+      }
     },
     {
-      "id": "system-00c15ac5be38d5e9",
+      "id": "system-a1599fc38b290bac",
       "cohort": {
         "os": "linux",
         "arch": "x86_64",
@@ -522,7 +563,48 @@
         }
       },
       "systemScore": 1063,
-      "gpuScore": 986
+      "gpuScore": 986,
+      "hardwareSpecs": {
+        "cpuModel": "AMD Ryzen 5 7500F 6-Core Processor",
+        "gpuModel": "NVIDIA GeForce RTX 3060 Ti",
+        "installedMemoryMb": 32768
+      },
+      "hardwareRatings": {
+        "formulaVersion": 1,
+        "catalogueVersion": "1.0.0",
+        "profile": {
+          "cpuId": "amd-ryzen-5-7500f",
+          "gpuId": "nvidia-geforce-rtx-3060-ti",
+          "installedMemoryMb": 32768
+        },
+        "system": {
+          "value": 2063,
+          "reason": null
+        },
+        "gpu": {
+          "value": 1372,
+          "reason": null
+        },
+        "components": {
+          "cpu": {
+            "physicalCores": 6,
+            "baseClockMHz": 3700,
+            "points": 2220,
+            "sourceId": "amd-ryzen-5-7500f"
+          },
+          "gpu": {
+            "shaderCores": 4864,
+            "baseClockMHz": 1410,
+            "vramGiB": 8,
+            "points": 1371.648,
+            "sourceId": "nvidia-geforce-rtx-3060-ti"
+          },
+          "ram": {
+            "installedGiB": 32,
+            "points": 3200
+          }
+        }
+      }
     }
   ]
 }

@@ -1,6 +1,15 @@
 import { describe, expect, it } from "vitest";
 import bundledDatabase from "../../benchmarks/typical-speeds.json";
+import hardwareCatalogueJSON from "../../benchmarks/hardware-specifications.json";
+import { rateHardware, type HardwareCatalogue } from "./hardware-ratings";
 import { diagnosticReport, ntfySummary, rankedStages, recommendations, stageScoreMs, summarizeStage, type BenchmarkReport, type StageMeasurement } from "./performance";
+
+const hardwareCatalogue = hardwareCatalogueJSON as HardwareCatalogue;
+const knownHardware = {
+  cpuModel: "AMD Ryzen 5 7500F 6-Core Processor",
+  gpuModel: "NVIDIA GeForce RTX 3060 Ti",
+  installedMemoryMb: 32 * 1024,
+};
 
 const stage = (values: number[], extra: Partial<StageMeasurement> = {}): StageMeasurement => ({
   id: "preview.fit.cold", label: "Fit preview", category: "preview", cache: "cold", samplesMs: values,
@@ -31,11 +40,19 @@ describe("performance reports", () => {
     const source = Object.assign(exampleReport([measured]), {
       outcome: "completed",
       performanceScores: { scoringVersion: 1, databaseVersion: "untrusted", cohortId: "secret", system: { value: 999, reason: null, referenceId: "secret" }, gpu: {} },
+      hardwareRatings: { formulaVersion: 1, catalogueVersion: "untrusted", system: { value: 999, reason: null }, gpu: {} },
     });
+    source.environment.hardwareSpecs = { ...knownHardware, systemSerial: "private serial" } as typeof knownHardware;
     const projected = diagnosticReport(source);
 
-    expect(projected).toMatchObject({ schemaVersion: 3, outcome: "completed" });
+    expect(projected).toMatchObject({ schemaVersion: 4, outcome: "completed" });
     expect(projected.stages[0].inference).toEqual({ cudaCalls: 7, cpuCalls: 3, cpuFallbackCalls: 2 });
+    expect(projected.environment.hardwareSpecs).toEqual(knownHardware);
+    expect(projected.hardwareRatings).toEqual(rateHardware(knownHardware, hardwareCatalogue));
+    expect(projected.hardwareRatings).toMatchObject({
+      system: { value: 2063, reason: null },
+      gpu: { value: 1372, reason: null },
+    });
     expect(projected.performanceScores).toMatchObject({
       scoringVersion: 1,
       databaseVersion: bundledDatabase.version,
@@ -43,10 +60,13 @@ describe("performance reports", () => {
       system: { value: null, reason: "unsupported-report", referenceId: null },
       gpu: { value: null, reason: "unsupported-report", referenceId: null },
     });
-    expect(JSON.stringify(projected)).not.toMatch(/discard me|private|untrusted|secret/);
+    expect(JSON.stringify(projected)).not.toMatch(/discard me|private|serial|untrusted|secret/);
 
     const legacy = diagnosticReport(exampleReport());
     expect(legacy.outcome).toBeNull();
+    expect(legacy.hardwareRatings).toEqual(rateHardware({ cpuModel: null, gpuModel: null, installedMemoryMb: null }, hardwareCatalogue));
+    expect(legacy.hardwareRatings.system).toEqual({ value: null, reason: "unknown-cpu" });
+    expect(legacy.hardwareRatings.gpu).toEqual({ value: null, reason: "unknown-gpu" });
   });
   it("keeps notification previews to three stages and one short suggestion", () => {
     const report = diagnosticReport(exampleReport(Array.from({ length: 5 }, (_, i) => stage([100 + i], { id: `test-${i}`, label: `Stage ${i}` }))));
@@ -66,19 +86,16 @@ describe("performance reports", () => {
     const message = ntfySummary(diagnosticReport(source));
     for (const value of ["v0.7.0", "debug turbo-jpeg cuda", "linux / x86_64", "AMD Ryzen 5 7500F", "12 cores", "31616 MB", "NVIDIA GeForce RTX 3060 Ti", "AI: CUDA", "4-6000x4000-texture-gpu-ai", "0.1 s elapsed", "0.1 s measured", "1 stages", "40.0 ms score", "10.0 ms typical"]) expect(message).toContain(value);
   });
-  it("shows system and GPU score indexes with references before slow-stage detail", () => {
-    const report = diagnosticReport(exampleReport([stage([100], { label: "Slow stage" })]));
-    report.performanceScores = {
-      scoringVersion: 1,
-      databaseVersion: "1.0.0",
-      cohortId: "linux-x86_64-release-fixture4",
-      system: { value: 875, reason: null, referenceId: "linux-x86_64-release-fixture4" },
-      gpu: { value: null, reason: "gpu-fallback", referenceId: null },
-    };
+  it("summarizes fixed hardware ratings and does not label timing indexes as hardware scores", () => {
+    const source = exampleReport([stage([100], { label: "Slow stage" })]);
+    source.environment.hardwareSpecs = knownHardware;
+    const report = diagnosticReport(source);
     const message = ntfySummary(report);
-    expect(message.indexOf("- Score reference:")).toBeLessThan(message.indexOf("- Slow stage:"));
-    expect(message).toContain("- System score: 875 · ref linux-x86_64-release-fixture4");
-    expect(message).toContain("- GPU score: unavailable (gpu-fallback)");
+    expect(message.indexOf("- Hardware rating: formula v1 · catalogue 1.0.0")).toBeLessThan(message.indexOf("- Slow stage:"));
+    expect(message).toContain("- System hardware rating: 2063");
+    expect(message).toContain("- GPU hardware rating: 1372");
+    expect(message).not.toContain("- System score:");
+    expect(message).not.toContain("- GPU score:");
   });
   it("bounds large Unicode notification previews without splitting characters", () => {
     const report = diagnosticReport(exampleReport(Array.from({ length: 3 }, (_, i) => stage([1], { id: String(i), label: "顔".repeat(120) }))));
@@ -105,7 +122,7 @@ describe("performance reports", () => {
     const json = JSON.stringify(diagnosticReport(input));
     expect(json).not.toMatch(/private|secret|samplesMs|detail|hostname/);
     expect(JSON.parse(json).stages[0].count).toBe(1);
-    expect(JSON.parse(json)).toMatchObject({ schemaVersion: 3, systemId: expect.stringMatching(/^[a-z]+-[a-z]+-\d{6}$/) });
+    expect(JSON.parse(json)).toMatchObject({ schemaVersion: 4, systemId: expect.stringMatching(/^[a-z]+-[a-z]+-\d{6}$/) });
   });
   it("prioritizes reliability failures even without completed samples", () => {
     const suggestions = recommendations(exampleReport([stage([], { failures: 2, status: "failed" })]));

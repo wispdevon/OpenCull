@@ -11,7 +11,7 @@ use reqwest::{header, redirect::Policy, Client, Url};
 use serde::{de::Deserializer, Deserialize, Serialize};
 use tauri::State;
 
-const CURRENT_FIELDS_VERSION: u32 = 3;
+const CURRENT_FIELDS_VERSION: u32 = 4;
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
 const MAX_URL_BYTES: usize = 2_048;
 const MAX_REPORT_BYTES: usize = 128 * 1024;
@@ -22,6 +22,7 @@ const MAX_STAGES: usize = 100;
 const MAX_COVERAGE: usize = 100;
 const MAX_RECOMMENDATIONS: usize = 50;
 const MAX_REPORT_AGE_MS: u64 = 366 * 24 * 60 * 60 * 1_000;
+const MAX_JS_SAFE_INTEGER: u64 = 9_007_199_254_740_991;
 const PERFORMANCE_NTFY_URL: &str = "https://ntfy.sh/culltivate-perf";
 const LOGS_NTFY_URL: &str = "https://ntfy.sh/culltivate-logs";
 const MEDIA_EXTENSIONS: [&str; 25] = [
@@ -50,6 +51,7 @@ pub struct DiagnosticReport {
     pub coverage: Vec<Coverage>,
     pub recommendations: Vec<Recommendation>,
     pub performance_scores: PerformanceScores,
+    pub hardware_ratings: HardwareRatings,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
@@ -83,6 +85,100 @@ pub struct PerformanceScores {
     pub cohort_id: Option<String>,
     pub system: ScoreResult,
     pub gpu: ScoreResult,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct HardwareRatings {
+    pub formula_version: u32,
+    pub catalogue_version: String,
+    pub profile: HardwareProfile,
+    pub system: HardwareRatingResult,
+    pub gpu: HardwareRatingResult,
+    pub components: HardwareRatingComponents,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct HardwareProfile {
+    #[serde(deserialize_with = "required_option")]
+    pub cpu_id: Option<String>,
+    #[serde(deserialize_with = "required_option")]
+    pub gpu_id: Option<String>,
+    #[serde(deserialize_with = "required_option")]
+    pub installed_memory_mb: Option<u64>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct HardwareRatingResult {
+    #[serde(deserialize_with = "required_option")]
+    pub value: Option<u64>,
+    #[serde(deserialize_with = "required_option")]
+    pub reason: Option<HardwareRatingUnavailableReason>,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "kebab-case")]
+pub enum HardwareRatingUnavailableReason {
+    UnknownCpu,
+    UnknownGpu,
+    UnknownMemory,
+    InvalidMemory,
+    InvalidCatalogue,
+    AmbiguousCpu,
+    AmbiguousGpu,
+}
+
+impl HardwareRatingUnavailableReason {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::UnknownCpu => "unknown-cpu",
+            Self::UnknownGpu => "unknown-gpu",
+            Self::UnknownMemory => "unknown-memory",
+            Self::InvalidMemory => "invalid-memory",
+            Self::InvalidCatalogue => "invalid-catalogue",
+            Self::AmbiguousCpu => "ambiguous-cpu",
+            Self::AmbiguousGpu => "ambiguous-gpu",
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct HardwareRatingComponents {
+    #[serde(deserialize_with = "required_option")]
+    pub cpu: Option<CpuRatingComponent>,
+    #[serde(deserialize_with = "required_option")]
+    pub gpu: Option<GpuRatingComponent>,
+    #[serde(deserialize_with = "required_option")]
+    pub ram: Option<RamRatingComponent>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct CpuRatingComponent {
+    pub physical_cores: u64,
+    pub base_clock_mhz: u64,
+    pub points: f64,
+    pub source_id: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct GpuRatingComponent {
+    pub shader_cores: u64,
+    pub base_clock_mhz: u64,
+    pub vram_gi_b: f64,
+    pub points: f64,
+    pub source_id: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct RamRatingComponent {
+    pub installed_gi_b: f64,
+    pub points: f64,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -139,6 +235,19 @@ pub struct Environment {
     #[serde(deserialize_with = "required_option")]
     pub ai_provider: Option<String>,
     pub fixture_version: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hardware_specs: Option<HardwareSpecs>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct HardwareSpecs {
+    #[serde(deserialize_with = "required_option")]
+    pub cpu_model: Option<String>,
+    #[serde(deserialize_with = "required_option")]
+    pub gpu_model: Option<String>,
+    #[serde(deserialize_with = "required_option")]
+    pub installed_memory_mb: Option<u64>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -684,7 +793,7 @@ fn build_diagnostic_summary(report: &DiagnosticReport) -> String {
             report.environment.gpu.as_deref().unwrap_or("unknown")
         ),
         format!(
-            "- RAM: {}",
+            "- Available memory: {}",
             report
                 .environment
                 .memory_mb
@@ -707,17 +816,11 @@ fn build_diagnostic_summary(report: &DiagnosticReport) -> String {
             measured.len()
         ),
         format!(
-            "- Score reference: v{} · database {} · cohort {}",
-            report.performance_scores.scoring_version,
-            report.performance_scores.database_version,
-            report
-                .performance_scores
-                .cohort_id
-                .as_deref()
-                .unwrap_or("unmatched")
+            "- Hardware rating: formula v{} · catalogue {}",
+            report.hardware_ratings.formula_version, report.hardware_ratings.catalogue_version
         ),
-        score_summary("System", &report.performance_scores.system),
-        score_summary("GPU", &report.performance_scores.gpu),
+        hardware_rating_summary("System hardware rating", &report.hardware_ratings.system),
+        hardware_rating_summary("GPU hardware rating", &report.hardware_ratings.gpu),
     ];
 
     let mut slowest = measured;
@@ -740,15 +843,11 @@ fn build_diagnostic_summary(report: &DiagnosticReport) -> String {
     truncate_utf8(&lines.join("\n"), MAX_DIAGNOSTIC_SUMMARY_BYTES)
 }
 
-fn score_summary(name: &str, score: &ScoreResult) -> String {
-    match (score.value, score.reason, score.reference_id.as_deref()) {
-        (Some(value), None, Some(reference_id)) => {
-            format!("- {name} score: {value} · ref {reference_id}")
-        }
-        (None, Some(reason), None) => {
-            format!("- {name} score: unavailable ({})", reason.as_str())
-        }
-        _ => format!("- {name} score: unavailable (invalid-reference)"),
+fn hardware_rating_summary(name: &str, rating: &HardwareRatingResult) -> String {
+    match (rating.value, rating.reason) {
+        (Some(value), None) => format!("- {name}: {value}"),
+        (None, Some(reason)) => format!("- {name}: unavailable ({})", reason.as_str()),
+        _ => format!("- {name}: unavailable (invalid-rating)"),
     }
 }
 
@@ -906,6 +1005,10 @@ fn validate_report(report: &DiagnosticReport) -> Result<(), String> {
         return Err("invalid_report".to_owned());
     }
     validate_performance_scores(&report.performance_scores)?;
+    validate_hardware_ratings(
+        &report.hardware_ratings,
+        report.environment.hardware_specs.as_ref(),
+    )?;
 
     let environment = &report.environment;
     for (value, max) in [
@@ -935,6 +1038,20 @@ fn validate_report(report: &DiagnosticReport) -> Result<(), String> {
             .is_some_and(|value| value > 16_777_216)
     {
         return Err("invalid_report".to_owned());
+    }
+    if let Some(hardware) = &environment.hardware_specs {
+        for model in [hardware.cpu_model.as_deref(), hardware.gpu_model.as_deref()]
+            .into_iter()
+            .flatten()
+        {
+            validate_text(model, 120, false)?;
+        }
+        if hardware
+            .installed_memory_mb
+            .is_some_and(|value| value == 0 || value > MAX_JS_SAFE_INTEGER)
+        {
+            return Err("invalid_report".to_owned());
+        }
     }
 
     for stage in &report.stages {
@@ -1017,6 +1134,148 @@ fn validate_performance_scores(scores: &PerformanceScores) -> Result<(), String>
         }
     }
     Ok(())
+}
+
+fn validate_hardware_ratings(
+    ratings: &HardwareRatings,
+    identity: Option<&HardwareSpecs>,
+) -> Result<(), String> {
+    if ratings.formula_version != 1 || !is_identifier(&ratings.catalogue_version, 40) {
+        return Err("invalid_report".to_owned());
+    }
+    let profile = &ratings.profile;
+    for id in [profile.cpu_id.as_deref(), profile.gpu_id.as_deref()]
+        .into_iter()
+        .flatten()
+    {
+        if !is_identifier(id, 80) {
+            return Err("invalid_report".to_owned());
+        }
+    }
+    if profile
+        .installed_memory_mb
+        .is_some_and(|value| value == 0 || value > MAX_JS_SAFE_INTEGER)
+        || identity.is_some_and(|identity| {
+            profile.installed_memory_mb != identity.installed_memory_mb
+                || (identity.cpu_model.is_none() && profile.cpu_id.is_some())
+                || (identity.gpu_model.is_none() && profile.gpu_id.is_some())
+        })
+        || identity.is_none()
+            && (profile.cpu_id.is_some()
+                || profile.gpu_id.is_some()
+                || profile.installed_memory_mb.is_some())
+    {
+        return Err("invalid_report".to_owned());
+    }
+
+    let components = &ratings.components;
+    if ratings.system.reason == Some(HardwareRatingUnavailableReason::InvalidCatalogue)
+        && ratings.gpu.reason == Some(HardwareRatingUnavailableReason::InvalidCatalogue)
+        && components.cpu.is_none()
+        && components.gpu.is_none()
+        && components.ram.is_none()
+        && profile.cpu_id.is_none()
+        && profile.gpu_id.is_none()
+    {
+        validate_hardware_rating_result(&ratings.system)?;
+        validate_hardware_rating_result(&ratings.gpu)?;
+        return Ok(());
+    }
+    if let Some(cpu) = &components.cpu {
+        if profile.cpu_id.is_none()
+            || cpu.physical_cores == 0
+            || cpu.physical_cores > MAX_JS_SAFE_INTEGER
+            || cpu.base_clock_mhz == 0
+            || cpu.base_clock_mhz > MAX_JS_SAFE_INTEGER
+            || !valid_hardware_points(cpu.points)
+            || !is_identifier(&cpu.source_id, 80)
+            || !close_enough(
+                cpu.points,
+                cpu.physical_cores as f64 * cpu.base_clock_mhz as f64 / 10.0,
+            )
+        {
+            return Err("invalid_report".to_owned());
+        }
+    } else if profile.cpu_id.is_some() {
+        return Err("invalid_report".to_owned());
+    }
+    if let Some(gpu) = &components.gpu {
+        if profile.gpu_id.is_none()
+            || gpu.shader_cores == 0
+            || gpu.shader_cores > MAX_JS_SAFE_INTEGER
+            || gpu.base_clock_mhz == 0
+            || gpu.base_clock_mhz > MAX_JS_SAFE_INTEGER
+            || !valid_hardware_points(gpu.vram_gi_b)
+            || !valid_hardware_points(gpu.points)
+            || !is_identifier(&gpu.source_id, 80)
+            || !close_enough(
+                gpu.points,
+                gpu.shader_cores as f64 * gpu.base_clock_mhz as f64 * 2.0 / 10_000.0,
+            )
+        {
+            return Err("invalid_report".to_owned());
+        }
+    } else if profile.gpu_id.is_some() {
+        return Err("invalid_report".to_owned());
+    }
+    if let Some(ram) = &components.ram {
+        if profile.installed_memory_mb.is_none()
+            || !valid_hardware_points(ram.installed_gi_b)
+            || !valid_hardware_points(ram.points)
+            || !close_enough(
+                ram.installed_gi_b,
+                profile.installed_memory_mb.unwrap() as f64 / 1024.0,
+            )
+            || !close_enough(ram.points, ram.installed_gi_b * 100.0)
+        {
+            return Err("invalid_report".to_owned());
+        }
+    } else if profile.installed_memory_mb.is_some() {
+        return Err("invalid_report".to_owned());
+    }
+
+    validate_hardware_rating_result(&ratings.gpu)?;
+    match (&components.gpu, ratings.gpu.value) {
+        (Some(gpu), Some(value)) if value == gpu.points.round() as u64 => {}
+        (None, None) => {}
+        _ => return Err("invalid_report".to_owned()),
+    }
+
+    validate_hardware_rating_result(&ratings.system)?;
+    match (
+        &components.cpu,
+        &components.gpu,
+        &components.ram,
+        ratings.system.value,
+    ) {
+        (Some(cpu), Some(gpu), Some(ram), Some(value)) => {
+            let expected = (0.6 * cpu.points + 0.3 * gpu.points + 0.1 * ram.points).round();
+            if value != expected as u64 {
+                return Err("invalid_report".to_owned());
+            }
+        }
+        (None, _, _, None) | (_, None, _, None) | (_, _, None, None) => {}
+        _ => return Err("invalid_report".to_owned()),
+    }
+    Ok(())
+}
+
+fn validate_hardware_rating_result(result: &HardwareRatingResult) -> Result<(), String> {
+    match (result.value, result.reason) {
+        (Some(value), None) if value <= MAX_JS_SAFE_INTEGER => Ok(()),
+        (None, Some(_)) => Ok(()),
+        _ => Err("invalid_report".to_owned()),
+    }
+}
+
+fn valid_hardware_points(value: f64) -> bool {
+    value.is_finite() && value > 0.0 && value <= MAX_JS_SAFE_INTEGER as f64
+}
+
+fn close_enough(actual: f64, expected: f64) -> bool {
+    actual.is_finite()
+        && expected.is_finite()
+        && (actual - expected).abs() <= 1e-9 * expected.abs().max(1.0)
 }
 
 fn is_identifier(value: &str, max: usize) -> bool {
@@ -1265,12 +1524,17 @@ mod tests {
                 build: "test".to_owned(),
                 os: "linux".to_owned(),
                 arch: "x86_64".to_owned(),
-                cpu: Some("Intel(R) Core(TM) i7 CPU @ 2.80GHz".to_owned()),
+                cpu: Some("AMD Ryzen 5 7500F 6-Core Processor".to_owned()),
                 logical_cores: 8,
                 memory_mb: Some(16_384),
                 gpu: None,
                 ai_provider: Some("ONNX CPU".to_owned()),
                 fixture_version: "v1".to_owned(),
+                hardware_specs: Some(HardwareSpecs {
+                    cpu_model: Some("AMD Ryzen 5 7500F 6-Core Processor".to_owned()),
+                    gpu_model: Some("NVIDIA GeForce RTX 3060 Ti".to_owned()),
+                    installed_memory_mb: Some(32_768),
+                }),
             },
             stages: vec![StageSummary {
                 id: "preview-fit".to_owned(),
@@ -1314,6 +1578,42 @@ mod tests {
                     value: None,
                     reason: Some(ScoreUnavailableReason::GpuNotMeasured),
                     reference_id: None,
+                },
+            },
+            hardware_ratings: HardwareRatings {
+                formula_version: 1,
+                catalogue_version: "1.0.0".to_owned(),
+                profile: HardwareProfile {
+                    cpu_id: Some("amd-ryzen-5-7500f".to_owned()),
+                    gpu_id: Some("nvidia-geforce-rtx-3060-ti".to_owned()),
+                    installed_memory_mb: Some(32_768),
+                },
+                system: HardwareRatingResult {
+                    value: Some(2_063),
+                    reason: None,
+                },
+                gpu: HardwareRatingResult {
+                    value: Some(1_372),
+                    reason: None,
+                },
+                components: HardwareRatingComponents {
+                    cpu: Some(CpuRatingComponent {
+                        physical_cores: 6,
+                        base_clock_mhz: 3_700,
+                        points: 2_220.0,
+                        source_id: "amd-ryzen-5-7500f".to_owned(),
+                    }),
+                    gpu: Some(GpuRatingComponent {
+                        shader_cores: 4_864,
+                        base_clock_mhz: 1_410,
+                        vram_gi_b: 8.0,
+                        points: 1_371.648,
+                        source_id: "nvidia-geforce-rtx-3060-ti".to_owned(),
+                    }),
+                    ram: Some(RamRatingComponent {
+                        installed_gi_b: 32.0,
+                        points: 3_200.0,
+                    }),
                 },
             },
         }
@@ -1606,7 +1906,7 @@ mod tests {
     #[test]
     fn shared_summary_includes_benchmark_metadata_and_only_three_stages_one_tip() {
         let mut report = test_report();
-        report.environment.gpu = Some("Private GPU model".to_owned());
+        report.environment.gpu = Some("NVIDIA GeForce RTX 3060 Ti".to_owned());
         let mut stages = Vec::new();
         for (id, label, total_ms, median_ms, max_ms) in [
             ("stage-one", "Slow one", 100.0, 30.0, 50.0),
@@ -1647,25 +1947,19 @@ mod tests {
         assert_eq!(lines[3], "- OS: linux/x86_64");
         assert_eq!(
             lines[4],
-            "- CPU: Intel(R) Core(TM) i7 CPU @ 2.80GHz · 8 cores"
+            "- CPU: AMD Ryzen 5 7500F 6-Core Processor · 8 cores"
         );
-        assert_eq!(lines[5], "- GPU: Private GPU model");
-        assert_eq!(lines[6], "- RAM: 16384 MB");
+        assert_eq!(lines[5], "- GPU: NVIDIA GeForce RTX 3060 Ti");
+        assert_eq!(lines[6], "- Available memory: 16384 MB");
         assert_eq!(lines[7], "- AI: ONNX CPU");
         assert_eq!(lines[8], "- Fixture: v1");
         assert_eq!(
             lines[9],
             "- Timing: 1.5 s elapsed · 0.3 s measured · 4 stages · 0 failures"
         );
-        assert_eq!(
-            lines[10],
-            "- Score reference: v1 · database 2026-10-18.1 · cohort linux-x86_64-release-fixture4"
-        );
-        assert_eq!(
-            lines[11],
-            "- System score: 1000 · ref linux-x86_64-release-fixture4"
-        );
-        assert_eq!(lines[12], "- GPU score: unavailable (gpu-not-measured)");
+        assert_eq!(lines[10], "- Hardware rating: formula v1 · catalogue 1.0.0");
+        assert_eq!(lines[11], "- System hardware rating: 2063");
+        assert_eq!(lines[12], "- GPU hardware rating: 1372");
         assert_eq!(
             lines[13],
             "- Slow one: 0.1 s total · 33.3 ms score · 30.0 ms typical"
@@ -1691,8 +1985,8 @@ mod tests {
                 "unexpected detail in summary: {omitted}"
             );
         }
-        assert!(message.contains("Private GPU model"));
-        assert!(message.contains("Intel(R) Core"));
+        assert!(message.contains("NVIDIA GeForce RTX 3060 Ti"));
+        assert!(message.contains("AMD Ryzen 5 7500F"));
         assert!(message.contains("ONNX CPU"));
         assert!(message.len() <= MAX_DIAGNOSTIC_SUMMARY_BYTES);
         assert!(message.chars().count() <= 2_000);
@@ -1860,11 +2154,16 @@ mod tests {
     }
 
     #[test]
-    fn schema_three_requires_outcome_and_scores_and_validates_inference_counters() {
+    fn schema_four_requires_outcome_scores_and_hardware_ratings_and_validates_inference() {
         let mut value = serde_json::to_value(test_report()).unwrap();
         assert_eq!(value["schemaVersion"], CURRENT_FIELDS_VERSION);
         assert_eq!(value["outcome"], "completed");
         assert_eq!(value["performanceScores"]["scoringVersion"], 1);
+        assert_eq!(value["hardwareRatings"]["formulaVersion"], 1);
+        assert_eq!(
+            value["environment"]["hardwareSpecs"]["cpuModel"],
+            "AMD Ryzen 5 7500F 6-Core Processor"
+        );
         assert!(serde_json::from_value::<DiagnosticReport>(value.clone()).is_ok());
 
         let mut missing_outcome = value.clone();
@@ -1876,6 +2175,12 @@ mod tests {
             .unwrap()
             .remove("performanceScores");
         assert!(serde_json::from_value::<DiagnosticReport>(missing_scores).is_err());
+        let mut missing_hardware_ratings = value.clone();
+        missing_hardware_ratings
+            .as_object_mut()
+            .unwrap()
+            .remove("hardwareRatings");
+        assert!(serde_json::from_value::<DiagnosticReport>(missing_hardware_ratings).is_err());
 
         let mut missing_score_reason = value.clone();
         missing_score_reason["performanceScores"]["system"]
@@ -1891,6 +2196,16 @@ mod tests {
             "secret": "unexpected"
         });
         assert!(serde_json::from_value::<DiagnosticReport>(unknown_inference).is_err());
+        let mut unknown_hardware_spec = value.clone();
+        unknown_hardware_spec["environment"]["hardwareSpecs"]["serial"] =
+            serde_json::json!("private");
+        assert!(serde_json::from_value::<DiagnosticReport>(unknown_hardware_spec).is_err());
+        let mut missing_hardware_spec_key = value.clone();
+        missing_hardware_spec_key["environment"]["hardwareSpecs"]
+            .as_object_mut()
+            .unwrap()
+            .remove("gpuModel");
+        assert!(serde_json::from_value::<DiagnosticReport>(missing_hardware_spec_key).is_err());
 
         value["outcome"] = serde_json::Value::Null;
         let mut report: DiagnosticReport = serde_json::from_value(value).unwrap();
@@ -1920,6 +2235,91 @@ mod tests {
             .cpu_fallback_calls = 2;
         report.stages[0].inference.as_mut().unwrap().cuda_calls = 10_000_001;
         assert_eq!(validate_report(&report).unwrap_err(), "invalid_report");
+    }
+
+    #[test]
+    fn hardware_specs_keep_all_nullable_identity_keys_when_present() {
+        let specs = HardwareSpecs {
+            cpu_model: None,
+            gpu_model: None,
+            installed_memory_mb: None,
+        };
+        let value = serde_json::to_value(&specs).unwrap();
+        assert_eq!(value["cpuModel"], serde_json::Value::Null);
+        assert_eq!(value["gpuModel"], serde_json::Value::Null);
+        assert_eq!(value["installedMemoryMb"], serde_json::Value::Null);
+        assert!(serde_json::from_value::<HardwareSpecs>(value).is_ok());
+    }
+
+    #[test]
+    fn hardware_rating_bounds_and_component_formulas_are_validated() {
+        let mut report = test_report();
+        assert!(validate_report(&report).is_ok());
+
+        report.hardware_ratings.system.value = Some(2_064);
+        assert_eq!(validate_report(&report).unwrap_err(), "invalid_report");
+        report.hardware_ratings.system.value = Some(2_063);
+
+        report.hardware_ratings.gpu.value = Some(1_371);
+        assert_eq!(validate_report(&report).unwrap_err(), "invalid_report");
+        report.hardware_ratings.gpu.value = Some(1_372);
+
+        report
+            .hardware_ratings
+            .components
+            .cpu
+            .as_mut()
+            .unwrap()
+            .points = 2_221.0;
+        assert_eq!(validate_report(&report).unwrap_err(), "invalid_report");
+        report
+            .hardware_ratings
+            .components
+            .cpu
+            .as_mut()
+            .unwrap()
+            .points = 2_220.0;
+
+        report
+            .hardware_ratings
+            .components
+            .gpu
+            .as_mut()
+            .unwrap()
+            .points = f64::INFINITY;
+        assert_eq!(validate_report(&report).unwrap_err(), "invalid_report");
+        report
+            .hardware_ratings
+            .components
+            .gpu
+            .as_mut()
+            .unwrap()
+            .points = 1_371.648;
+
+        report.hardware_ratings.profile.cpu_id = Some("../private".to_owned());
+        assert_eq!(validate_report(&report).unwrap_err(), "invalid_report");
+        report.hardware_ratings.profile.cpu_id = Some("amd-ryzen-5-7500f".to_owned());
+
+        report.environment.hardware_specs = None;
+        report.hardware_ratings.profile = HardwareProfile {
+            cpu_id: None,
+            gpu_id: None,
+            installed_memory_mb: None,
+        };
+        report.hardware_ratings.components = HardwareRatingComponents {
+            cpu: None,
+            gpu: None,
+            ram: None,
+        };
+        report.hardware_ratings.system = HardwareRatingResult {
+            value: None,
+            reason: Some(HardwareRatingUnavailableReason::UnknownCpu),
+        };
+        report.hardware_ratings.gpu = HardwareRatingResult {
+            value: None,
+            reason: Some(HardwareRatingUnavailableReason::UnknownGpu),
+        };
+        assert!(validate_report(&report).is_ok());
     }
 
     #[test]
@@ -2055,7 +2455,7 @@ mod tests {
         assert!(message.contains(&format!("- OS: {}/{}", "o".repeat(40), "x".repeat(40))));
         assert!(message.contains(&format!("- CPU: {} · 512 cores", "c".repeat(100))));
         assert!(message.contains(&format!("- GPU: {}", "g".repeat(100))));
-        assert!(message.contains("- RAM: 16777216 MB"));
+        assert!(message.contains("- Available memory: 16777216 MB"));
         assert!(message.contains(&format!("- AI: {}", "i".repeat(100))));
         assert!(message.contains(&format!("- Fixture: {}", "f".repeat(40))));
         assert_eq!(message.matches("- LLLLL").count(), 3);

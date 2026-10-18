@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { rateHardware, type HardwareCatalogue } from "./hardware-ratings";
+import hardwareCatalogue from "../../benchmarks/hardware-specifications.json";
 import type { BenchmarkReport, DiagnosticReport, StageMeasurement, StageSummary } from "./performance";
 import {
   GPU_WEIGHTS, SCORE_FIXTURE_VERSION, SYSTEM_WEIGHTS, THOROUGH_STAGE_SAMPLES,
@@ -40,6 +42,7 @@ function database(): TypicalDatabase {
 function summary(input: CompletedReport): DiagnosticReport {
   return {
     ...input, systemId: "local-installation", recommendations: [], performanceScores: scoreReport(input, database()),
+    hardwareRatings: rateHardware(input.environment.hardwareSpecs ?? { cpuModel: null, gpuModel: null, installedMemoryMb: null }, hardwareCatalogue as HardwareCatalogue),
     stages: input.stages.map((stage): StageSummary => {
       const { samplesMs, detail: _detail, ...rest } = stage;
       const values = [...samplesMs].sort((a, b) => a - b);

@@ -22,15 +22,20 @@ import {
   type BenchmarkStatus,
   type CoverageEntry,
   type DeliveryResult,
+  type PerformanceEnvironment,
   type Recommendation,
   type StageSummary,
 } from "@/lib/performance";
 import {
   scoreReport,
-  type PerformanceScores,
-  type ScoreUnavailableReason,
   type TypicalDatabase,
 } from "@/lib/performance-scores";
+import {
+  rateHardware,
+  type HardwareCatalogue,
+  type HardwareIdentity,
+  type HardwareRatings,
+} from "@/lib/hardware-ratings";
 import { getSystemId, DEFAULT_LOGS_NTFY_URL, DEFAULT_PERF_NTFY_URL } from "@/lib/performance-preferences";
 import {
   getLatestReport,
@@ -41,8 +46,11 @@ import {
 import { colorForStage, ETC_THRESHOLD_MS, timingBreakdown } from "@/lib/performance-breakdown";
 import { compactWorkload, interpretStage } from "@/lib/performance-interpretation";
 import typicalSpeeds from "../../benchmarks/typical-speeds.json";
+import hardwareSpecifications from "../../benchmarks/hardware-specifications.json";
 
-const SCORE_REFERENCE_URL = "https://github.com/wispdevon/OpenCull/blob/main/benchmarks/README.md";
+const HARDWARE_REFERENCE_URL = "https://github.com/wispdevon/OpenCull/blob/main/benchmarks/README.md";
+const HARDWARE_CATALOGUE = hardwareSpecifications as HardwareCatalogue;
+const UNKNOWN_HARDWARE: HardwareIdentity = { cpuModel: null, gpuModel: null, installedMemoryMb: null };
 
 const EMPTY_STATUS: BenchmarkStatus = {
   runId: null,
@@ -62,6 +70,9 @@ export function PerformanceSettings() {
   const [rankBy, setRankBy] = useState<"score" | "latency">("score");
   const [recording, setRecording] = useState(() => performanceApi.isRecording());
   const [reporting, setReporting] = useState(() => performanceApi.reportingState());
+  const [hardwareEnvironment, setHardwareEnvironment] = useState<PerformanceEnvironment | null>(null);
+  const [hardwareEnvironmentLoading, setHardwareEnvironmentLoading] = useState(true);
+  const [hardwareEnvironmentError, setHardwareEnvironmentError] = useState<string | null>(null);
   const [systemId] = useState(() => getSystemId());
   const [reportingConfiguration, setReportingConfiguration] = useState<ReportingConfiguration | null>(null);
   const [busy, setBusy] = useState(false);
@@ -104,6 +115,18 @@ export function PerformanceSettings() {
       if (active) setReportingConfiguration(configuration);
     }).catch(() => {
       if (active) setReportingConfiguration(null);
+    });
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    void performanceApi.getEnvironment().then((environment) => {
+      if (active) setHardwareEnvironment(environment);
+    }).catch((cause) => {
+      if (active) setHardwareEnvironmentError(readableError(cause));
+    }).finally(() => {
+      if (active) setHardwareEnvironmentLoading(false);
     });
     return () => { active = false; };
   }, []);
@@ -245,9 +268,9 @@ export function PerformanceSettings() {
     }
   };
 
-  const openScoreReference = async () => {
+  const openHardwareReference = async () => {
     try {
-      await openUrl(SCORE_REFERENCE_URL);
+      await openUrl(HARDWARE_REFERENCE_URL);
     } catch (cause) {
       setError(readableError(cause));
     }
@@ -260,6 +283,7 @@ export function PerformanceSettings() {
     const exportable = {
       ...report,
       performanceScores: scoreReport(report, typicalSpeeds as TypicalDatabase),
+      hardwareRatings: rateHardware(report.environment.hardwareSpecs ?? UNKNOWN_HARDWARE, HARDWARE_CATALOGUE),
       stages: report.stages.map((stage) => ({ ...stage, detail: null })),
     };
     const blob = new Blob([JSON.stringify(exportable, null, 2)], { type: "application/json" });
@@ -278,9 +302,21 @@ export function PerformanceSettings() {
   const suggestions = activeReport ? recommendations(activeReport) : [];
   const isRunning = status.state === "running";
   const canStartBenchmark = !isRunning && !recording && !busy;
+  const currentHardwareIdentity = hardwareEnvironment?.hardwareSpecs ?? UNKNOWN_HARDWARE;
+  const currentHardwareRatings = hardwareEnvironment
+    ? rateHardware(currentHardwareIdentity, HARDWARE_CATALOGUE)
+    : null;
 
   return (
     <div className="space-y-4 pb-2">
+      <HardwareRatingsPanel
+        environment={hardwareEnvironment}
+        ratings={currentHardwareRatings}
+        loading={hardwareEnvironmentLoading}
+        error={hardwareEnvironmentError}
+        onOpenReference={() => void openHardwareReference()}
+      />
+
       <section className="rounded-lg border border-border bg-muted/20 p-4" aria-labelledby="performance-benchmark-heading">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="max-w-xl">
@@ -384,7 +420,6 @@ export function PerformanceSettings() {
           suggestions={suggestions}
           onRankBy={setRankBy}
           onExport={exportReport}
-          onOpenReference={() => void openScoreReference()}
         />
       )}
 
@@ -406,7 +441,7 @@ export function PerformanceSettings() {
           </DialogHeader>
           <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1 text-xs">
             <ul className="list-disc space-y-1 pl-4 text-muted-foreground">
-              <li>System ID, app/build, OS and architecture, CPU and cores, GPU, RAM, AI provider, fixture version, versioned system and GPU-assisted AI scores, timings, failures and suggestions.</li>
+              <li>System ID, app/build, OS and architecture, CPU and GPU models, installed RAM and hardware specification ratings, AI provider and fixture version, measured timings, failures and suggestions.</li>
               <li>Photos and filenames stay on this device.</li>
               <li>Benchmarks → culltivate-perf · session logs → culltivate-logs{previewWebhookConfigured ? " · webhook included" : ""}.</li>
             </ul>
@@ -523,6 +558,146 @@ function ReportingSection({
   );
 }
 
+function HardwareRatingsPanel({
+  environment,
+  ratings,
+  loading,
+  error,
+  onOpenReference,
+}: {
+  environment: PerformanceEnvironment | null;
+  ratings: HardwareRatings | null;
+  loading: boolean;
+  error: string | null;
+  onOpenReference: () => void;
+}) {
+  const hardware = environment?.hardwareSpecs ?? UNKNOWN_HARDWARE;
+  const sourceTitle = (sourceId: string) => HARDWARE_CATALOGUE.sources[sourceId]?.title ?? sourceId;
+  const cpu = ratings?.components.cpu;
+  const gpu = ratings?.components.gpu;
+  const ram = ratings?.components.ram;
+  const systemDetails = [
+    cpu ? `CPU ${formatHardwarePoints(cpu.points)}` : null,
+    gpu ? `GPU ${formatHardwarePoints(gpu.points)}` : null,
+    ram ? `RAM ${formatHardwarePoints(ram.points)}` : null,
+  ].filter(Boolean).join(" · ") || "No matched hardware components";
+  const gpuDetails = gpu
+    ? `${gpu.shaderCores.toLocaleString()} shader cores · ${gpu.baseClockMHz.toLocaleString()} MHz base clock · ${gpu.vramGiB.toLocaleString()} GiB VRAM`
+    : "GPU specifications not matched";
+
+  return (
+    <section className="@container rounded-lg border border-border bg-muted/20 p-4" aria-labelledby="hardware-ratings-heading">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 id="hardware-ratings-heading" className="text-sm font-semibold text-foreground">Hardware specification ratings</h2>
+          <p className="mt-1 text-xs text-muted-foreground">Current hardware · higher ratings indicate stronger listed specifications; fixed formula, independent of benchmark timings.</p>
+          <p className="mt-1 text-[11px] text-muted-foreground">System: CPU 60% · GPU 30% · installed RAM 10% · GPU rating: shader cores and base clock.</p>
+          <p className="mt-1 text-[11px] text-muted-foreground">Formula v{HARDWARE_CATALOGUE.formulaVersion} · catalogue {HARDWARE_CATALOGUE.version}</p>
+        </div>
+        <a className="text-[11px] text-muted-foreground underline underline-offset-4 hover:text-foreground"
+          href={HARDWARE_REFERENCE_URL} target="_blank" rel="noreferrer"
+          onClick={inTauri ? (event) => { event.preventDefault(); onOpenReference(); } : undefined}>
+          Formula and component sources
+        </a>
+      </div>
+
+      <ul className="mt-3 grid gap-2 @md:grid-cols-2">
+        <li>
+          <HardwareRatingCard
+            title="System rating"
+            result={ratings?.system ?? { value: null, reason: "unknown-cpu" }}
+            detail={systemDetails}
+            identity={hardware}
+            loading={loading}
+          />
+        </li>
+        <li>
+          <HardwareRatingCard
+            title="GPU rating"
+            result={ratings?.gpu ?? { value: null, reason: "unknown-gpu" }}
+            detail={gpuDetails}
+            identity={hardware}
+            loading={loading}
+          />
+        </li>
+      </ul>
+
+      <dl className="mt-3 grid gap-x-4 gap-y-2 text-xs sm:grid-cols-3">
+        <div className="min-w-0"><dt className="text-[11px] text-muted-foreground">CPU model</dt><dd className="mt-0.5 break-words text-foreground">{hardware.cpuModel ?? "Unavailable"}</dd></div>
+        <div className="min-w-0"><dt className="text-[11px] text-muted-foreground">GPU model</dt><dd className="mt-0.5 break-words text-foreground">{hardware.gpuModel ?? "Unavailable"}</dd></div>
+        <div className="min-w-0"><dt className="text-[11px] text-muted-foreground">Installed RAM</dt><dd className="mt-0.5 text-foreground">{installedMemoryLabel(hardware.installedMemoryMb)}</dd></div>
+      </dl>
+
+      <details className="mt-3 text-[11px] text-muted-foreground">
+        <summary className="w-fit cursor-pointer">Rating formula and matched components</summary>
+        <p className="mt-1 leading-relaxed">
+          System = round(60% CPU + 30% GPU + 10% installed RAM). CPU points = physical cores × base clock ÷ 10; GPU points = shader cores × base clock × 2 ÷ 10,000; RAM points = installed GiB × 100. Higher ratings describe listed specification capacity, not measured speed.
+        </p>
+        <ul className="mt-2 space-y-1">
+          <li>{cpu ? `CPU: ${cpu.physicalCores} physical cores · ${cpu.baseClockMHz.toLocaleString()} MHz · source ${sourceTitle(cpu.sourceId)}` : "CPU: no catalogue match"}</li>
+          <li>{gpu ? `GPU: ${gpu.shaderCores.toLocaleString()} shader cores · ${gpu.baseClockMHz.toLocaleString()} MHz · ${gpu.vramGiB.toLocaleString()} GiB VRAM · source ${sourceTitle(gpu.sourceId)}` : "GPU: no catalogue match"}</li>
+          <li>{ram ? `RAM: ${ram.installedGiB.toLocaleString()} GiB installed` : "RAM: installed capacity unavailable"}</li>
+        </ul>
+      </details>
+      {loading && <p className="mt-2 text-[11px] text-muted-foreground" role="status">Reading current hardware specifications…</p>}
+      {error && <p className="mt-2 text-[11px] text-destructive" role="alert">Hardware specifications could not be read: {error}</p>}
+    </section>
+  );
+}
+
+function HardwareRatingCard({
+  title,
+  result,
+  detail,
+  identity,
+  loading,
+}: {
+  title: string;
+  result: HardwareRatings["system"];
+  detail: string;
+  identity: HardwareIdentity;
+  loading: boolean;
+}) {
+  return (
+    <div className="h-full rounded-md border border-border/70 bg-background/60 p-3">
+      <div className="flex items-start justify-between gap-3">
+        <h3 className="text-xs font-medium text-foreground">{title}</h3>
+        {loading
+          ? <span className="shrink-0 text-xs font-medium text-muted-foreground">Checking…</span>
+          : result.value === null
+            ? <span className="shrink-0 text-xs font-medium text-muted-foreground">Unavailable</span>
+          : <span className="shrink-0 font-mono text-lg font-semibold tabular-nums text-foreground">{result.value.toLocaleString()} <span className="font-sans text-[10px] font-normal text-muted-foreground">points</span></span>}
+      </div>
+      <p className="mt-1 break-words text-[11px] leading-relaxed text-muted-foreground">
+        {loading ? "Reading current hardware specifications…" : result.value === null ? hardwareRatingUnavailableText(result.reason, identity) : detail}
+      </p>
+    </div>
+  );
+}
+
+function hardwareRatingUnavailableText(reason: HardwareRatings["system"]["reason"], identity: HardwareIdentity): string {
+  switch (reason) {
+    case "unknown-cpu": return identity.cpuModel ? "CPU model is not listed in the hardware catalogue." : "CPU model was not reported.";
+    case "unknown-gpu": return identity.gpuModel ? "GPU model is not listed in the hardware catalogue." : "GPU model was not reported.";
+    case "unknown-memory": return "Installed RAM capacity is unavailable.";
+    case "invalid-memory": return "Installed RAM capacity is invalid.";
+    case "invalid-catalogue": return "The bundled hardware catalogue is invalid.";
+    case "ambiguous-cpu": return "CPU model matches more than one catalogue entry.";
+    case "ambiguous-gpu": return "GPU model matches more than one catalogue entry.";
+    case null: return "This hardware rating is unavailable.";
+  }
+}
+
+function formatHardwarePoints(points: number): string {
+  return points.toLocaleString(undefined, { maximumFractionDigits: 1 });
+}
+
+function installedMemoryLabel(memoryMb: number | null): string {
+  if (memoryMb === null) return "Unavailable";
+  if (!Number.isFinite(memoryMb) || memoryMb <= 0) return "Invalid capacity";
+  return `${(memoryMb / 1024).toLocaleString(undefined, { maximumFractionDigits: 1 })} GiB (${Math.round(memoryMb).toLocaleString()} MiB)`;
+}
+
 function ReportResults({
   report,
   ranked,
@@ -531,7 +706,6 @@ function ReportResults({
   suggestions,
   onRankBy,
   onExport,
-  onOpenReference,
 }: {
   report: BenchmarkReport;
   ranked: StageSummary[];
@@ -540,14 +714,12 @@ function ReportResults({
   suggestions: Recommendation[];
   onRankBy: (by: "score" | "latency") => void;
   onExport: () => void;
-  onOpenReference: () => void;
 }) {
   const durationMs = Math.max(0, report.finishedAtMs - report.startedAtMs);
   const failedStages = report.stages.filter((stage) => stage.status === "failed" || stage.failures > 0).length;
   const majorStages = ranked.filter((stage) => stage.totalMs >= ETC_THRESHOLD_MS);
   const minorStages = ranked.filter((stage) => stage.totalMs < ETC_THRESHOLD_MS);
   const minorTotalMs = minorStages.reduce((sum, stage) => sum + stage.totalMs, 0);
-  const scores = scoreReport(report, typicalSpeeds as TypicalDatabase);
   return (
     <section className="space-y-3" aria-labelledby="performance-results-heading">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -561,8 +733,6 @@ function ReportResults({
       </div>
 
       <EnvironmentSummary report={report} />
-
-      <ReferenceScoreCards report={report} scores={scores} onOpenReference={onOpenReference} />
 
       <TimingOverview reportId={report.id} stages={totalRanked} elapsedMs={durationMs} />
 
@@ -620,100 +790,6 @@ function ReportResults({
       <RecommendationsResults recommendations={suggestions} />
     </section>
   );
-}
-
-function ReferenceScoreCards({ report, scores, onOpenReference }: { report: BenchmarkReport; scores: PerformanceScores; onOpenReference: () => void }) {
-  const build = buildProfileLabel(report.environment.build);
-  const gpuDetails = [report.environment.aiProvider, report.environment.gpu].filter(Boolean).join(" · ") || "Provider or GPU unavailable";
-  return (
-    <section className="@container rounded-lg border border-border p-3" aria-labelledby="performance-reference-scores-heading">
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div>
-          <h3 id="performance-reference-scores-heading" className="text-xs font-semibold">Reference scores</h3>
-          <p className="mt-0.5 text-[11px] text-muted-foreground">1000 = reference · higher is faster · {build}</p>
-        </div>
-        <a className="text-[11px] text-muted-foreground underline underline-offset-4 hover:text-foreground"
-          href={SCORE_REFERENCE_URL} target="_blank" rel="noreferrer"
-          onClick={inTauri ? (event) => { event.preventDefault(); onOpenReference(); } : undefined}>
-          Public reference v{scores.databaseVersion}
-        </a>
-      </div>
-      <ul className="mt-3 grid gap-2 @md:grid-cols-2">
-        <li>
-          <PerformanceScoreCard
-            title="System score"
-            result={scores.system}
-            context={`${build} · ${report.environment.os} / ${report.environment.arch}`}
-            kind="system"
-            reportKind={report.kind}
-          />
-        </li>
-        <li>
-          <PerformanceScoreCard
-            title="GPU-assisted AI score"
-            result={scores.gpu}
-            context={gpuDetails}
-            kind="gpu"
-            reportKind={report.kind}
-          />
-        </li>
-      </ul>
-      <p className="mt-2 text-[11px] text-muted-foreground">Bundled offline seed from one machine; it is not fleet typical.</p>
-    </section>
-  );
-}
-
-function PerformanceScoreCard({
-  title,
-  result,
-  context,
-  kind,
-  reportKind,
-}: {
-  title: string;
-  result: PerformanceScores["system"];
-  context: string;
-  kind: "system" | "gpu";
-  reportKind: BenchmarkReport["kind"];
-}) {
-  return (
-    <div className="h-full rounded-md border border-border/70 bg-muted/20 p-3">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h4 className="text-xs font-medium text-foreground">{title}</h4>
-          <p className="mt-0.5 break-words text-[11px] text-muted-foreground">{context}</p>
-        </div>
-        {result.value === null
-          ? <span className="shrink-0 text-xs font-medium text-muted-foreground">Unavailable</span>
-          : <span className="shrink-0 font-mono text-lg font-semibold tabular-nums text-foreground">{result.value.toLocaleString()}</span>}
-      </div>
-      {result.value === null && <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">{scoreUnavailableText(result.reason, kind, reportKind)}</p>}
-    </div>
-  );
-}
-
-function scoreUnavailableText(reason: ScoreUnavailableReason | null, kind: "system" | "gpu", reportKind: BenchmarkReport["kind"]): string {
-  if (!reason) return "No score is available for this report.";
-  switch (reason) {
-    case "unsupported-report":
-      if (reportKind !== "benchmark") return "Only benchmark reports can be scored.";
-      return kind === "gpu" ? "No reference for this profile or AI provider." : "No reference for this benchmark profile.";
-    case "incomplete-report": return "Complete the benchmark to get a score.";
-    case "invalid-measurements": return "Valid comparison measurements are unavailable.";
-    case "unmatched-cohort": return "No reference matches this platform and profile.";
-    case "invalid-reference": return "The bundled reference data is invalid.";
-    case "gpu-not-measured": return "GPU-assisted AI was not measured.";
-    case "gpu-fallback": return "AI used CPU fallback, not the GPU.";
-  }
-}
-
-function buildProfileLabel(build: string): string {
-  const value = build.trim();
-  const normalized = value.toLowerCase();
-  if (normalized.includes("debug")) return "Debug build";
-  if (normalized.includes("release")) return "Release build";
-  if (normalized.includes("browser")) return "Browser demo";
-  return value ? `${value} build` : "Unknown build profile";
 }
 
 function StageTableHead() {
@@ -879,7 +955,8 @@ function EnvironmentSummary({ report }: { report: BenchmarkReport }) {
     ["App", `${environment.appVersion} · ${environment.build}`],
     ["System", `${environment.os} / ${environment.arch}`],
     ["CPU", environment.cpu ?? "Unavailable"],
-    ["Cores and memory", `${environment.logicalCores} cores · ${environment.memoryMb === null ? "memory unavailable" : `${environment.memoryMb} MB`}`],
+    ["Logical cores", `${environment.logicalCores} cores`],
+    ["Available memory", environment.memoryMb === null ? "Unavailable" : `${environment.memoryMb} MB`],
     ["GPU", environment.gpu ?? "Unavailable"],
     ["AI provider", environment.aiProvider ?? "Unavailable"],
     ["Fixtures", environment.fixtureVersion],

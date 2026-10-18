@@ -1,3 +1,4 @@
+import type { HardwareIdentity, HardwareRatings } from "./hardware-ratings";
 import type { BenchmarkReport, DiagnosticReport, StageMeasurement, StageSummary } from "./performance";
 
 /** Changing fixtures, scored work or weights requires a new scoring version. */
@@ -82,6 +83,9 @@ export interface TypicalStageStatistics {
   runCount: number;
 }
 export interface TypicalSystem {
+  /** Independent hardware-specification annotations, never derived from timings. */
+  hardwareSpecs?: HardwareIdentity;
+  hardwareRatings?: HardwareRatings;
   id: string;
   cohort: ScoreCohort;
   appVersion: string;

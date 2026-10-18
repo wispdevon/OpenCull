@@ -54,16 +54,17 @@ function makeReport(run, options = {}) {
     startedAtMs: 1_770_000_000_000 + run * 100_000,
     finishedAtMs: 1_770_000_060_000 + run * 100_000,
     environment: {
-      appVersion: "0.7.0",
+      appVersion: options.appVersion ?? "0.7.0",
       build: options.build ?? (gpu ? "release turbo-jpeg cuda" : "release turbo-jpeg"),
       os: "linux",
       arch: "x86_64",
       cpu,
       logicalCores: 16,
       memoryMb: 32_768,
-      gpu: gpu ? "NVIDIA GeForce RTX 4070" : "Intel UHD Graphics",
+      gpu: options.gpuModel ?? (gpu ? "NVIDIA GeForce RTX 4070" : "Intel UHD Graphics"),
       aiProvider: gpu ? "CUDA (YOLO may use CPU operators)" : "CPU benchmark inference",
       fixtureVersion: SCORE_FIXTURE_VERSION,
+      ...(options.hardwareSpecs ? { hardwareSpecs: options.hardwareSpecs } : {}),
     },
     stages: [],
     coverage: [{ id: "native-runtime", label: "Native runtime", status: "measured", reason: null }],
@@ -81,7 +82,7 @@ function makeReport(run, options = {}) {
   for (const [id, count] of Object.entries(allSamples)) {
     const isAi = id.startsWith("face-analysis-") || id.startsWith("advanced-face-");
     const zeroFrontend = options.zeroFrontend && id.startsWith("frontend.");
-    const value = options.tinyStage === id ? 0.0000001 : zeroFrontend ? 0 : 4 + index + run * 0.25;
+    const value = options.tinyStage === id ? 0.0000001 : zeroFrontend ? 0 : (4 + index + run * 0.25) * (options.timingScale ?? 1);
     const inference = isAi
       ? gpu
         ? { cudaCalls: id.endsWith("-warm") ? 2 : 1, cpuCalls: 0, cpuFallbackCalls: 0 }
@@ -108,7 +109,7 @@ function makeReport(run, options = {}) {
 
 function makeDiagnosticReport(raw, options = {}) {
   const report = structuredClone(raw);
-  report.schemaVersion = 3;
+  report.schemaVersion = options.schemaVersion ?? 3;
   report.systemId ??= "amber-wren-123456";
   report.stages = report.stages.map((stage) => {
     const samples = stage.samplesMs.toSorted((left, right) => left - right);
@@ -139,6 +140,22 @@ function makeDiagnosticReport(raw, options = {}) {
     system: { value: 999_999, reason: null, referenceId: "attacker-controlled-reference" },
     gpu: { value: 999_999, reason: null, referenceId: "attacker-controlled-reference" },
   };
+  if (report.schemaVersion === 4) {
+    report.hardwareRatings = options.hardwareRatings ?? {
+      formulaVersion: 1,
+      catalogueVersion: "1.0.0",
+      profile: { cpuId: "fabricated-cpu", gpuId: "fabricated-gpu", installedMemoryMb: 12_345 },
+      system: { value: 987_654, reason: null },
+      gpu: { value: 987_654, reason: null },
+      components: {
+        cpu: { physicalCores: 6, baseClockMHz: 2_500, points: 15_000, sourceId: "fabricated-cpu" },
+        gpu: { shaderCores: 2_000, baseClockMHz: 1_500, vramGiB: 8, points: 24_000_000, sourceId: "fabricated-gpu" },
+        ram: { installedGiB: 12, points: 12 },
+      },
+    };
+  } else {
+    delete report.hardwareRatings;
+  }
   if (options.partialFrontend) report.stages = report.stages.filter((stage) => stage.id !== "frontend.crop");
   return report;
 }
@@ -148,7 +165,7 @@ function reports(options = {}) {
 }
 
 test("bundled database has frozen debug and release cohorts and scores both", () => {
-  assert.equal(typicalDatabase.version, "1.0.2");
+  assert.equal(typicalDatabase.version, "1.1.0");
   assert.equal(typicalDatabase.references.length, 2);
   assert.equal(typicalDatabase.systems.length, 2);
   assert.deepEqual(
@@ -157,6 +174,9 @@ test("bundled database has frozen debug and release cohorts and scores both", ()
   );
   assert.ok(typicalDatabase.references.every((reference) => reference.runCount === 3 && reference.installationCount === 1));
   assert.ok(typicalDatabase.references.every((reference) => reference.gpu !== null));
+  assert.ok(typicalDatabase.systems.every((system) => system.hardwareRatings.system.value === 2063
+    && system.hardwareRatings.gpu.value === 1372 && system.hardwareSpecs.installedMemoryMb === 32_768));
+  assert.deepEqual(typicalDatabase.systems[0].hardwareRatings, typicalDatabase.systems[1].hardwareRatings);
 
   for (const build of ["debug turbo-jpeg cuda", "release turbo-jpeg cuda"]) {
     const report = makeReport(1, { gpu: true, build, cpu: "AMD Ryzen 5 7500F 6-Core Processor" });
@@ -209,6 +229,77 @@ test("accepts aggregate schema v3, ignores supplied scores, and strips run-priva
   assert.ok(!serialized.includes("/Users/alex"));
   assert.ok(!serialized.includes("EXIF serial"));
   assert.ok(!serialized.includes("Private action detail"));
+});
+
+test("recomputes hardware ratings from fixed specifications, independent of measured speed", async () => {
+  const hardwareSpecs = {
+    cpuModel: "AMD Ryzen 5 7500F 6-Core Processor",
+    gpuModel: "NVIDIA GeForce RTX 3060 Ti",
+    installedMemoryMb: 32_768,
+  };
+  const debugReports = reports({
+    hardwareSpecs,
+    build: "debug turbo-jpeg cuda",
+    cpu: "AMD Ryzen 5 7500F 6-Core Processor",
+    gpuModel: "NVIDIA GeForce RTX 3060 Ti",
+    gpu: true,
+    appVersion: "0.7.0",
+    timingScale: 1,
+  }).map((report) => makeDiagnosticReport(report, { schemaVersion: 4 }));
+  const debug = await prepareImport({ reportValues: debugReports, database: emptyDatabase(), options: BASE_OPTIONS });
+
+  assert.deepEqual(debug.addedSystem.hardwareSpecs, hardwareSpecs);
+  assert.equal(debug.addedSystem.hardwareRatings.formulaVersion, 1);
+  assert.equal(debug.addedSystem.hardwareRatings.catalogueVersion, "1.0.0");
+  assert.equal(debug.addedSystem.hardwareRatings.system.value, 2063);
+  assert.equal(debug.addedSystem.hardwareRatings.gpu.value, 1372);
+  assert.notEqual(debug.addedSystem.hardwareRatings.system.value, 987_654);
+  assert.equal(debug.addedSystem.hardwareRatings.profile.installedMemoryMb, 32_768);
+
+  const releaseReports = reports({
+    hardwareSpecs,
+    build: "release turbo-jpeg cuda",
+    cpu: "AMD Ryzen 5 7500F 6-Core Processor",
+    gpuModel: "NVIDIA GeForce RTX 3060 Ti",
+    gpu: true,
+    appVersion: "0.8.0",
+    timingScale: 3,
+  }).map((report) => makeDiagnosticReport(report, { schemaVersion: 4 }));
+  const release = await prepareImport({
+    reportValues: releaseReports,
+    database: debug.database,
+    options: BASE_OPTIONS,
+  });
+  assert.deepEqual(release.addedSystem.hardwareRatings, debug.addedSystem.hardwareRatings);
+  assert.notEqual(release.addedSystem.stages["preview-thumbnail-cold"].meanAverageMs,
+    debug.addedSystem.stages["preview-thumbnail-cold"].meanAverageMs);
+  assert.notEqual(release.addedSystem.appVersion, debug.addedSystem.appVersion);
+  assert.notEqual(release.addedSystem.cohort.build, debug.addedSystem.cohort.build);
+});
+
+test("v4 hardware ratings are required but never published without a verified identity", async () => {
+  const missingRatings = reports().map((report) => makeDiagnosticReport(report, { schemaVersion: 4 }));
+  delete missingRatings[0].hardwareRatings;
+  await expectImportError(
+    prepareImport({ reportValues: missingRatings, database: emptyDatabase(), options: BASE_OPTIONS }),
+    "invalid_report",
+  );
+
+  const unknownIdentity = reports().map((report) => makeDiagnosticReport(report, { schemaVersion: 4 }));
+  const result = await prepareImport({ reportValues: unknownIdentity, database: emptyDatabase(), options: BASE_OPTIONS });
+  assert.equal(Object.hasOwn(result.addedSystem, "hardwareSpecs"), false);
+  assert.equal(Object.hasOwn(result.addedSystem, "hardwareRatings"), false);
+
+  const extraHardwareField = reports({ hardwareSpecs: {
+    cpuModel: "AMD Ryzen 5 7500F 6-Core Processor",
+    gpuModel: "NVIDIA GeForce RTX 3060 Ti",
+    installedMemoryMb: 32_768,
+  } }).map((report) => makeDiagnosticReport(report, { schemaVersion: 4 }));
+  extraHardwareField[0].environment.hardwareSpecs.serialNumber = "private-device-id";
+  await expectImportError(
+    prepareImport({ reportValues: extraHardwareField, database: emptyDatabase(), options: BASE_OPTIONS }),
+    "invalid_hardware_profile",
+  );
 });
 
 test("rejects aggregate summaries with impossible or zero native percentiles", async () => {

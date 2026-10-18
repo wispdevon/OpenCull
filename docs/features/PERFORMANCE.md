@@ -53,8 +53,8 @@ shoot or storage device. One portrait does not establish face-analysis accuracy.
 On supported NVIDIA/CUDA builds, bundled AI stages use private GPU sessions.
 The results identify the selected NVIDIA device and the provider that actually
 ran inference; CPU fallback is labeled. Benchmark failures do not disable the
-live app’s provider. CPU-only builds still measure CPU inference. Compare AI
-scores only across matching providers and fixture versions. Core ML GPU
+live app’s provider. CPU-only builds still measure CPU inference. Compare measured AI
+timings only across matching providers and fixture versions. Core ML GPU
 benchmarking remains a manual check on macOS; these isolated AI stages use CPU
 there.
 Optional MobileCLIP, camera-specific RAW compatibility, physical card throughput,
@@ -118,27 +118,41 @@ Timing bars and function swatches use the bundled 42-color
 [Lospec500 palette](https://lospec.com/palette-list/lospec500). Colors identify
 functions, not speed ratings; labels and tables carry the interpretation.
 
-## System and GPU scores
+## Fixed system and GPU specification ratings
 
-The **system score** compares a fixed set of native photo workflows with a
-frozen reference. The **GPU-assisted AI score** compares warm basic and advanced
-face analysis only when typed inference counters confirm CUDA execution without
-whole-model CPU fallback. It includes CPU preparation and postprocessing; YOLO
-may also place unsupported operators on the CPU.
+The ratings shown before a benchmark depend only on reviewed CPU/GPU model
+specifications and installed RAM capacity. Identical supported specifications
+receive identical ratings across runs, app builds, AI providers and operating
+conditions. A rating has no 1,000-point baseline or fixed maximum.
 
-These indices are separate from the stage **Score** column in milliseconds:
-**1,000 matches the reference; higher is faster.** Debug and release builds use
-separate references, as do incompatible fixtures, operating systems, architectures
-and decoder features. Incomplete runs, failures and unmatched references show a
-reason instead of a misleading score. The browser demo cannot earn native scores.
+Formula v1 uses manufacturer reference base clocks, not live or boost clocks:
 
-The [public speeds database](../../benchmarks/README.md) records app version,
-build, hardware, workload and run counts. Its initial rows describe one measured
-system, not typical performance across a population. The app bundles the database
-and does not fetch it during benchmarking. Reference anchors stay fixed so new
-community results do not change historical scores. Public contributions require
-maintainer review and explicit publication approval; diagnostic submission alone
-does not publish a database row.
+- CPU points = physical CPU cores × base GHz × 100.
+- GPU points = shader cores × base GHz × 2 ÷ 1,000 × 100.
+- RAM points = installed GiB × 100.
+- System rating = round(60% CPU points + 30% GPU points + 10% RAM points).
+- GPU rating = round(GPU points). System calculations use unrounded components.
+
+These are specification/capacity estimates, not measured application speeds or
+validated rankings across architectures. CPU architecture, memory bandwidth,
+storage, power limits and cooling can affect actual performance without changing
+the rating. Stage milliseconds and measured timing ranges remain separate.
+
+The offline [specification catalogue](../../benchmarks/hardware-specifications.json)
+records manufacturer sources and explicit model aliases. Initial coverage is the
+Ryzen 5 7500F and GeForce RTX 3060 Ti. Unknown or ambiguous models stay unrated.
+Installed RAM comes from hardware metadata, never a guess from OS-usable/free
+memory; missing metadata leaves the system rating unavailable. Linux discovery
+uses local udev memory records and provider-independent NVIDIA inventory;
+unsupported platform inventories remain explicitly unknown.
+
+The [public speeds database](../../benchmarks/README.md) keeps measured timings
+and sample counts alongside separate specification ratings. Its initial timing
+rows cover one machine and do not establish fleet-typical performance. Benchmark
+imports recompute ratings from the frozen hardware catalogue and cannot tune
+ratings from submitted timings. The app reads both catalogues locally. Existing
+v1 benchmark comparison indices remain historical report metadata; the primary
+hardware ratings never use them. Public contributions require explicit approval.
 
 ## Recording a work session
 
@@ -160,7 +174,7 @@ read-only: the app has no webhook URL, ntfy URL or bearer-token configuration
 controls. Choose **Preview and approve**. The preview renders the message as
 bullet points; exact webhook JSON is available under **Raw JSON**. Notifications
 include system ID, app version/build, OS/architecture, CPU/core count, GPU, RAM,
-AI provider, fixture version and versioned system/GPU score results. Elapsed time, measured stage time, stage count,
+AI provider, fixture version and fixed hardware specification ratings and formula/catalogue versions. Elapsed time, measured stage time, stage count,
 failures, the three slowest stages and at most one short suggestion accompany
 that system context. The app never uploads photos.
 

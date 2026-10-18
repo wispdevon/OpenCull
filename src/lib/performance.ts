@@ -2,7 +2,9 @@
 import { getSystemId } from "./performance-preferences";
 import databaseJSON from "../../benchmarks/typical-speeds.json";
 import { scoreReport, type PerformanceScores, type TypicalDatabase } from "./performance-scores";
-export const FIELD_VERSION = 3;
+import { rateHardware, type HardwareCatalogue, type HardwareIdentity, type HardwareRatings } from "./hardware-ratings";
+import hardwareCatalogueJSON from "../../benchmarks/hardware-specifications.json";
+export const FIELD_VERSION = 4;
 export type BenchmarkMode = "quick" | "thorough";
 export type BenchmarkOutcome = "completed" | "cancelled" | "failed";
 export interface InferenceCalls { cudaCalls: number; cpuCalls: number; cpuFallbackCalls: number }
@@ -10,6 +12,7 @@ export interface PerformanceEnvironment {
   appVersion: string; build: string; os: string; arch: string;
   cpu: string | null; logicalCores: number; memoryMb: number | null;
   gpu: string | null; aiProvider: string | null; fixtureVersion: string;
+  hardwareSpecs?: HardwareIdentity;
 }
 export interface StageMeasurement {
   id: string; label: string; category: string; cache: "cold" | "warm" | "none";
@@ -41,6 +44,7 @@ export interface DiagnosticReport extends Omit<BenchmarkReport, "stages" | "outc
   outcome: BenchmarkOutcome | null;
   systemId: string; stages: StageSummary[]; recommendations: Recommendation[];
   performanceScores: PerformanceScores;
+  hardwareRatings: HardwareRatings;
 }
 export interface DestinationResult { status: "sent" | "failed" | "disabled"; error: string | null }
 export interface DeliveryResult { webhook: DestinationResult; ntfy: DestinationResult }
@@ -111,18 +115,25 @@ export function recommendations(report: BenchmarkReport): Recommendation[] {
 export function diagnosticReport(report: BenchmarkReport): DiagnosticReport {
   // Explicit field construction excludes unknown fields, samples and stage details.
   const e = report.environment;
+  const hardwareSpecs = e.hardwareSpecs ? {
+    cpuModel: e.hardwareSpecs.cpuModel ?? null,
+    gpuModel: e.hardwareSpecs.gpuModel ?? null,
+    installedMemoryMb: e.hardwareSpecs.installedMemoryMb ?? null,
+  } : undefined;
   return {
     schemaVersion: FIELD_VERSION, systemId: getSystemId(), id: report.id, kind: report.kind, mode: report.mode,
     outcome: report.outcome ?? null,
     startedAtMs: report.startedAtMs, finishedAtMs: report.finishedAtMs,
     environment: { appVersion: e.appVersion, build: e.build, os: e.os, arch: e.arch, cpu: e.cpu,
-      logicalCores: e.logicalCores, memoryMb: e.memoryMb, gpu: e.gpu, aiProvider: e.aiProvider, fixtureVersion: e.fixtureVersion },
+      logicalCores: e.logicalCores, memoryMb: e.memoryMb, gpu: e.gpu, aiProvider: e.aiProvider, fixtureVersion: e.fixtureVersion,
+      ...(hardwareSpecs ? { hardwareSpecs } : {}) },
     stages: report.stages.map(summarizeStage),
     coverage: report.coverage.map((c) => ({ id: c.id, label: c.label, status: c.status, reason: c.reason })),
     recommendations: recommendations(report),
     // Derive scores from the raw report and the bundled reference database.
     // Any score-like fields on the raw input are deliberately ignored.
     performanceScores: scoreReport(report, databaseJSON as TypicalDatabase),
+    hardwareRatings: rateHardware(hardwareSpecs ?? { cpuModel: null, gpuModel: null, installedMemoryMb: null }, hardwareCatalogueJSON as HardwareCatalogue),
   };
 }
 
@@ -132,10 +143,10 @@ export function ntfySummary(report: DiagnosticReport): string {
   const measuredMs = measured.reduce((sum, s) => sum + s.totalMs, 0);
   const slow = [...measured].sort((a, b) => b.totalMs - a.totalMs).slice(0, 3);
   const e = report.environment;
-  const scores = report.performanceScores;
-  const scoreResult = (name: string, score: PerformanceScores["system"]) => score.value === null
-    ? `- ${name} score: unavailable (${score.reason ?? "invalid-reference"})`
-    : `- ${name} score: ${score.value} · ref ${score.referenceId ?? "unavailable"}`;
+  const hardwareRatings = report.hardwareRatings;
+  const hardwareRating = (name: string, rating: HardwareRatings["system"]) => rating.value === null
+    ? `- ${name}: unavailable (${rating.reason ?? "invalid-rating"})`
+    : `- ${name}: ${rating.value}`;
   const text = [
     `Culltivate ${report.kind}${report.mode ? ` (${report.mode})` : ""}`,
     `- System: ${report.systemId}`,
@@ -143,13 +154,13 @@ export function ntfySummary(report: DiagnosticReport): string {
     `- OS: ${e.os} / ${e.arch}`,
     `- CPU: ${e.cpu ?? "Unavailable"} · ${e.logicalCores} cores`,
     `- GPU: ${e.gpu ?? "Unavailable"}`,
-    `- RAM: ${e.memoryMb === null ? "Unavailable" : `${e.memoryMb} MB`}`,
+    `- Available memory: ${e.memoryMb === null ? "Unavailable" : `${e.memoryMb} MB`}`,
     `- AI: ${e.aiProvider ?? "Unavailable"}`,
     `- Fixtures: ${e.fixtureVersion}`,
     `- Timing: ${Math.max(0, (report.finishedAtMs - report.startedAtMs) / 1000).toFixed(1)} s elapsed · ${(measuredMs / 1000).toFixed(1)} s measured · ${measured.length} stages · ${failures} failures`,
-    `- Score reference: v${scores.scoringVersion} · database ${scores.databaseVersion} · cohort ${scores.cohortId ?? "unmatched"}`,
-    scoreResult("System", scores.system),
-    scoreResult("GPU", scores.gpu),
+    `- Hardware rating: formula v${hardwareRatings.formulaVersion} · catalogue ${hardwareRatings.catalogueVersion}`,
+    hardwareRating("System hardware rating", hardwareRatings.system),
+    hardwareRating("GPU hardware rating", hardwareRatings.gpu),
     ...slow.map((s) => `- ${s.label}: ${(s.totalMs / 1000).toFixed(1)} s total · ${(s.totalMs / s.count).toFixed(1)} ms score · ${s.medianMs.toFixed(1)} ms typical`),
     ...report.recommendations.slice(0, 1).map((r) => `- Suggestion: ${Array.from(r.action).slice(0, 160).join("")}${Array.from(r.action).length > 160 ? "…" : ""}`),
   ].join("\n");

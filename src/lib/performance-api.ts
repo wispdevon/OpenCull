@@ -158,6 +158,7 @@ async function yieldToMain(): Promise<void> {
 }
 
 export const performanceApi = {
+  getEnvironment: environment,
   async start(mode: BenchmarkMode, submit = false): Promise<string> {
     if (status.state === "running" || recordingActive()) throw new Error("Stop the active run or recording first.");
     if (mode !== "quick" && mode !== "thorough") throw new Error("Choose Quick or Thorough.");

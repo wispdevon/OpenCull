@@ -25,11 +25,16 @@ beforeEach(() => {
 afterEach(() => { delete (window as unknown as Record<string, unknown>).__TAURI_INTERNALS__; });
 
 describe("performance controller", () => {
+  it("loads hardware metadata without starting a benchmark or enabling reporting", async () => {
+    const { performanceApi } = await import("./performance-api");
+    expect(await performanceApi.getEnvironment()).toEqual(environment);
+    expect(invoke.mock.calls.map(([name]) => name)).toEqual(["benchmark_environment"]);
+  });
   it("approves distinct performance and log topics with the current system-ID schema", async () => {
     const { performanceApi } = await import("./performance-api");
     await performanceApi.approve();
     expect(invoke).toHaveBeenCalledWith("diagnostics_approve", {
-      fieldsVersion: 3,
+      fieldsVersion: 4,
     });
     expect(performanceApi.reportingState().logsUrl).toBe("https://ntfy.sh/culltivate-logs");
     expect(performanceApi.reportingState()).not.toHaveProperty("webhookUrl");
