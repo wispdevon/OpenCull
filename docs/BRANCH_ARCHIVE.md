@@ -7,6 +7,10 @@ On 2026-10-16, 63 work branches were preserved as annotated tags before their
 branch names were removed locally and from origin. Tags retain the complete
 history, including commits not merged into `dev`. Upstream refs were untouched.
 
+Those 63 work-branch tags are accompanied by the separately preserved
+`archive/2026-10-16/release-v0.5.0-first-build` tag. There are therefore 64 tags
+under that date prefix; the branch table below covers the 63 work branches.
+
 Later on the same date, all 43 `feature/*` branches were restored locally and on origin at their exact archived tips. The remaining 20 work branches stay available through archive tags. All 63 archive tags remain intact.
 
 On 2026-10-17, all 43 restored `feature/*` branch names were closed again locally and on origin. Every local and remote tip was verified against its existing published `archive/2026-10-16/feature/*` annotated tag before deletion. Those tags retain the complete history. Other branches and upstream refs were preserved.
