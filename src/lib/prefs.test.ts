@@ -1,7 +1,22 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { applyPreferences, load } from "./prefs";
+import { applyPreferences, initializePreferences, load, save, snapshotPreferences } from "./prefs";
 beforeEach(() => localStorage.clear());
 describe("preference validation", () => {
+  it("blocks legacy diagnostic destinations from reads, writes, snapshots and imports", async () => {
+    for (const key of ["performanceWebhookEncoded", "performanceWebhookUrl", "performanceNtfyUrl", "performanceLogsNtfyUrl"]) {
+      localStorage.setItem(`opencull.${key}`, JSON.stringify("private-value"));
+      expect(load(key, "hidden")).toBe("hidden");
+      expect(snapshotPreferences()).not.toHaveProperty(key);
+      save(key, "replacement");
+      expect(localStorage.getItem(`opencull.${key}`)).toBe('"private-value"');
+      await expect(applyPreferences({ theme: "light", [key]: "replacement" })).rejects.toThrow("destinations are fixed");
+      expect(localStorage.getItem("opencull.theme")).toBeNull();
+    }
+    await initializePreferences();
+    for (const key of ["performanceWebhookEncoded", "performanceWebhookUrl", "performanceNtfyUrl", "performanceLogsNtfyUrl"]) {
+      expect(localStorage.getItem(`opencull.${key}`)).toBeNull();
+    }
+  });
   it("does not hydrate a boolean or dimension from invalid config types", () => {
     localStorage.setItem("opencull.showExif", '"false"');
     localStorage.setItem("opencull.facePanelWidth", '"wide"');

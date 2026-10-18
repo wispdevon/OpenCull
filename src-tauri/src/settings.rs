@@ -3,8 +3,36 @@ use std::{collections::BTreeMap, fs, io::Write, path::{Path, PathBuf}, sync::{Mu
 use serde_json::Value;
 use tauri::Manager;
 type Values = BTreeMap<String, Value>;
+const PRIVATE_DIAGNOSTIC_KEYS: [&str; 4] = [
+    "performanceWebhookEncoded",
+    "performanceWebhookUrl",
+    "performanceNtfyUrl",
+    "performanceLogsNtfyUrl",
+];
 static NEXT: AtomicU64 = AtomicU64::new(0);
 pub struct Settings(pub Mutex<PathBuf>);
+
+fn is_private_diagnostic_key(key: &str) -> bool {
+    PRIVATE_DIAGNOSTIC_KEYS.contains(&key)
+}
+
+fn remove_private_diagnostic_keys(values: &mut Values) {
+    values.retain(|key, _| !is_private_diagnostic_key(key));
+}
+
+fn validate_preference_key(key: &str) -> Result<(), String> {
+    if key.is_empty() || key.len() > 256 { return Err("Invalid preference key".into()); }
+    if is_private_diagnostic_key(key) { return Err("Diagnostic destinations are managed locally".into()); }
+    Ok(())
+}
+
+/// Reads the locally stored encoded webhook without returning it to the webview.
+pub(crate) fn performance_webhook_encoded(settings: &Settings) -> Result<Option<String>, String> {
+    let path = settings.0.lock().map_err(|e| e.to_string())?;
+    let values = read(&path)?;
+    Ok(values.get("performanceWebhookEncoded").and_then(Value::as_str)
+        .filter(|encoded| !encoded.is_empty()).map(str::to_owned))
+}
 
 #[cfg(target_os = "linux")]
 pub fn linux_path(xdg: Option<&Path>, home: &Path) -> PathBuf {
@@ -48,20 +76,28 @@ fn write(path: &Path, values: &Values) -> Result<(), String> {
 
 pub fn migrate(path: &Path, legacy: Values) -> Result<Values, String> {
     let mut values = read(path)?;
-    for (key, value) in legacy { values.entry(key).or_insert(value); }
+    for (key, value) in legacy {
+        if !is_private_diagnostic_key(&key) { values.entry(key).or_insert(value); }
+    }
     write(path, &values)?;
+    Ok(values)
+}
+
+fn config_load_values(path: &Path, legacy: Values) -> Result<Values, String> {
+    let mut values = migrate(path, legacy)?;
+    remove_private_diagnostic_keys(&mut values);
     Ok(values)
 }
 
 #[tauri::command]
 pub fn config_load(settings: tauri::State<Settings>, legacy: Values) -> Result<Values, String> {
     let path = settings.0.lock().map_err(|e| e.to_string())?;
-    migrate(&path, legacy)
+    config_load_values(&path, legacy)
 }
 
 #[tauri::command]
 pub fn config_set(settings: tauri::State<Settings>, key: String, value: Value) -> Result<(), String> {
-    if key.is_empty() || key.len() > 256 { return Err("Invalid preference key".into()); }
+    validate_preference_key(&key)?;
     let path = settings.0.lock().map_err(|e| e.to_string())?;
     let mut values = read(&path)?;
     values.insert(key, value);
@@ -69,7 +105,8 @@ pub fn config_set(settings: tauri::State<Settings>, key: String, value: Value) -
 }
 
 fn merge_values(path: &Path, incoming: Values) -> Result<(), String> {
-    if incoming.len() > 128 || incoming.keys().any(|key| key.is_empty() || key.len() > 256) {
+    if incoming.len() > 128 || incoming.keys().any(|key| key.is_empty() || key.len() > 256)
+        || incoming.keys().any(|key| is_private_diagnostic_key(key)) {
         return Err("Invalid settings import".into());
     }
     if serde_json::to_vec(&incoming).map_err(|e| e.to_string())?.len() > 1024 * 1024 {
@@ -78,6 +115,15 @@ fn merge_values(path: &Path, incoming: Values) -> Result<(), String> {
     let mut values = read(path)?;
     values.extend(incoming);
     write(path, &values)
+}
+
+fn exportable_document(mut document: Values) -> Values {
+    if let Some(values) = document.get_mut("values").and_then(Value::as_object_mut) {
+        values.retain(|key, _| !is_private_diagnostic_key(key));
+    } else {
+        remove_private_diagnostic_keys(&mut document);
+    }
+    document
 }
 
 #[tauri::command]
@@ -90,7 +136,7 @@ pub fn config_set_many(settings: tauri::State<Settings>, values: Values) -> Resu
 pub async fn config_export_file(app: tauri::AppHandle, contents: String) -> Result<bool, String> {
     use tauri_plugin_dialog::DialogExt;
     if contents.len() > 1024 * 1024 { return Err("Settings export exceeds 1 MB".into()); }
-    let document: Values = serde_json::from_str(&contents).map_err(|e| e.to_string())?;
+    let document: Values = exportable_document(serde_json::from_str(&contents).map_err(|e| e.to_string())?);
     tauri::async_runtime::spawn_blocking(move || {
         let Some(file) = app.dialog().file().set_title("Export Culltivate settings")
             .add_filter("Culltivate settings", &["json"]).set_file_name("culltivate-settings.json").blocking_save_file() else { return Ok(false); };
@@ -124,6 +170,67 @@ mod tests {
         assert_eq!(result["theme"], "grey"); assert_eq!(result["future"], 42); assert_eq!(result["font"], "system");
         assert_eq!(read(&path).unwrap(), result);
         fs::remove_dir_all(dir).unwrap();
+    }
+    #[test] fn private_diagnostic_destinations_stay_local_during_load() {
+        let dir = root(); let path = dir.join("config.json");
+        let secret = Value::from("cHJpdmF0ZS1lbmRwb2ludA==");
+        let local = Values::from([
+            ("performanceWebhookEncoded".into(), secret.clone()),
+            ("performanceWebhookUrl".into(), Value::from("legacy-local-url")),
+            ("performanceNtfyUrl".into(), Value::from("https://attacker.invalid/perf")),
+            ("performanceLogsNtfyUrl".into(), Value::from("https://attacker.invalid/logs")),
+            ("performanceSystemId".into(), Value::from("quiet-otter-123456")),
+        ]);
+        write(&path, &local).unwrap();
+        let loaded = config_load_values(&path, Values::from([
+            ("performanceWebhookEncoded".into(), Value::from("untrusted-webview-value")),
+            ("performanceWebhookUrl".into(), Value::from("untrusted-plaintext-url")),
+            ("performanceNtfyUrl".into(), Value::from("https://attacker.invalid/legacy")),
+            ("performanceLogsNtfyUrl".into(), Value::from("https://attacker.invalid/legacy-logs")),
+            ("theme".into(), Value::from("grey")),
+        ])).unwrap();
+        assert_eq!(loaded, Values::from([
+            ("performanceSystemId".into(), Value::from("quiet-otter-123456")),
+            ("theme".into(), Value::from("grey")),
+        ]));
+        let persisted = read(&path).unwrap();
+        assert_eq!(persisted["performanceWebhookEncoded"], secret);
+        assert_eq!(persisted["performanceWebhookUrl"], "legacy-local-url");
+        assert_eq!(persisted["performanceNtfyUrl"], "https://attacker.invalid/perf");
+        assert_eq!(persisted["performanceLogsNtfyUrl"], "https://attacker.invalid/logs");
+        fs::remove_dir_all(dir).unwrap();
+    }
+    #[test] fn diagnostic_destinations_cannot_be_written_or_imported() {
+        for key in PRIVATE_DIAGNOSTIC_KEYS { assert!(validate_preference_key(key).is_err(), "{key}"); }
+        assert!(validate_preference_key("performanceSystemId").is_ok());
+        let dir = root(); let path = dir.join("config.json");
+        write(&path, &Values::from([("theme".into(), Value::from("dark"))])).unwrap();
+        let before = fs::read(&path).unwrap();
+        let incoming = Values::from([
+            ("theme".into(), Value::from("light")),
+            ("performanceLogsNtfyUrl".into(), Value::from("https://attacker.invalid")),
+        ]);
+        assert!(merge_values(&path, incoming).is_err());
+        assert_eq!(fs::read(&path).unwrap(), before);
+        fs::remove_dir_all(dir).unwrap();
+    }
+    #[test] fn settings_exports_drop_private_diagnostic_destinations() {
+        let exported = exportable_document(serde_json::from_value(serde_json::json!({
+            "format": "opencull-settings",
+            "version": 1,
+            "values": {
+                "performanceWebhookEncoded": "encoded-secret",
+                "performanceWebhookUrl": "https://attacker.invalid/legacy",
+                "performanceNtfyUrl": "https://attacker.invalid",
+                "performanceLogsNtfyUrl": "https://attacker.invalid/logs",
+                "performanceSystemId": "quiet-otter-123456"
+            }
+        })).unwrap());
+        assert_eq!(serde_json::to_value(exported).unwrap(), serde_json::json!({
+            "format": "opencull-settings",
+            "version": 1,
+            "values": { "performanceSystemId": "quiet-otter-123456" }
+        }));
     }
     #[test] fn malformed_file_is_never_overwritten() {
         let dir = root(); fs::create_dir_all(&dir).unwrap(); let path = dir.join("config.json");

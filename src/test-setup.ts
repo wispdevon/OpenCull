@@ -15,6 +15,8 @@ if (g.navigator === undefined) {
 if (g.localStorage === undefined) {
   const items = new Map<string, string>();
   g.localStorage = {
+    get length() { return items.size; },
+    key: (index: number) => [...items.keys()][index] ?? null,
     getItem: (key: string) => items.get(key) ?? null,
     setItem: (key: string, value: string) => void items.set(key, String(value)),
     removeItem: (key: string) => void items.delete(key),

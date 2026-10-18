@@ -2670,6 +2670,7 @@ dependencies = [
 name = "opencull"
 version = "0.6.1"
 dependencies = [
+ "base64 0.22.1",
  "fast_image_resize",
  "getrandom 0.3.4",
  "jpeg-decoder",

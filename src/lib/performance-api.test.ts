@@ -10,6 +10,7 @@ beforeEach(() => {
   Object.assign(window, { __TAURI_INTERNALS__: {} });
   invoke.mockImplementation(async (command: string) => {
     if (command === "benchmark_environment") return environment;
+    if (command === "diagnostics_configuration") return { webhookConfigured: true, ntfyUrl: "https://ntfy.sh/culltivate-perf", logsUrl: "https://ntfy.sh/culltivate-logs" };
     if (command === "diagnostics_approve") return "approval-1";
     if (command === "diagnostics_send") return { webhook: { status: "sent", error: null }, ntfy: { status: "disabled", error: null } };
     if (command === "diagnostics_preview") return { webhookJson: "exact-json", ntfyMessage: "exact-message" };
@@ -20,17 +21,17 @@ afterEach(() => { delete (window as unknown as Record<string, unknown>).__TAURI_
 describe("performance controller", () => {
   it("approves distinct performance and log topics with the current system-ID schema", async () => {
     const { performanceApi } = await import("./performance-api");
-    await performanceApi.approve("https://example.com/hook", "https://ntfy.sh/culltivate-perf", "https://ntfy.sh/culltivate-logs");
+    await performanceApi.approve();
     expect(invoke).toHaveBeenCalledWith("diagnostics_approve", {
-      webhookUrl: "https://example.com/hook", ntfyUrl: "https://ntfy.sh/culltivate-perf",
-      logsUrl: "https://ntfy.sh/culltivate-logs", fieldsVersion: 2,
+      fieldsVersion: 2,
     });
     expect(performanceApi.reportingState().logsUrl).toBe("https://ntfy.sh/culltivate-logs");
+    expect(performanceApi.reportingState()).not.toHaveProperty("webhookUrl");
   });
   it("explains invalid reporting destinations without sending a report", async () => {
     const { performanceApi } = await import("./performance-api");
     invoke.mockRejectedValueOnce("https_required");
-    await expect(performanceApi.approve("http://example.com/diagnostics", "")).rejects.toThrow("Use HTTPS for remote destinations");
+    await expect(performanceApi.approve()).rejects.toThrow("The installed reporting destination must use HTTPS");
     expect(performanceApi.reportingState().approved).toBe(false);
     expect(invoke.mock.calls.some(([name]) => name === "diagnostics_send")).toBe(false);
   });
@@ -45,15 +46,15 @@ describe("performance controller", () => {
     const { performanceApi } = await import("./performance-api");
     const { instrumentBackend } = await import("./performance-recording");
     const backend = instrumentBackend({ openFolder: async (_path: string) => true });
-    performanceApi.setReportingTokens("private-token", "");
-    await performanceApi.approve("https://example.com/diagnostics", "");
+    await performanceApi.approve();
     performanceApi.startRecording();
     await backend.openFolder("/private/photo.jpg");
     await performanceApi.stopRecording();
     await vi.waitFor(() => expect(performanceApi.reportingState().sending).toBe(false));
     const send = invoke.mock.calls.find(([name]) => name === "diagnostics_send")?.[1];
     expect(send.approval).toBe("approval-1");
-    expect(send.webhookToken).toBe("private-token");
+    expect(send).not.toHaveProperty("webhookToken");
+    expect(send).not.toHaveProperty("ntfyToken");
     expect(send.report.stages[0].count).toBe(1);
     expect(JSON.stringify(send.report)).not.toMatch(/private|photo\.jpg|samplesMs|Token/);
     expect(performanceApi.reportingState().result?.webhook.status).toBe("sent");
@@ -61,7 +62,7 @@ describe("performance controller", () => {
   });
   it("revokes consent immediately and keeps further recordings local", async () => {
     const { performanceApi } = await import("./performance-api");
-    await performanceApi.approve("https://example.com/diagnostics", "");
+    await performanceApi.approve();
     const disabling = performanceApi.disableReporting();
     expect(performanceApi.reportingState().approved).toBe(false);
     await disabling;
@@ -74,12 +75,14 @@ describe("performance controller", () => {
     const { diagnosticReport } = await import("./performance");
     const preview = await performanceApi.previewPayload(diagnosticReport(await performanceApi.previewReport()));
     expect(preview).toEqual({ webhookJson: "exact-json", ntfyMessage: "exact-message" });
+    const args = invoke.mock.calls.find(([name]) => name === "diagnostics_preview")?.[1];
+    expect(Object.keys(args)).toEqual(["report"]);
     expect(invoke.mock.calls.some(([name]) => name === "diagnostics_send" || name === "diagnostics_approve")).toBe(false);
   });
   it("keeps a finished recording available when delivery fails", async () => {
     const { performanceApi, getLatestReport } = await import("./performance-api");
     const { instrumentBackend } = await import("./performance-recording");
-    await performanceApi.approve("https://example.com/diagnostics", "");
+    await performanceApi.approve();
     invoke.mockImplementation(async (command: string) => {
       if (command === "benchmark_environment") return environment;
       if (command === "diagnostics_send") throw new Error("secret internal endpoint error");
@@ -92,7 +95,7 @@ describe("performance controller", () => {
   });
   it("does not send empty recordings after approval", async () => {
     const { performanceApi } = await import("./performance-api");
-    await performanceApi.approve("https://example.com/diagnostics", "");
+    await performanceApi.approve();
     performanceApi.startRecording();
     await performanceApi.stopRecording();
     expect(invoke.mock.calls.some(([name]) => name === "diagnostics_send")).toBe(false);
@@ -100,7 +103,7 @@ describe("performance controller", () => {
   it("finishes saving while delivery is pending and ignores its result after disable", async () => {
     const { performanceApi } = await import("./performance-api");
     const { instrumentBackend } = await import("./performance-recording");
-    await performanceApi.approve("https://example.com/diagnostics", "");
+    await performanceApi.approve();
     let delivered!: (value: unknown) => void;
     invoke.mockImplementation(async (command: string) => {
       if (command === "benchmark_environment") return environment;

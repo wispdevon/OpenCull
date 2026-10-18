@@ -4,6 +4,7 @@ import { resolveReview, REVIEW_CHOICES } from "./review";
 import { latestSession, type RecentSession } from "./session-history";
 import { followedBy, placement } from "./framing";
 import { beginRecording, finishRecording, recordingActive } from "./performance-recording";
+import { DEFAULT_PERF_NTFY_URL, DEFAULT_LOGS_NTFY_URL } from "./performance-preferences";
 import { diagnosticReport, ntfySummary, FIELD_VERSION, type BenchmarkMode, type BenchmarkReport, type BenchmarkStatus,
   type DeliveryResult, type DiagnosticReport, type PerformanceEnvironment, type StageMeasurement } from "./performance";
 
@@ -12,19 +13,14 @@ const listeners = new Set<() => void>();
 const notify = () => listeners.forEach((listener) => listener());
 function reportingError(error: unknown): Error {
   const messages: Record<string, string> = {
-    invalid_discord_webhook: "Enter a complete Discord execute-webhook URL.",
-    destination_required: "Enter a webhook URL or an ntfy topic URL.",
-    invalid_url: "Enter a complete, valid destination URL.",
-    unsupported_url_scheme: "Diagnostic destinations must use HTTPS, or HTTP on loopback.",
-    https_required: "Use HTTPS for remote destinations. HTTP is supported only on loopback.",
-    ntfy_topic_required: "Include a topic in the ntfy URL, for example https://ntfy.sh/your-topic.",
-    userinfo_forbidden: "Use the bearer-token field instead of putting credentials in a URL.",
-    url_fragment_forbidden: "Remove the fragment after # from the destination URL.",
+    invalid_discord_webhook: "The installed reporting destination is unavailable.",
+    invalid_url: "The installed reporting destination is unavailable.",
+    https_required: "The installed reporting destination must use HTTPS.",
     not_approved: "Preview and approve the current reporting destinations first.",
     invalid_report: "This diagnostic report could not be validated. It remains on this device.",
     report_schema_changed: "The reporting fields changed. Review the preview again.",
   };
-  return new Error(messages[String(error)] ?? "Diagnostic reporting could not be configured. Check the destination URLs and try again.");
+  return new Error(messages[String(error)] ?? "Diagnostic reporting is unavailable. Reports remain on this device.");
 }
 export const subscribePerformance = (listener: () => void) => { listeners.add(listener); return () => { listeners.delete(listener); }; };
 let latest: BenchmarkReport | null = null;
@@ -32,9 +28,8 @@ export const getLatestReport = () => latest;
 let status: BenchmarkStatus = { runId: null, state: "idle", completed: 0, total: 0, current: null, report: null, error: null };
 let approval: string | null = null;
 let reportingEpoch = 0;
-let webhookToken = "";
-let ntfyToken = "";
-let reporting = { approved: false, webhookUrl: "", ntfyUrl: "", logsUrl: "", sending: false, reportId: null as string | null,
+export interface ReportingConfiguration { webhookConfigured: boolean; ntfyUrl: string; logsUrl: string }
+let reporting = { approved: false, webhookConfigured: false, ntfyUrl: DEFAULT_PERF_NTFY_URL, logsUrl: DEFAULT_LOGS_NTFY_URL, sending: false, reportId: null as string | null,
   reportKind: null as BenchmarkReport["kind"] | null,
   result: null as DeliveryResult | null, error: null as string | null };
 let environmentPromise: Promise<PerformanceEnvironment> | undefined;
@@ -75,7 +70,7 @@ function enqueueAutomatic(report: BenchmarkReport): void {
 async function automaticSend(report: BenchmarkReport): Promise<void> {
   if (!approval) return;
   if (!report.stages.some((stage) => stage.samplesMs.length > 0 || stage.failures > 0)) return;
-  try { await performanceApi.send(approval, diagnosticReport(report), webhookToken || null, ntfyToken || null); }
+  try { await performanceApi.send(approval, diagnosticReport(report)); }
   catch { /* Reporting state exposes failure without invalidating a benchmark. */ }
 }
 async function poll(runId: string): Promise<void> {
@@ -227,25 +222,33 @@ export const performanceApi = {
         samplesMs: [60, 65, 70], units: 3, bytes: 0, failures: 0, status: "passed", detail: "Illustrative values, not measurements." }],
       coverage: [{ id: "example", label: "Example only", status: "manual", reason: "Illustrative preview; actual reports contain measured stage aggregates." }] };
   },
-  async previewPayload(report: DiagnosticReport, webhookUrl = ""): Promise<{ webhookJson: string; ntfyMessage: string }> {
+  async configuration(): Promise<ReportingConfiguration> {
+    const configuration = native ? await invoke<ReportingConfiguration>("diagnostics_configuration")
+      : { webhookConfigured: false, ntfyUrl: DEFAULT_PERF_NTFY_URL, logsUrl: DEFAULT_LOGS_NTFY_URL };
+    reporting = { ...reporting, ...configuration };
+    return configuration;
+  },
+  async previewPayload(report: DiagnosticReport): Promise<{ webhookJson: string; ntfyMessage: string }> {
     if (!native) return { webhookJson: JSON.stringify(report), ntfyMessage: ntfySummary(report) };
-    try { return await invoke("diagnostics_preview", { report, webhookUrl }); }
+    try { return await invoke("diagnostics_preview", { report }); }
     catch (error) { throw reportingError(error); }
   },
   reportingState: () => ({ ...reporting }),
-  setReportingTokens(webhook: string, ntfy: string): void { webhookToken = webhook; ntfyToken = ntfy; },
-  async approve(webhookUrl: string, ntfyUrl: string, logsUrl = ""): Promise<string> {
+  async approve(): Promise<string> {
     if (!native) throw new Error("Diagnostic delivery requires the desktop app.");
     const epoch = ++reportingEpoch;
     approval = null;
     reporting = { ...reporting, approved: false, sending: false, result: null, error: null, reportId: null };
     notify();
     let approved: string;
-    try { approved = await invoke<string>("diagnostics_approve", { webhookUrl, ntfyUrl, logsUrl, fieldsVersion: FIELD_VERSION }); }
+    try {
+      await performanceApi.configuration();
+      approved = await invoke<string>("diagnostics_approve", { fieldsVersion: FIELD_VERSION });
+    }
     catch (error) { throw reportingError(error); }
     if (epoch !== reportingEpoch) { await invoke("diagnostics_disable"); throw new Error("Reporting configuration changed. Preview it again."); }
     approval = approved;
-    reporting = { ...reporting, approved: true, webhookUrl, ntfyUrl, logsUrl, error: null };
+    reporting = { ...reporting, approved: true, error: null };
     notify();
     return approved;
   },
@@ -256,14 +259,14 @@ export const performanceApi = {
     notify();
     if (native) await invoke("diagnostics_disable");
   },
-  async send(approved: string, report: DiagnosticReport, webhook: string | null, ntfy: string | null): Promise<DeliveryResult> {
+  async send(approved: string, report: DiagnosticReport): Promise<DeliveryResult> {
     if (!native || approved !== approval || !reporting.approved) throw new Error("Preview and approve reporting first.");
     if (reporting.sending) throw new Error("A diagnostic report is already being sent.");
     const epoch = reportingEpoch;
     reporting = { ...reporting, sending: true, reportId: report.id, reportKind: report.kind, result: null, error: null };
     notify();
     try {
-      const result = await invoke<DeliveryResult>("diagnostics_send", { approval: approved, report, webhookToken: webhook, ntfyToken: ntfy });
+      const result = await invoke<DeliveryResult>("diagnostics_send", { approval: approved, report });
       if (epoch === reportingEpoch) reporting = { ...reporting, result };
       return result;
     } catch {

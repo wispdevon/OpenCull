@@ -1,6 +1,7 @@
 // Shared preferences interface; native files are hydrated before the app imports.
 import { invoke } from "@tauri-apps/api/core";
 const PREFIX = "opencull.";
+const PRIVATE_DIAGNOSTIC_KEYS = new Set(["performanceWebhookEncoded", "performanceWebhookUrl", "performanceNtfyUrl", "performanceLogsNtfyUrl"]);
 let nativeValues: Record<string, unknown> | null = null;
 let writes = Promise.resolve();
 let held = false;
@@ -18,12 +19,16 @@ function report(error: unknown) {
 }
 
 export async function initializePreferences(): Promise<void> {
+  // Retire the former editable endpoint preferences from webview storage.
+  for (const key of PRIVATE_DIAGNOSTIC_KEYS) {
+    try { localStorage.removeItem(PREFIX + key); } catch { /* Private keys remain inaccessible through this interface. */ }
+  }
   if (!("__TAURI_INTERNALS__" in window)) return;
   const legacy: Record<string, unknown> = {};
   try {
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
-      if (!key?.startsWith(PREFIX) || key.startsWith(`${PREFIX}session.`)) continue;
+      if (!key?.startsWith(PREFIX) || key.startsWith(`${PREFIX}session.`) || PRIVATE_DIAGNOSTIC_KEYS.has(key.slice(PREFIX.length))) continue;
       try { legacy[key.slice(PREFIX.length)] = JSON.parse(localStorage.getItem(key)!); } catch { /* Malformed legacy values are ignored. */ }
     }
     nativeValues = await invoke<Record<string, unknown>>("config_load", { legacy });
@@ -31,6 +36,7 @@ export async function initializePreferences(): Promise<void> {
 }
 
 export function load<T>(key: string, fallback: T): T {
+  if (PRIVATE_DIAGNOSTIC_KEYS.has(key)) return fallback;
   try {
     const raw = nativeValues && Object.hasOwn(nativeValues, key) ? nativeValues[key] : JSON.parse(localStorage.getItem(PREFIX + key) ?? "null");
     if (raw === null || raw === undefined) return fallback;
@@ -47,7 +53,7 @@ export function load<T>(key: string, fallback: T): T {
 export function holdPreferences(): void { held = true; }
 
 export function save(key: string, value: unknown): void {
-  if (held) return;
+  if (held || PRIVATE_DIAGNOSTIC_KEYS.has(key)) return;
   try { localStorage.setItem(PREFIX + key, JSON.stringify(value)); } catch (error) { report(error); }
   if (nativeValues && !key.startsWith("session.")) {
     nativeValues[key] = value;
@@ -59,14 +65,15 @@ export function snapshotPreferences(): Record<string, unknown> {
   const values: Record<string, unknown> = {};
   for (let i = 0; i < localStorage.length; i++) {
     const key = localStorage.key(i);
-    if (!key?.startsWith(PREFIX)) continue;
+    if (!key?.startsWith(PREFIX) || PRIVATE_DIAGNOSTIC_KEYS.has(key.slice(PREFIX.length))) continue;
     try { values[key.slice(PREFIX.length)] = JSON.parse(localStorage.getItem(key)!); } catch { /* Ignore corrupt legacy entries. */ }
   }
-  return { ...values, ...nativeValues };
+  return Object.fromEntries(Object.entries({ ...values, ...nativeValues }).filter(([key]) => !PRIVATE_DIAGNOSTIC_KEYS.has(key)));
 }
 
 /** Native imports are one atomic file update, before refreshing the local cache. */
 export async function applyPreferences(values: Record<string, unknown>): Promise<void> {
+  if (Object.keys(values).some((key) => PRIVATE_DIAGNOSTIC_KEYS.has(key))) throw new Error("Diagnostic destinations are fixed.");
   await writes;
   if (nativeValues) {
     await invoke("config_set_many", { values });

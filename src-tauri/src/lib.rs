@@ -194,6 +194,7 @@ pub fn run() {
             benchmark::benchmark_start,
             benchmark::benchmark_status,
             benchmark::benchmark_cancel,
+            diagnostic_delivery::diagnostics_configuration,
             diagnostic_delivery::diagnostics_approve,
             diagnostic_delivery::diagnostics_preview,
             diagnostic_delivery::diagnostics_disable,

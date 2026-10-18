@@ -1895,7 +1895,7 @@ mod tests {
         let diagnostic = diagnostic_json(&report);
         let diagnostic: crate::diagnostic_delivery::DiagnosticReport =
             serde_json::from_value(diagnostic).unwrap();
-        let preview = crate::diagnostic_delivery::diagnostics_preview(diagnostic, None).unwrap();
+        let preview = crate::diagnostic_delivery::preview_report(diagnostic, None).unwrap();
         assert!(preview.webhook_json.contains("6000x4000-texture"));
         assert!(!preview.webhook_json.contains("representative.RAF"));
     }

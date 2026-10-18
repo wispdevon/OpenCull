@@ -13,6 +13,7 @@ const OPERATIONS: Readonly<Record<string, string>> = {
   ingestScan: "Scan ingest source", ingestSources: "Scan card sources", ingestDetails: "Read ingest metadata",
   ingestCopy: "Copy from card", ingestConflicts: "Check ingest conflicts", reviewCopy: "Copy reviewed photos",
 };
+export const RECORDED_OPERATION_IDS: readonly string[] = Object.keys(OPERATIONS);
 let active: { startedAtMs: number; epoch: number; stages: Map<string, StageMeasurement> } | null = null;
 let epoch = 0;
 export const recordingActive = () => active !== null;

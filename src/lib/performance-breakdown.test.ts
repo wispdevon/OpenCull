@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import { colorForStage, timingBreakdown } from "./performance-breakdown";
 import type { StageSummary } from "./performance";
+import { ETC_COLOR, FUNCTION_COLORS, LOSPEC500 } from "./lospec500";
+import { RECORDED_OPERATION_IDS } from "./performance-recording";
 
 function summary(id: string, totalMs: number, status: StageSummary["status"] = "passed"): StageSummary {
   return {
@@ -23,6 +25,21 @@ function summary(id: string, totalMs: number, status: StageSummary["status"] = "
 }
 
 describe("timing breakdown", () => {
+  it("uses only bundled Lospec500 colors, including the reserved etc color", () => {
+    expect(LOSPEC500).toHaveLength(42);
+    expect(new Set(FUNCTION_COLORS).size).toBe(FUNCTION_COLORS.length);
+    expect(FUNCTION_COLORS).not.toContain(ETC_COLOR);
+    for (const id of ["image-decode", "portrait-orientation", "frontend.review", "unknown-function"]) {
+      expect(LOSPEC500).toContain(colorForStage(id));
+    }
+    expect(timingBreakdown([summary("small", 10)]).etc?.color).toBe(ETC_COLOR);
+  });
+  it("assigns a different stable palette color to every recorded operation", () => {
+    expect(RECORDED_OPERATION_IDS.length).toBeLessThanOrEqual(FUNCTION_COLORS.length);
+    const colors = RECORDED_OPERATION_IDS.map(colorForStage);
+    expect(new Set(colors).size).toBe(RECORDED_OPERATION_IDS.length);
+    expect(colors.every((color) => color !== ETC_COLOR)).toBe(true);
+  });
   it("groups each stage below one second into etc and keeps exactly one second separate", () => {
     const breakdown = timingBreakdown([
       summary("small-a", 250),

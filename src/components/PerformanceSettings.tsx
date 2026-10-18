@@ -11,7 +11,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { load, save } from "@/lib/prefs";
 import {
   diagnosticReport,
   rankedStages,
@@ -24,16 +23,15 @@ import {
   type Recommendation,
   type StageSummary,
 } from "@/lib/performance";
-import { getSystemId, loadWebhookUrl, saveWebhookUrl, DEFAULT_LOGS_NTFY_URL, DEFAULT_PERF_NTFY_URL } from "@/lib/performance-preferences";
+import { getSystemId, DEFAULT_LOGS_NTFY_URL, DEFAULT_PERF_NTFY_URL } from "@/lib/performance-preferences";
 import {
   getLatestReport,
   performanceApi,
   subscribePerformance,
+  type ReportingConfiguration,
 } from "@/lib/performance-api";
-import { ETC_THRESHOLD_MS, timingBreakdown } from "@/lib/performance-breakdown";
-
-let sessionWebhookToken = "";
-let sessionNtfyToken = "";
+import { colorForStage, ETC_THRESHOLD_MS, timingBreakdown } from "@/lib/performance-breakdown";
+import { interpretStage } from "@/lib/performance-interpretation";
 
 const EMPTY_STATUS: BenchmarkStatus = {
   runId: null,
@@ -54,20 +52,15 @@ export function PerformanceSettings() {
   const [recording, setRecording] = useState(() => performanceApi.isRecording());
   const [reporting, setReporting] = useState(() => performanceApi.reportingState());
   const [systemId] = useState(() => getSystemId());
-  const [webhookUrl, setWebhookUrl] = useState(() => loadWebhookUrl());
-  const [ntfyUrl, setNtfyUrl] = useState(() => load("performanceNtfyUrl", DEFAULT_PERF_NTFY_URL));
-  const [logsUrl, setLogsUrl] = useState(() => load("performanceLogsNtfyUrl", DEFAULT_LOGS_NTFY_URL));
-  const [webhookToken, setWebhookToken] = useState(sessionWebhookToken);
-  const [ntfyToken, setNtfyToken] = useState(sessionNtfyToken);
+  const [reportingConfiguration, setReportingConfiguration] = useState<ReportingConfiguration | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewReport, setPreviewReport] = useState<BenchmarkReport | null>(null);
   const [previewPayload, setPreviewPayload] = useState<{ webhookJson: string; ntfyMessage: string } | null>(null);
-  const [approval, setApproval] = useState("");
-  const destinationRevision = useRef(0);
-  const previewDestinations = useRef<{ webhook: string; ntfy: string; logs: string } | null>(null);
+  const [previewWebhookConfigured, setPreviewWebhookConfigured] = useState(false);
+  const previewRevision = useRef(0);
 
   const refresh = useCallback(async () => {
     if (refreshInFlight.current) return;
@@ -89,10 +82,19 @@ export function PerformanceSettings() {
   }, []);
 
   useEffect(() => {
-    performanceApi.setReportingTokens(sessionWebhookToken, sessionNtfyToken);
     void refresh();
     return subscribePerformance(() => void refresh());
   }, [refresh]);
+
+  useEffect(() => {
+    let active = true;
+    void performanceApi.configuration().then((configuration) => {
+      if (active) setReportingConfiguration(configuration);
+    }).catch(() => {
+      if (active) setReportingConfiguration(null);
+    });
+    return () => { active = false; };
+  }, []);
 
   // Poll only while a benchmark runs. Each request schedules the next one
   // after it resolves, so a slow backend cannot accumulate overlapping calls.
@@ -155,64 +157,34 @@ export function PerformanceSettings() {
     }
   };
 
-  const invalidateApproval = () => {
-    if (approval || performanceApi.reportingState().approved || busy) {
-      setApproval("");
-      void performanceApi.disableReporting().then(() => setReporting(performanceApi.reportingState()), (cause: unknown) => setError(readableError(cause)));
-    }
-  };
-
-  const changeDestination = (kind: "webhook" | "ntfy" | "logs", value: string) => {
-    destinationRevision.current += 1;
-    previewDestinations.current = null;
-    setPreviewOpen(false);
-    invalidateApproval();
-    if (kind === "webhook") {
-      setWebhookUrl(value);
-      saveWebhookUrl(value);
-    } else if (kind === "ntfy") {
-      setNtfyUrl(value);
-      save("performanceNtfyUrl", value);
-    } else {
-      setLogsUrl(value);
-      save("performanceLogsNtfyUrl", value);
-    }
-  };
-
-  const reviewDestinations = async () => {
-    const revision = destinationRevision.current;
-    const destinations = { webhook: webhookUrl.trim(), ntfy: ntfyUrl.trim(), logs: logsUrl.trim() };
+  const previewReporting = async () => {
+    const revision = ++previewRevision.current;
     setPreviewLoading(true);
     setError(null);
     try {
-      let example = getLatestReport() ?? await performanceApi.previewReport();
-      if (!destinations.ntfy && destinations.logs && example.kind !== "recording") {
-        example = { ...example, kind: "recording", mode: null };
-      } else if (destinations.ntfy && !destinations.logs && example.kind !== "benchmark") {
-        example = { ...example, kind: "benchmark", mode: "quick" };
-      }
-      const payload = await performanceApi.previewPayload(diagnosticReport(example), destinations.webhook);
-      if (revision !== destinationRevision.current) return;
-      previewDestinations.current = destinations;
-      setPreviewReport(example);
+      const configurationPromise = performanceApi.configuration();
+      const latest = getLatestReport() ?? await performanceApi.previewReport();
+      const configuration = await configurationPromise;
+      const payload = await performanceApi.previewPayload(diagnosticReport(latest));
+      if (revision !== previewRevision.current) return;
+      setReportingConfiguration(configuration);
+      setPreviewWebhookConfigured(configuration.webhookConfigured);
+      setPreviewReport(latest);
       setPreviewPayload(payload);
       setPreviewOpen(true);
     } catch (cause) {
       setError(readableError(cause));
     } finally {
-      setPreviewLoading(false);
+      if (revision === previewRevision.current) setPreviewLoading(false);
     }
   };
 
-  const approveDestinations = async () => {
-    const destinations = previewDestinations.current;
-    if (!destinations) return;
+  const approveReporting = async () => {
+    if (!previewReport || !previewPayload) return;
     setBusy(true);
     setError(null);
     try {
-      const token = await performanceApi.approve(destinations.webhook, destinations.ntfy, destinations.logs);
-      setApproval(token);
-      previewDestinations.current = null;
+      await performanceApi.approve();
       setPreviewOpen(false);
       await refresh();
     } catch (cause) {
@@ -225,7 +197,6 @@ export function PerformanceSettings() {
   const disableReporting = async () => {
     try {
       await performanceApi.disableReporting();
-      setApproval("");
       setReporting(performanceApi.reportingState());
     } catch (cause) {
       setError(readableError(cause));
@@ -269,7 +240,6 @@ export function PerformanceSettings() {
   const showP95 = ranked.some((stage) => stage.p95Ms !== null);
   const suggestions = activeReport ? recommendations(activeReport) : [];
   const isRunning = status.state === "running";
-  const hasDestination = Boolean(webhookUrl.trim() || ntfyUrl.trim() || logsUrl.trim());
   const canStartBenchmark = !isRunning && !recording && !busy;
 
   return (
@@ -352,32 +322,16 @@ export function PerformanceSettings() {
       </section>
 
       <ReportingSection
-        webhookUrl={webhookUrl}
-        ntfyUrl={ntfyUrl}
-        logsUrl={logsUrl}
+        webhookConfigured={reportingConfiguration?.webhookConfigured ?? null}
+        performanceTopic={topicName(reportingConfiguration?.ntfyUrl, DEFAULT_PERF_NTFY_URL)}
+        logsTopic={topicName(reportingConfiguration?.logsUrl, DEFAULT_LOGS_NTFY_URL)}
         systemId={systemId}
-        ntfyLabel={reporting.reportKind === "recording" ? "Logs topic" : "Performance ntfy"}
-        webhookToken={webhookToken}
-        ntfyToken={ntfyToken}
+        ntfyLabel={reporting.reportKind === "recording" ? "Logs topic" : "Performance topic"}
         reporting={reporting}
-        canReview={hasDestination}
         isDesktop={inTauri}
         previewLoading={previewLoading}
         busy={busy}
-        onWebhookUrl={(value) => changeDestination("webhook", value)}
-        onNtfyUrl={(value) => changeDestination("ntfy", value)}
-        onLogsUrl={(value) => changeDestination("logs", value)}
-        onWebhookToken={(value) => {
-          sessionWebhookToken = value;
-          setWebhookToken(value);
-          performanceApi.setReportingTokens(value, sessionNtfyToken);
-        }}
-        onNtfyToken={(value) => {
-          sessionNtfyToken = value;
-          setNtfyToken(value);
-          performanceApi.setReportingTokens(sessionWebhookToken, value);
-        }}
-        onReview={() => void reviewDestinations()}
+        onReview={() => void previewReporting()}
         onDisable={() => void disableReporting()}
         onRetry={() => void retryDelivery()}
       />
@@ -397,41 +351,39 @@ export function PerformanceSettings() {
         />
       )}
 
-      <Dialog open={previewOpen} onOpenChange={(open) => { if (!open) previewDestinations.current = null; setPreviewOpen(open); }}>
+      <Dialog open={previewOpen} onOpenChange={(open) => {
+        if (!open) previewRevision.current++;
+        setPreviewOpen(open);
+      }}>
         <DialogContent className="flex max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] flex-col overflow-hidden sm:max-w-3xl">
           <DialogHeader className="shrink-0">
             <DialogTitle>Review diagnostic reporting</DialogTitle>
             <DialogDescription>
-              This preview shows the fields sent after a benchmark completes or you stop a recording. Approval applies to these destinations and this payload version.
+              This preview shows the fields sent after a benchmark completes or you stop a recording. Approval enables the fixed reporting destinations for this app session.
             </DialogDescription>
           </DialogHeader>
           <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1 text-xs">
             <p className="rounded-md border border-border bg-muted/30 p-3 leading-relaxed">
-              Included: system ID, app/build, OS and hardware availability, aggregate stage timings and failure counts, coverage, and measured recommendations. No photos, filenames, photo paths, EXIF, raw error text, endpoints, or bearer credentials are included in the report payload. Benchmarks use the performance ntfy topic; work-session recordings use the logs topic.
+              Included: system ID, app/build, OS and hardware availability, aggregate stage timings and failure counts, coverage, and measured recommendations. No photos, filenames, photo paths, EXIF, raw error text, endpoints, or bearer credentials are included in the report payload. Benchmarks go to {topicName(reportingConfiguration?.ntfyUrl, DEFAULT_PERF_NTFY_URL)}; work-session recordings go to {topicName(reportingConfiguration?.logsUrl, DEFAULT_LOGS_NTFY_URL)}. A webhook receives either report only when one is already configured.
             </p>
-            {previewDiagnostic && previewPayload && webhookUrl.trim() && (
+            {previewDiagnostic && previewPayload && previewWebhookConfigured && (
               <PreviewBlock title="Webhook payload preview" value={previewPayload.webhookJson} />
             )}
-            {previewDiagnostic && previewPayload && (ntfyUrl.trim() || logsUrl.trim()) && (
+            {previewDiagnostic && previewPayload && (
               <PreviewBlock
-                title={`${previewReport?.kind === "recording" ? "Logs" : "Performance"} ntfy message preview`}
+                title={`ntfy message preview · ${topicName(previewReport?.kind === "recording" ? reportingConfiguration?.logsUrl : reportingConfiguration?.ntfyUrl, previewReport?.kind === "recording" ? DEFAULT_LOGS_NTFY_URL : DEFAULT_PERF_NTFY_URL)}`}
                 value={previewPayload.ntfyMessage}
               />
             )}
-            {previewDiagnostic && previewPayload && logsUrl.trim() && previewReport?.kind !== "recording" && (
+            {previewDiagnostic && previewPayload && !previewWebhookConfigured && (
               <p className="rounded-md border border-border bg-muted/30 p-3 leading-relaxed">
-                This preview covers a benchmark. Work-session recording summaries use the configured logs topic and the same aggregate fields.
-              </p>
-            )}
-            {previewDiagnostic && previewPayload && ntfyUrl.trim() && previewReport?.kind === "recording" && (
-              <p className="rounded-md border border-border bg-muted/30 p-3 leading-relaxed">
-                This preview covers a work-session recording. Benchmark summaries use the configured performance topic and the same aggregate fields.
+                No webhook is configured. The previewed summary will use its fixed ntfy topic.
               </p>
             )}
           </div>
           <DialogFooter className="shrink-0">
-            <Button variant="outline" disabled={busy} onClick={() => { previewDestinations.current = null; setPreviewOpen(false); }}>Cancel</Button>
-            <Button disabled={busy || !hasDestination || !inTauri} onClick={() => void approveDestinations()}>
+            <Button variant="outline" disabled={busy} onClick={() => { previewRevision.current++; setPreviewOpen(false); }}>Cancel</Button>
+            <Button disabled={busy || !inTauri} onClick={() => void approveReporting()}>
               <ShieldCheck aria-hidden="true" />
               Approve and enable
             </Button>
@@ -443,64 +395,49 @@ export function PerformanceSettings() {
 }
 
 function ReportingSection({
-  webhookUrl,
-  ntfyUrl,
-  logsUrl,
+  webhookConfigured,
+  performanceTopic,
+  logsTopic,
   systemId,
   ntfyLabel,
-  webhookToken,
-  ntfyToken,
   reporting,
-  canReview,
   isDesktop,
   previewLoading,
   busy,
-  onWebhookUrl,
-  onNtfyUrl,
-  onLogsUrl,
-  onWebhookToken,
-  onNtfyToken,
   onReview,
   onDisable,
   onRetry,
 }: {
-  webhookUrl: string;
-  ntfyUrl: string;
-  logsUrl: string;
+  webhookConfigured: boolean | null;
+  performanceTopic: string;
+  logsTopic: string;
   systemId: string;
   ntfyLabel: string;
-  webhookToken: string;
-  ntfyToken: string;
   reporting: ReturnType<typeof performanceApi.reportingState>;
-  canReview: boolean;
   isDesktop: boolean;
   previewLoading: boolean;
   busy: boolean;
-  onWebhookUrl: (value: string) => void;
-  onNtfyUrl: (value: string) => void;
-  onLogsUrl: (value: string) => void;
-  onWebhookToken: (value: string) => void;
-  onNtfyToken: (value: string) => void;
   onReview: () => void;
   onDisable: () => void;
   onRetry: () => void;
 }) {
   const result = reporting.result;
   const failed = Boolean(reporting.error || (result && (result.webhook.status === "failed" || result.ntfy.status === "failed")));
+  const webhookStatus = webhookConfigured === null ? "Checking configuration…" : webhookConfigured ? "Configured" : "Not configured";
   return (
     <section className="rounded-lg border border-border p-4" aria-labelledby="performance-reporting-heading">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="max-w-xl">
           <h2 id="performance-reporting-heading" className="text-sm font-semibold text-foreground">Optional diagnostic reporting</h2>
           <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-            Reports stay on this device unless you approve delivery. Benchmark summaries use the performance ntfy topic, while work-session recordings use the logs topic. The optional webhook receives a compact aggregate report.
+            Reports stay on this device unless you approve delivery. Destinations are fixed: benchmarks use the performance topic, work-session recordings use the logs topic, and an existing webhook receives aggregate reports when configured.
           </p>
         </div>
         <div className="flex shrink-0 gap-2">
           {reporting.approved ? (
             <Button size="sm" variant="outline" disabled={busy} onClick={onDisable}>Disable reporting</Button>
           ) : (
-            <Button size="sm" variant="outline" disabled={!canReview || previewLoading || busy} onClick={onReview}>
+            <Button size="sm" variant="outline" disabled={previewLoading || busy} onClick={onReview}>
               {previewLoading ? "Preparing preview…" : "Preview and approve"}
             </Button>
           )}
@@ -512,40 +449,38 @@ function ReportingSection({
         <dd className="font-mono font-medium text-foreground" title="Random installation identifier; it contains no hardware or hostname information.">{systemId}</dd>
       </dl>
 
-      <div className="mt-4 grid gap-3 sm:grid-cols-2">
-        <label className="space-y-1.5 text-xs font-medium text-foreground">
-          <span>Discord or webhook URL</span>
-          <input className="h-8 w-full min-w-0 rounded-md border border-input bg-background px-2.5 py-1 text-xs text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/50" type="password" autoComplete="new-password" disabled={busy || previewLoading} placeholder="Configured webhook (masked)" value={webhookUrl} onChange={(event) => onWebhookUrl(event.currentTarget.value)} />
-          <span className="block font-normal leading-relaxed text-muted-foreground">Stored locally in encoded form, not as a public endpoint in the app bundle. Review it with the aggregate preview.</span>
-        </label>
-        <label className="space-y-1.5 text-xs font-medium text-foreground">
-          <span>Performance ntfy topic</span>
-          <input className="h-8 w-full min-w-0 rounded-md border border-input bg-background px-2.5 py-1 text-xs text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/50" type="url" autoComplete="url" disabled={busy || previewLoading} placeholder={DEFAULT_PERF_NTFY_URL} value={ntfyUrl} onChange={(event) => onNtfyUrl(event.currentTarget.value)} />
-          <span className="block font-normal leading-relaxed text-muted-foreground">Receives benchmark summaries.</span>
-        </label>
-        <label className="space-y-1.5 text-xs font-medium text-foreground">
-          <span>Logs ntfy topic</span>
-          <input className="h-8 w-full min-w-0 rounded-md border border-input bg-background px-2.5 py-1 text-xs text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/50" type="url" autoComplete="url" disabled={busy || previewLoading} placeholder={DEFAULT_LOGS_NTFY_URL} value={logsUrl} onChange={(event) => onLogsUrl(event.currentTarget.value)} />
-          <span className="block font-normal leading-relaxed text-muted-foreground">Receives bounded work-session timing summaries.</span>
-        </label>
-        <label className="space-y-1.5 text-xs font-medium text-foreground">
-          <span>Webhook bearer token <span className="font-normal text-muted-foreground">(optional)</span></span>
-          <input className="h-8 w-full min-w-0 rounded-md border border-input bg-background px-2.5 py-1 text-xs text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/50" type="password" autoComplete="new-password" placeholder="Kept in memory for this app session" value={webhookToken} onChange={(event) => onWebhookToken(event.currentTarget.value)} />
-        </label>
-        <label className="space-y-1.5 text-xs font-medium text-foreground">
-          <span>ntfy bearer token <span className="font-normal text-muted-foreground">(optional)</span></span>
-          <input className="h-8 w-full min-w-0 rounded-md border border-input bg-background px-2.5 py-1 text-xs text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/50" type="password" autoComplete="new-password" placeholder="Kept in memory for this app session" value={ntfyToken} onChange={(event) => onNtfyToken(event.currentTarget.value)} />
-        </label>
-      </div>
+      <dl className="mt-4 grid gap-3 text-xs sm:grid-cols-3">
+        <div className="rounded-md border border-border/70 bg-muted/20 p-2.5">
+          <dt className="text-[11px] text-muted-foreground">Webhook</dt>
+          <dd className="mt-1 font-medium text-foreground">{webhookStatus}</dd>
+          <dd className="mt-1 text-[11px] leading-relaxed text-muted-foreground">Webhook configuration is read-only here. No URL or credential is displayed.</dd>
+        </div>
+        <div className="rounded-md border border-border/70 bg-muted/20 p-2.5">
+          <dt className="text-[11px] text-muted-foreground">Benchmark summaries</dt>
+          <dd className="mt-1 font-medium text-foreground">{performanceTopic}</dd>
+          <dd className="mt-1 text-[11px] leading-relaxed text-muted-foreground">Fixed ntfy topic for benchmark reports.</dd>
+        </div>
+        <div className="rounded-md border border-border/70 bg-muted/20 p-2.5">
+          <dt className="text-[11px] text-muted-foreground">Work-session logs</dt>
+          <dd className="mt-1 font-medium text-foreground">{logsTopic}</dd>
+          <dd className="mt-1 text-[11px] leading-relaxed text-muted-foreground">Fixed ntfy topic for bounded timing summaries.</dd>
+        </div>
+      </dl>
 
-      {!isDesktop && <p className="mt-3 rounded-md border border-border bg-muted/30 p-2.5 text-xs text-muted-foreground">Diagnostic delivery requires the desktop app. The browser demo can show frontend benchmark results only.</p>}
+      {!isDesktop && (
+        <p className="mt-3 rounded-md border border-border bg-muted/30 p-2.5 text-xs text-muted-foreground">
+          Diagnostic delivery and approval require the desktop app. The browser demo can show frontend benchmark results only.
+        </p>
+      )}
 
       <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-border/70 pt-3">
         <div className="min-w-0 flex-1" aria-live="polite">
           {reporting.approved ? (
-            <p className="text-xs text-foreground">Approved for {destinationNames(reporting.webhookUrl, reporting.ntfyUrl, reporting.logsUrl)}{reporting.sending ? " · sending…" : ""}</p>
+            <p className="text-xs text-foreground">
+              Approved: benchmarks → {performanceTopic}; work-session logs → {logsTopic}{webhookConfigured ? "; configured webhook included" : ""}{reporting.sending ? " · sending…" : ""}
+            </p>
           ) : (
-            <p className="text-xs text-muted-foreground">Automatic delivery is off until you review the payload and approve a destination.</p>
+            <p className="text-xs text-muted-foreground">Automatic delivery is off until you preview the payload and approve the fixed destinations.</p>
           )}
           {reporting.error && <p className="mt-1 text-xs text-destructive">{reporting.error}</p>}
           {reporting.reportId && <p className="mt-1 break-all text-[11px] text-muted-foreground">Latest report: {reporting.reportId}</p>}
@@ -608,13 +543,14 @@ function ReportResults({
             <Button size="sm" variant={rankBy === "latency" ? "secondary" : "ghost"} aria-pressed={rankBy === "latency"} onClick={() => onRankBy("latency")}>Typical latency</Button>
           </div>
         </div>
+        <InterpretationGuide report={report} />
         {ranked.length ? (
           <div className="mt-3 overflow-x-auto">
             <table className="w-full min-w-[720px] border-collapse text-left text-xs">
               <caption className="sr-only">Measured function stages and their timing and reliability data</caption>
               <StageTableHead showP95={showP95} />
               <tbody>
-                {majorStages.map((stage) => <StageRow key={stage.id} stage={stage} detail={report.stages.find((entry) => entry.id === stage.id)?.detail ?? null} rank={ranked.indexOf(stage) + 1} showP95={showP95} />)}
+                {majorStages.map((stage) => <StageRow key={stage.id} stage={stage} report={report} detail={report.stages.find((entry) => entry.id === stage.id)?.detail ?? null} rank={ranked.indexOf(stage) + 1} showP95={showP95} />)}
                 {minorStages.length > 0 && (
                   <tr>
                     <td colSpan={showP95 ? 9 : 8} className="py-2">
@@ -630,7 +566,7 @@ function ReportResults({
                             <caption className="sr-only">Individual stages grouped under etc, each below one second</caption>
                             <StageTableHead showP95={showP95} />
                             <tbody>
-                              {minorStages.map((stage) => <StageRow key={stage.id} stage={stage} detail={report.stages.find((entry) => entry.id === stage.id)?.detail ?? null} rank={ranked.indexOf(stage) + 1} showP95={showP95} />)}
+                              {minorStages.map((stage) => <StageRow key={stage.id} stage={stage} report={report} detail={report.stages.find((entry) => entry.id === stage.id)?.detail ?? null} rank={ranked.indexOf(stage) + 1} showP95={showP95} />)}
                             </tbody>
                           </table>
                         </div>
@@ -658,11 +594,11 @@ function StageTableHead({ showP95 }: { showP95: boolean }) {
       <tr className="border-b border-border">
         <th scope="col" className="py-2 pr-3 font-medium">Stage</th>
         <th scope="col" className="px-2 py-2 font-medium">Cache</th>
-        <th scope="col" className="px-2 py-2 text-right font-medium">Samples</th>
-        <th scope="col" className="px-2 py-2 text-right font-medium">Total</th>
-        <th scope="col" className="px-2 py-2 text-right font-medium">Median</th>
-        <th scope="col" className="px-2 py-2 text-right font-medium">Max</th>
-        {showP95 && <th scope="col" className="px-2 py-2 text-right font-medium" title="Shown only when there are at least 20 samples">P95</th>}
+        <th scope="col" className="px-2 py-2 text-right font-medium">Timed samples</th>
+        <th scope="col" className="px-2 py-2 text-right font-medium">Total time</th>
+        <th scope="col" className="px-2 py-2 text-right font-medium">Median / sample</th>
+        <th scope="col" className="px-2 py-2 text-right font-medium">Max / sample</th>
+        {showP95 && <th scope="col" className="px-2 py-2 text-right font-medium" title="Shown only when there are at least 20 samples">P95 / sample</th>}
         <th scope="col" className="px-2 py-2 text-right font-medium">Throughput</th>
         <th scope="col" className="pl-2 py-2 text-right font-medium">Failures</th>
       </tr>
@@ -756,13 +692,76 @@ function TimingOverview({ reportId, stages, elapsedMs }: { reportId: string; sta
   );
 }
 
-function StageRow({ stage, detail, rank, showP95 }: { stage: StageSummary; detail: string | null; rank: number; showP95: boolean }) {
+function InterpretationGuide({ report }: { report: BenchmarkReport }) {
+  const hasNativeFixture = report.kind === "benchmark" && ["2-6000x4000-texture", "3-6000x4000-texture-ai-cache"].includes(report.environment.fixtureVersion);
+  const folderWorkload = report.mode === "thorough"
+    ? "Thorough scans use 50 logical photo entries represented by 98 generated image files."
+    : "Quick scans use 14 logical photo entries represented by 26 generated image files.";
+  return (
+    <aside className="mt-3 rounded-md border border-border/70 bg-muted/20 p-2.5 text-[11px] leading-relaxed" aria-labelledby="performance-interpretation-heading">
+      <h4 id="performance-interpretation-heading" className="font-semibold text-foreground">How to read these numbers</h4>
+      <ul className="mt-1 grid gap-x-4 gap-y-1 text-muted-foreground sm:grid-cols-2">
+        <li>Timed samples are measured calls; one sample may process a batch or repeat a fixture. Use each row’s workload to see whether its count means photos, files, records or API calls.</li>
+        <li>Total adds all samples. Median is typical time for one sample; P95 shows the slower tail when at least 20 samples are available.</li>
+        <li>Good and alarming limits are rough per-sample guides, not fleet percentiles. Hardware, system load, heat, storage and build type change timings.</li>
+        <li>Work-session recordings and unknown fixtures are unrated; their sample counts do not reveal unique photos.</li>
+      </ul>
+      {hasNativeFixture && (
+        <details className="group mt-2 border-t border-border/70 pt-2">
+          <summary className="flex cursor-pointer list-none items-center gap-1.5 font-medium text-foreground [&::-webkit-details-marker]:hidden">
+            Fixture workload for this run
+            <ChevronDown aria-hidden="true" className="size-3.5 text-muted-foreground transition-transform group-open:rotate-180" />
+          </summary>
+          <ul className="mt-1.5 list-disc space-y-1 pl-4 text-muted-foreground">
+            <li>{folderWorkload} Each RAW/JPEG pair is one logical entry; repeated samples reuse the same set.</li>
+            <li>Preview and decode stages reuse one textured 24 MP image. Folder-scan and copy fixtures, plus face-analysis stages, reuse copies of the same 512 × 512 astronaut image; grouping and AI cache stages use records rather than image pixels.</li>
+            <li>AI inference in this isolated benchmark runs on CPU; its timings do not measure GPU performance.</li>
+          </ul>
+        </details>
+      )}
+    </aside>
+  );
+}
+
+function StageRow({ stage, report, detail, rank, showP95 }: { stage: StageSummary; report: BenchmarkReport; detail: string | null; rank: number; showP95: boolean }) {
+  const interpretation = interpretStage(stage, report);
+  const assessmentLabels = { good: "Good", watch: "Watch", alarming: "Alarming", failed: "Failed", unrated: "Unrated" };
+  const assessmentStyles = {
+    good: "bg-secondary text-secondary-foreground",
+    watch: "bg-accent text-accent-foreground",
+    alarming: "bg-destructive/10 text-destructive",
+    failed: "bg-destructive/10 text-destructive",
+    unrated: "bg-muted text-muted-foreground",
+  };
+  const assessment = interpretation.assessment;
+  const failed = assessment === "failed";
   return (
     <tr id={`performance-stage-${stage.id}`} className="border-b border-border/60 last:border-0">
       <th scope="row" className="max-w-[20rem] py-2 pr-3 font-medium">
-        <span className="mr-2 text-muted-foreground">{rank}.</span>{stage.label}
+        <span className="mr-2 text-muted-foreground">{rank}.</span>
+        <span className="mr-1.5 inline-block size-2.5 rounded-sm border border-foreground/15 align-middle" style={{ backgroundColor: colorForStage(stage.id) }} aria-hidden="true" />
+        {stage.label}
         <span className="mt-0.5 block font-normal text-muted-foreground">{stage.category} · {stage.status}</span>
-        {detail && <span className="mt-0.5 block font-normal leading-relaxed text-muted-foreground">{detail}</span>}
+        <span className="mt-1 block font-normal text-muted-foreground">Workload: {interpretation.workload}</span>
+        <span className="mt-1.5 block font-normal leading-relaxed text-foreground/90">
+          <span className={`mr-1.5 inline-flex rounded px-1.5 py-0.5 text-[10px] font-medium ${assessmentStyles[assessment]}`}>{assessmentLabels[assessment]}</span>
+          {failed && interpretation.explanation}
+        </span>
+        {interpretation.guidance && (
+          <span className="mt-1 block font-normal leading-relaxed text-muted-foreground">
+            Rough guide for the median sample: Good ≤ {formatMs(interpretation.guidance.goodMs)}; Alarming ≥ {formatMs(interpretation.guidance.alarmingMs)}. {interpretation.guidance.basis}
+          </span>
+        )}
+        <details className="group mt-1 font-normal text-muted-foreground">
+          <summary className="flex w-fit cursor-pointer list-none items-center gap-1 [&::-webkit-details-marker]:hidden">
+            <span>Measurement details</span>
+            <ChevronDown aria-hidden="true" className="size-3.5 transition-transform group-open:rotate-180" />
+          </summary>
+          <div className="mt-1 space-y-1 pl-1 leading-relaxed">
+            {detail && <p>{detail}</p>}
+            {!failed && <p>{interpretation.explanation}</p>}
+          </div>
+        </details>
       </th>
       <td className="px-2 py-2 text-muted-foreground">{stage.cache}</td>
       <td className="px-2 py-2 text-right tabular-nums">{stage.count}</td>
@@ -770,7 +769,7 @@ function StageRow({ stage, detail, rank, showP95 }: { stage: StageSummary; detai
       <td className="px-2 py-2 text-right tabular-nums">{formatMs(stage.medianMs)}</td>
       <td className="px-2 py-2 text-right tabular-nums">{formatMs(stage.maxMs)}</td>
       {showP95 && <td className="px-2 py-2 text-right tabular-nums">{stage.p95Ms === null ? "—" : formatMs(stage.p95Ms)}</td>}
-      <td className="px-2 py-2 text-right tabular-nums">{stage.throughputPerSecond === null ? "—" : `${stage.throughputPerSecond.toFixed(1)}/s`}</td>
+      <td className="px-2 py-2 text-right tabular-nums">{stage.throughputPerSecond === null || !interpretation.throughputUnit ? "—" : `${stage.throughputPerSecond.toFixed(1)} ${interpretation.throughputUnit}/s`}</td>
       <td className={`pl-2 py-2 text-right tabular-nums ${stage.failures ? "text-destructive" : "text-muted-foreground"}`}>{stage.failures}</td>
     </tr>
   );
@@ -877,9 +876,16 @@ function PreviewBlock({ title, value }: { title: string; value: string }) {
   );
 }
 
-function destinationNames(webhook: string, ntfy: string, logs: string): string {
-  const destinations = [webhook && "webhook", ntfy && "performance ntfy", logs && "logs ntfy"].filter(Boolean);
-  return destinations.length ? destinations.join(" and ") : "no destinations";
+function topicName(configuredUrl: string | undefined, fallbackUrl: string): string {
+  const extract = (value: string): string | null => {
+    try {
+      const parts = new URL(value).pathname.split("/").filter(Boolean);
+      return parts.at(-1) ?? null;
+    } catch {
+      return null;
+    }
+  };
+  return (configuredUrl && extract(configuredUrl)) || extract(fallbackUrl) || "ntfy topic";
 }
 
 function formatMs(value: number): string {

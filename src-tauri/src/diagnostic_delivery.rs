@@ -6,6 +6,7 @@
 
 use std::{net::IpAddr, sync::Mutex, time::Duration};
 
+use base64::{engine::general_purpose::STANDARD, Engine as _};
 use reqwest::{header, redirect::Policy, Client, Url};
 use serde::{de::Deserializer, Deserialize, Serialize};
 use tauri::State;
@@ -20,6 +21,8 @@ const MAX_STAGES: usize = 100;
 const MAX_COVERAGE: usize = 100;
 const MAX_RECOMMENDATIONS: usize = 50;
 const MAX_REPORT_AGE_MS: u64 = 366 * 24 * 60 * 60 * 1_000;
+const PERFORMANCE_NTFY_URL: &str = "https://ntfy.sh/culltivate-perf";
+const LOGS_NTFY_URL: &str = "https://ntfy.sh/culltivate-logs";
 const MEDIA_EXTENSIONS: [&str; 25] = [
     ".jpg", ".jpeg", ".jpe", ".png", ".gif", ".tif", ".tiff", ".webp", ".heic", ".raw", ".arw",
     ".cr2", ".cr3", ".nef", ".raf", ".rw2", ".dng", ".orf", ".pef", ".srw", ".xmp", ".mp4", ".mov",
@@ -187,6 +190,14 @@ pub struct DiagnosticPreview {
     pub ntfy_message: String,
 }
 
+#[derive(Clone, Debug, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct DiagnosticConfiguration {
+    pub webhook_configured: bool,
+    pub ntfy_url: &'static str,
+    pub logs_url: &'static str,
+}
+
 #[derive(Clone)]
 struct ApprovedDestination {
     url: Url,
@@ -211,12 +222,17 @@ pub struct DiagnosticDelivery {
 #[tauri::command]
 pub fn diagnostics_approve(
     state: State<'_, DiagnosticDelivery>,
-    webhook_url: String,
-    ntfy_url: String,
-    logs_url: String,
+    settings: State<'_, crate::settings::Settings>,
     fields_version: u32,
 ) -> Result<String, String> {
-    approve(&state, &webhook_url, &ntfy_url, &logs_url, fields_version)
+    approve_configured(&state, &settings, fields_version)
+}
+
+#[tauri::command]
+pub fn diagnostics_configuration(
+    settings: State<'_, crate::settings::Settings>,
+) -> Result<DiagnosticConfiguration, String> {
+    diagnostics_configuration_for(&settings)
 }
 
 #[tauri::command]
@@ -237,11 +253,19 @@ fn disable(state: &DiagnosticDelivery) -> Result<(), String> {
 /// This performs no network request and stores neither the report nor secrets.
 #[tauri::command]
 pub fn diagnostics_preview(
+    settings: State<'_, crate::settings::Settings>,
     report: DiagnosticReport,
-    webhook_url: Option<String>,
+) -> Result<DiagnosticPreview, String> {
+    let webhook_url = configured_webhook_url(&settings)?;
+    preview_report(report, webhook_url.as_deref())
+}
+
+pub(crate) fn preview_report(
+    report: DiagnosticReport,
+    webhook_url: Option<&str>,
 ) -> Result<DiagnosticPreview, String> {
     validate_report(&report)?;
-    let webhook = webhook_payload(&report, webhook_url.as_deref())?;
+    let webhook = webhook_payload(&report, webhook_url)?;
     if webhook.len() > MAX_REPORT_BYTES {
         return Err("report_too_large".to_owned());
     }
@@ -257,17 +281,8 @@ pub async fn diagnostics_send(
     state: State<'_, DiagnosticDelivery>,
     approval: String,
     report: DiagnosticReport,
-    webhook_token: Option<String>,
-    ntfy_token: Option<String>,
 ) -> Result<DeliveryResult, String> {
-    send_diagnostics(
-        &state,
-        &approval,
-        report,
-        webhook_token.as_deref(),
-        ntfy_token.as_deref(),
-    )
-    .await
+    send_diagnostics(&state, &approval, report, None, None).await
 }
 
 async fn send_diagnostics(
@@ -383,6 +398,51 @@ fn approve(
         .map_err(|_| "approval_unavailable".to_owned())?;
     *active = Some(approval);
     Ok(id)
+}
+
+fn approve_configured(
+    state: &DiagnosticDelivery,
+    settings: &crate::settings::Settings,
+    fields_version: u32,
+) -> Result<String, String> {
+    let webhook_url = configured_webhook_url(settings)?;
+    approve(
+        state,
+        webhook_url.as_deref().unwrap_or_default(),
+        PERFORMANCE_NTFY_URL,
+        LOGS_NTFY_URL,
+        fields_version,
+    )
+}
+
+fn diagnostics_configuration_for(
+    settings: &crate::settings::Settings,
+) -> Result<DiagnosticConfiguration, String> {
+    Ok(DiagnosticConfiguration {
+        webhook_configured: configured_webhook_url(settings)?.is_some(),
+        ntfy_url: PERFORMANCE_NTFY_URL,
+        logs_url: LOGS_NTFY_URL,
+    })
+}
+
+fn configured_webhook_url(settings: &crate::settings::Settings) -> Result<Option<String>, String> {
+    let Some(encoded) = crate::settings::performance_webhook_encoded(settings)? else {
+        return Ok(None);
+    };
+    if encoded.len() > (MAX_URL_BYTES * 4).div_ceil(3) + 4 {
+        return Ok(None);
+    }
+    let Ok(decoded) = STANDARD.decode(encoded.as_bytes()) else {
+        return Ok(None);
+    };
+    let Ok(url) = String::from_utf8(decoded) else {
+        return Ok(None);
+    };
+    if parse_destination(&url, false).is_ok_and(|destination| destination.is_some()) {
+        Ok(Some(url))
+    } else {
+        Ok(None)
+    }
 }
 
 fn new_approval_id() -> Result<String, String> {
@@ -1210,6 +1270,76 @@ mod tests {
         approve(state, &webhook_url, &ntfy_url, &logs_url, 2).unwrap()
     }
 
+    fn settings_with_values(
+        values: serde_json::Value,
+    ) -> (crate::settings::Settings, std::path::PathBuf) {
+        use std::{fs, sync::Mutex};
+        static NEXT_SETTINGS_TEST: std::sync::atomic::AtomicU64 =
+            std::sync::atomic::AtomicU64::new(0);
+        let path = std::env::temp_dir().join(format!(
+            "opencull-diagnostic-settings-{}-{}.json",
+            std::process::id(),
+            NEXT_SETTINGS_TEST.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+        ));
+        fs::write(&path, serde_json::to_vec(&values).unwrap()).unwrap();
+        (crate::settings::Settings(Mutex::new(path.clone())), path)
+    }
+
+    #[test]
+    fn native_configuration_uses_fixed_topics_and_hides_the_webhook() {
+        let webhook = "http://127.0.0.1:8123/hook";
+        let encoded = STANDARD.encode(webhook);
+        let (settings, path) = settings_with_values(serde_json::json!({
+            "performanceWebhookEncoded": encoded,
+            "performanceNtfyUrl": "https://attacker.invalid/other-topic",
+            "performanceLogsNtfyUrl": "https://attacker.invalid/other-logs"
+        }));
+        let configuration = diagnostics_configuration_for(&settings).unwrap();
+
+        assert_eq!(
+            configuration,
+            DiagnosticConfiguration {
+                webhook_configured: true,
+                ntfy_url: PERFORMANCE_NTFY_URL,
+                logs_url: LOGS_NTFY_URL,
+            }
+        );
+        let visible = serde_json::to_string(&configuration).unwrap();
+        assert!(!visible.contains(webhook));
+
+        let state = DiagnosticDelivery::default();
+        let approval = approve_configured(&state, &settings, CURRENT_FIELDS_VERSION).unwrap();
+        let active = state.approval.lock().unwrap().clone().unwrap();
+        assert_eq!(active.id, approval);
+        assert_eq!(active.webhook.as_ref().unwrap().url.as_str(), webhook);
+        assert_eq!(
+            active.ntfy.as_ref().unwrap().url.as_str(),
+            PERFORMANCE_NTFY_URL
+        );
+        assert_eq!(active.logs.as_ref().unwrap().url.as_str(), LOGS_NTFY_URL);
+
+        let preview = preview_report(
+            test_report(),
+            configured_webhook_url(&settings).unwrap().as_deref(),
+        )
+        .unwrap();
+        assert!(!preview.webhook_json.contains(webhook));
+        std::fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn invalid_or_absent_local_webhook_is_reported_as_unconfigured() {
+        let (settings, path) = settings_with_values(serde_json::json!({
+            "performanceWebhookEncoded": "not-base64!",
+            "performanceNtfyUrl": "https://attacker.invalid/topic"
+        }));
+        let configuration = diagnostics_configuration_for(&settings).unwrap();
+        assert!(!configuration.webhook_configured);
+        assert_eq!(configuration.ntfy_url, PERFORMANCE_NTFY_URL);
+        assert_eq!(configuration.logs_url, LOGS_NTFY_URL);
+        std::fs::remove_file(path).unwrap();
+    }
+
     #[test]
     fn approval_accepts_https_and_loopback_http_only() {
         let state = DiagnosticDelivery::default();
@@ -1346,7 +1476,7 @@ mod tests {
     fn discord_preview_uses_the_supported_compact_payload_without_mentions() {
         let report = test_report();
         let discord_url = "https://discord.com/api/webhooks/123456/test-token";
-        let preview = diagnostics_preview(report.clone(), Some(discord_url.to_owned())).unwrap();
+        let preview = preview_report(report.clone(), Some(discord_url)).unwrap();
         let preview_value: serde_json::Value = serde_json::from_str(&preview.webhook_json).unwrap();
         let destination = parse_destination(discord_url, false).unwrap().unwrap();
         let send_value: serde_json::Value = serde_json::from_slice(
@@ -1543,7 +1673,7 @@ mod tests {
             "Fit preview: 0 samples, median 0.0 ms, max 0.0 ms, 1 failures.".to_owned();
         assert!(validate_report(&report).is_ok());
 
-        let preview = diagnostics_preview(report.clone(), None).unwrap();
+        let preview = preview_report(report.clone(), None).unwrap();
         assert_eq!(
             preview.webhook_json,
             String::from_utf8(serde_json::to_vec(&report).unwrap()).unwrap()

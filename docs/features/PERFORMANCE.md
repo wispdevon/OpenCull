@@ -55,6 +55,57 @@ failures. They are investigation candidates rather than promises of improvement.
 The engineering backlog is [the performance TODO](../../tasks/performance-todo.md),
 with [measurement evidence](../../tasks/performance-measurements.md).
 
+### Workloads and rough timing guides
+
+Each stage now identifies its workload, repeats and throughput unit. A sample is
+one timed invocation; it may process one photo or a whole batch. Repeating one
+image 24 times is not a test of 24 different photos. Quick normally collects
+3 native samples; Thorough collects 24. AI cold stages collect 1 sample,
+basic warm AI collects 1/5 and advanced warm AI 1/3 (Quick/Thorough).
+Frontend logic collects 5/20 samples.
+
+| Stage family | Work per timed sample |
+|---|---|
+| Folder/ingest scan | Quick: 14 logical photo entries / 26 image files; Thorough: 50 / 98. RAW/JPEG pairs count as one entry. All small images reuse the astronaut content. |
+| Preview / full RGB decode / portrait orientation | One reused 6000 × 4000 textured image; portrait changes its EXIF orientation. |
+| Histogram | One cached 320-tier thumbnail from the texture, not a full 24 MP histogram. |
+| Basic/advanced face analysis, motion blur | One reused 512 × 512 astronaut image; isolated CPU inference. |
+| Ingest / Ship copy | Four RAW/JPEG pairs / one pair respectively, plus sidecars where present; fresh destinations each repeat. |
+| Grouping | 14/50 synthetic timestamp/face records; no photo pixels. |
+| AI result cache, sidecar operations | One analysis record or sidecar operation; model inference excluded. |
+| Cache trimming / session history | Eight cache entries / one empty-session round trip; no photo decode. |
+| Frontend logic | 1,000/10,000 records per run, or eight crop/orientation iterations; no DOM rendering or photo decode. |
+
+**Good**, **Watch** and **Alarming** compare the median sample to broad,
+stage-specific product investigation budgets. These are heuristic targets, not
+measurements of a population of computers, pass/fail requirements or claims
+about camera-file throughput. Values between the two limits are **Watch**.
+Examples for these generated local fixtures:
+
+| Stage | Potentially good median | Investigate at or above |
+|---|---:|---:|
+| Warm preview cache hit, per request | 5 ms | 50 ms |
+| Cold fit preview, per image | 150 ms | 500 ms |
+| Landscape 24 MP decode, per image | 150 ms | 750 ms |
+| Portrait 24 MP decode, per image | 250 ms | 1 s |
+| Basic / advanced warm CPU face analysis | 100 / 250 ms | 1 / 2 s |
+| Basic / advanced first model use | 1 / 2 s | 5 / 10 s |
+| Folder scan, per entire 14/50-entry batch | 50 ms | 500 ms |
+| Ingest copy, per four-pair batch | 100 ms | 2 s |
+
+Limits for every recognized stage appear beside its actual numbers. Fewer than
+five samples are marked tentative. A P95 beyond the investigation limit calls
+out occasional stalls even when the median is good. Failures take precedence
+over speed ratings. Recordings and unknown fixture versions remain unrated
+because request counts do not establish photo counts or comparable workloads.
+Storage, thermal throttling, background load, build features and model setup can
+change results substantially: repeat Thorough runs while idle on the same build
+and fixture before deciding a slowdown is a regression.
+
+Timing bars and function swatches use the bundled 42-color
+[Lospec500 palette](https://lospec.com/palette-list/lospec500). Colors identify
+functions, not speed ratings; labels and tables carry the interpretation.
+
 ## Recording a work session
 
 Choose **Start recording**, use the app, then **Stop and save report**. Recording
@@ -70,34 +121,36 @@ before recording stops are omitted. An empty recording stays local.
 
 ## Optional reporting
 
-Diagnostic reporting is disabled until configured and approved. Configure a
-webhook URL and/or full ntfy topic URLs,
-then choose **Preview and approve**. The preview shows the outgoing webhook JSON
+Diagnostic reporting is disabled until approved. Destinations are installed and
+read-only: the app has no webhook URL, ntfy URL or bearer-token configuration
+controls. Choose **Preview and approve**. The preview shows the outgoing webhook JSON
 and ntfy message. It includes app/build and anonymous hardware context, aggregate
 results, coverage and evidence-linked recommendations; sample arrays and stage
 details are not sent. The app never uploads photos.
 
-Benchmark summaries default to `https://ntfy.sh/culltivate-perf`; sanitized
-work-session operation logs default to `https://ntfy.sh/culltivate-logs`.
+Benchmark summaries use the fixed `https://ntfy.sh/culltivate-perf` topic;
+sanitized work-session operation logs use `https://ntfy.sh/culltivate-logs`.
 Both include a stable, randomly generated installation alias such as
 `calm-otter-123456`. This is unrelated to the hostname, account or hardware
 serial number. Raw application logs and photo paths are not uploaded.
 
 Approval enables automatic reporting after completed benchmarks and stopped
-recordings for the current app session. Endpoint changes or payload-version
-changes require a new preview. Restarting the app requires approval again.
+recordings for the current app session. Payload-version changes require a new
+preview. Restarting the app requires approval again.
 The most recent report remains available for local export or manual retry.
 
 Generic webhooks receive aggregate JSON. Discord execute-webhook destinations
 receive a supported compact message payload with mentions disabled. The preview
 shows the exact payload for the configured destination. The ntfy endpoint receives a compact
 summary, bounded to 3,500 UTF-8 bytes. Both use HTTP POST. Remote destinations
-require HTTPS; loopback HTTP is supported for local testing. Optional bearer
-tokens remain in memory and are excluded from settings exports. URL settings
-also stay out of portable settings backups.
+require HTTPS; private test helpers support loopback HTTP for local tests.
+The desktop commands resolve destinations themselves and do not accept URL or
+bearer-token overrides from the frontend. Preference writes and imports cannot
+replace diagnostic destinations; those private values are omitted from
+preferences returned to the frontend and from portable settings backups.
 
-The webhook URL is stored base64-encoded in local preferences and masked in the
-settings field. Encoding prevents a plain URL from appearing in the file; it is
+The webhook URL is stored base64-encoded in the installed native configuration
+and shown only as configured/not configured in Settings. Encoding prevents a plain URL from appearing in the file; it is
 not encryption. No configured webhook credential is embedded in the application
 source or browser bundle.
 
