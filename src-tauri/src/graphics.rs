@@ -92,6 +92,13 @@ pub fn initialize() -> Selection {
             if std::env::var_os("WEBKIT_USE_SKIA_FOR_COMPOSITION").is_none() {
                 std::env::set_var("WEBKIT_USE_SKIA_FOR_COMPOSITION", "0");
             }
+            // GPU tile painting still corrupted thumbnail blocks after rapid
+            // comparison scrolling on the tested NVIDIA/WebKitGTK stack.
+            // Paint tiles on the CPU while keeping accelerated composition;
+            // an explicit environment value can opt back into GPU painting.
+            if std::env::var_os("WEBKIT_SKIA_ENABLE_CPU_RENDERING").is_none() {
+                std::env::set_var("WEBKIT_SKIA_ENABLE_CPU_RENDERING", "1");
+            }
             if std::env::var_os("GDK_BACKEND").is_none() && std::env::var_os("DISPLAY").is_some() {
                 std::env::set_var("GDK_BACKEND", "x11");
             }
@@ -122,6 +129,7 @@ pub struct GraphicsInfo {
     software_forced: bool,
     shared_memory_transport: bool,
     fallback_compositor: bool,
+    cpu_tile_painting: bool,
 }
 #[tauri::command]
 pub fn graphics_info(profile: tauri::State<Selection>) -> GraphicsInfo {
@@ -133,6 +141,8 @@ pub fn graphics_info(profile: tauri::State<Selection>) -> GraphicsInfo {
         software_forced: std::env::var("LIBGL_ALWAYS_SOFTWARE").as_deref() == Ok("1"),
         shared_memory_transport: std::env::var("WEBKIT_DMABUF_RENDERER_FORCE_SHM").as_deref()
             == Ok("1"),
+        cpu_tile_painting: cfg!(target_os = "linux")
+            && std::env::var("WEBKIT_SKIA_ENABLE_CPU_RENDERING").as_deref() == Ok("1"),
         fallback_compositor: cfg!(target_os = "linux")
             && std::env::var("WEBKIT_USE_SKIA_FOR_COMPOSITION").as_deref() == Ok("0"),
     }
@@ -173,6 +183,43 @@ mod tests {
                 .as_deref(),
             Some(expected.as_str())
         );
+    }
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn cpu_tile_painting_defaults_only_on_nvidia_and_preserves_overrides() {
+        for profile in ["nvidia", "compatibility", "software"] {
+            for explicit in [None, Some("0"), Some("1")] {
+                let expected = explicit.or((profile == "nvidia").then_some("1"));
+                let mut child = std::process::Command::new(std::env::current_exe().unwrap());
+                child
+                    .args([
+                        "--exact",
+                        "graphics::tests::tile_painting_environment_child",
+                        "--nocapture",
+                    ])
+                    .env("OPENCULL_GRAPHICS", profile)
+                    .env("OPENCULL_TILE_PAINTING_TEST_CHILD", expected.unwrap_or("unset"))
+                    .env_remove("WEBKIT_SKIA_ENABLE_CPU_RENDERING");
+                if let Some(value) = explicit {
+                    child.env("WEBKIT_SKIA_ENABLE_CPU_RENDERING", value);
+                }
+                assert!(child.status().unwrap().success(), "{profile}, {explicit:?}");
+            }
+        }
+    }
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn tile_painting_environment_child() {
+        let Ok(expected) = std::env::var("OPENCULL_TILE_PAINTING_TEST_CHILD") else {
+            return;
+        };
+        let selection = initialize();
+        let expected = (expected != "unset").then_some(expected);
+        assert_eq!(std::env::var("WEBKIT_SKIA_ENABLE_CPU_RENDERING").ok(), expected);
+        if selection.effective == Profile::Nvidia {
+            assert!(std::env::var_os("WEBKIT_DISABLE_COMPOSITING_MODE").is_none());
+            assert!(std::env::var_os("LIBGL_ALWAYS_SOFTWARE").is_none());
+        }
     }
     #[cfg(target_os = "linux")]
     #[test]

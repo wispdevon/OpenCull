@@ -55,8 +55,11 @@ axis, and line/page input is normalized. Alt, Ctrl and Meta wheel gestures stay
 available to the browser. Scrollbar dragging still updates virtual cell coverage.
 
 On the affected Linux/NVIDIA setup, physical high-resolution mouse testing
-confirmed this removes blank thumbnails after comparison. Image tile corruption
-can still occur and remains unresolved. Isolated viewport stacking contexts
+confirmed this removes blank thumbnails after comparison. The NVIDIA renderer
+profile also defaults to CPU tile painting while retaining GPU compositing.
+Physical mouse testing found substantially reduced artifacting, with some
+residual corruption still reported. `WEBKIT_SKIA_ENABLE_CPU_RENDERING=0` opts
+back into GPU tile painting for troubleshooting; other profiles are unchanged. Isolated viewport stacking contexts
 bound oversized graphics layers, but neither isolation nor the layer check below
 establishes that native painting is correct. Disabling WebKit's DMA-BUF image
 atlas also failed to prevent the reported corruption.
