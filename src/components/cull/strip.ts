@@ -2,6 +2,7 @@
 // makes the cells in view.
 
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 
 /** How far either side of what is in view cells are kept, in pixels. */
 const MARGIN = 1500;
@@ -81,18 +82,26 @@ export function useStrip({ starts, pad, position, anchor }: { starts: ArrayLike<
     return [first, a];
   }, [offset, width, starts, count]);
 
-  // Scrolling by hand moves the strip a little at a time; the cells are only
-  // worked out again once it has gone far enough to matter.
+  // Native scrolling can paint before React's batched continuous events
+  // commit, especially with two photo canvases. Commit the next cells before
+  // returning to the browser, but keep the margin so small scrolls are free.
+  const followScroll = (at: number) => {
+    if (Math.abs(at - offset) > MARGIN / 3) flushSync(() => setOffset(at));
+  };
   const onScroll = (e: React.UIEvent<HTMLDivElement>) => {
-    const at = e.currentTarget.scrollLeft;
-    if (Math.abs(at - offset) > MARGIN / 3) setOffset(at);
+    followScroll(e.currentTarget.scrollLeft);
   };
 
   // A mouse wheel only turns one way; over a strip, that way is sideways.
   const onWheel = (e: React.WheelEvent) => {
     strayed.current = true;
     if (e.altKey || Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
-    scroller.current?.scrollBy({ left: e.deltaY * 1.5 });
+    const el = scroller.current;
+    if (!el) return;
+    el.scrollBy({ left: e.deltaY * 1.5 });
+    // A fast wheel can pass the entire overscan margin in one event. Do not
+    // wait for the subsequent native scroll event to mount its destination.
+    followScroll(el.scrollLeft);
   };
 
   return { scroller, length, from, to, onScroll, onWheel };

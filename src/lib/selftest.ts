@@ -46,6 +46,9 @@ const median = (values: number[]) => [...values].sort((a, b) => a - b)[Math.floo
 export async function runSelfTest(folder: string): Promise<void> {
   try {
     const s = useStore.getState;
+    const { checkStripScrolling } = await import("@/components/cull/strip.selftest");
+    await checkStripScrolling();
+    say("filmstrip: rapid wheel and native scrolling keep visible cells rendered");
 
     let t = performance.now();
     await until(() => s().session !== null && !s().loading, "the folder to be listed");
