@@ -20,11 +20,17 @@ Historical audit on 2026-10-18: PR/ref checks passed; the three boxes above rema
 ## Approved follow-up: 2026-10-18
 
 - [x] Reconcile the historical audit with exact evidence and retain platform limitations.
-- [ ] Preserve completed review copies after per-item source failures, with retry/cancellation/containment regressions.
-- [ ] Make histogram requests and pixel counts follow committed crops, turns and mirrors; keep browser demo compatibility.
-- [ ] Run frontend/Rust suites, frontend build, Linux native build and relevant runtime checks; review and commit focused changes on `dev`.
+- [x] Preserve completed review copies after per-item source failures, with retry/cancellation/containment regressions.
+- [x] Make histogram requests and pixel counts follow committed crops, turns and mirrors; keep browser demo compatibility.
+- [x] Run frontend/Rust suites, frontend build, Linux native build and relevant runtime checks; review and commit focused changes on `dev`. See [validation and shared-checkout limits](plan.md#follow-up-validation-2026-10-18).
 
 Deferred idea: retry destination metadata writes without copying the already-landed image again. Keep separate from source-disconnection recovery.
+
+Deferred idea: recover an individual RAW/JPEG pair when transfer places the RAW
+but its JPEG fails after the initial source checks. Current retries can create
+a renamed pair while leaving the first RAW at the destination. Preserve source
+files and add a mid-transfer companion-failure regression before changing this
+behavior; the implemented recovery preserves earlier fully completed items.
 
 ## Requested follow-up: error reporting and logging
 
