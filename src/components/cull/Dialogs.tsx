@@ -8,10 +8,11 @@ import { InterfaceScaleSettings } from "@/components/InterfaceScaleSettings";
 import { FontSettings } from "@/components/FontSettings";
 import { ThemeSettings } from "@/components/ThemeSettings";
 import { ViewModeSettings } from "@/components/ViewModeSettings";
-import { ChartColumn, Funnel, Info, Palette, PanelBottom, PanelLeft, PanelRight, PanelsTopLeft } from "lucide-react";
+import { Activity, ChartColumn, Funnel, Info, Palette, PanelBottom, PanelLeft, PanelRight, PanelsTopLeft } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { HardDrive, Keyboard, ScanFace, Star, ZoomIn, type LucideIcon } from "lucide-react";
 import { GraphicsSettings } from "@/components/GraphicsSettings";
+import { PerformanceSettings } from "@/components/PerformanceSettings";
 
 import {
   AlertDialog,
@@ -206,13 +207,14 @@ export function SettingsDialog(props: ShortcutEditorProps) {
 /** How long the cache limit is left alone before it is acted on. */
 const LIMIT_SETTLE_MS = 800;
 
-type SettingsTab = "design" | "layout" | "culling" | "zoom" | "ai" | "storage" | "keyboard";
+type SettingsTab = "design" | "layout" | "culling" | "zoom" | "ai" | "performance" | "storage" | "keyboard";
 const SETTINGS_TABS: [SettingsTab, string, LucideIcon][] = [
   ["culling", "Culling", Star],
   ["design", "Design", Palette],
   ["layout", "Layout", PanelsTopLeft],
   ["zoom", "Zoom", ZoomIn],
   ["ai", "AI", ScanFace],
+  ["performance", "Performance", Activity],
   ["storage", "Storage", HardDrive],
   ["keyboard", "Keyboard", Keyboard],
 ];
@@ -501,6 +503,9 @@ function SettingsBody({ tab, onTab, ...shortcutProps }: { tab: SettingsTab; onTa
             control={<Button variant="outline" size="sm" onClick={() => setPerformanceLogsOpen(true)}>Open log</Button>}
           />
           <PerformanceLogsDialog open={performanceLogsOpen} onOpenChange={setPerformanceLogsOpen} />
+        </TabsContent>
+        <TabsContent value="performance" className="space-y-4">
+          <PerformanceSettings />
         </TabsContent>
         <TabsContent value="storage" className="space-y-4">
           <GraphicsSettings />

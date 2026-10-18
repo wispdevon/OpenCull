@@ -45,7 +45,7 @@ fn valid_id(id: &str) -> bool {
             .bytes()
             .all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_')
 }
-fn read(path: &Path) -> Result<Option<Value>, String> {
+pub(crate) fn read(path: &Path) -> Result<Option<Value>, String> {
     match fs::read(path) {
         Ok(bytes) => serde_json::from_slice(&bytes)
             .map(Some)
@@ -54,7 +54,7 @@ fn read(path: &Path) -> Result<Option<Value>, String> {
         Err(e) => Err(e.to_string()),
     }
 }
-fn save_history(latest: &Path, value: &Value) -> Result<(), String> {
+pub(crate) fn save_history(latest: &Path, value: &Value) -> Result<(), String> {
     let id = value
         .get("id")
         .and_then(Value::as_str)
@@ -68,7 +68,7 @@ fn save_history(latest: &Path, value: &Value) -> Result<(), String> {
     save(&latest.with_file_name(format!("{id}.json")), value)?;
     save(latest, value)
 }
-fn history(latest: &Path) -> Result<Vec<Value>, String> {
+pub(crate) fn history(latest: &Path) -> Result<Vec<Value>, String> {
     let parent = latest.parent().ok_or("No session directory")?;
     let entries = match fs::read_dir(parent) {
         Ok(entries) => entries,

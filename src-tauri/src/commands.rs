@@ -1221,7 +1221,7 @@ pub async fn histogram(app: AppState<'_>, path: String, version: String, view: O
     .map_err(|e| e.to_string())?
 }
 
-fn histogram_from_pixels(pixels: &[u8], width: u32, height: u32, view: Option<&HistogramView>) -> Histogram {
+pub(crate) fn histogram_from_pixels(pixels: &[u8], width: u32, height: u32, view: Option<&HistogramView>) -> Histogram {
     let mut h = Histogram { r: vec![0; 256], g: vec![0; 256], b: vec![0; 256], luma: vec![0; 256] };
     let mask = view.and_then(|view| framing::CropMask::new(view.framing, (view.full_width, view.full_height)));
     if width == 0 || height == 0 {

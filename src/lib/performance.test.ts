@@ -1,0 +1,44 @@
+import { describe, expect, it } from "vitest";
+import { diagnosticReport, rankedStages, recommendations, summarizeStage, type BenchmarkReport, type StageMeasurement } from "./performance";
+
+const stage = (values: number[], extra: Partial<StageMeasurement> = {}): StageMeasurement => ({
+  id: "preview.fit.cold", label: "Fit preview", category: "preview", cache: "cold", samplesMs: values,
+  units: values.length, bytes: 0, failures: 0, status: "passed", detail: null, ...extra,
+});
+export const exampleReport = (stages: StageMeasurement[] = []): BenchmarkReport => ({
+  schemaVersion: 1, id: "example", kind: "benchmark", mode: "quick", startedAtMs: 0, finishedAtMs: 100,
+  environment: { appVersion: "test", build: "debug", os: "linux", arch: "x86_64", cpu: null, logicalCores: 4,
+    memoryMb: null, gpu: null, aiProvider: null, fixtureVersion: "test" }, stages, coverage: [],
+});
+
+describe("performance reports", () => {
+  it("uses finite samples, an even median, and hides unreliable p95", () => {
+    const summary = summarizeStage(stage([8, 2, NaN, Infinity, -2]));
+    expect(summary).toMatchObject({ count: 2, totalMs: 10, medianMs: 5, maxMs: 8, p95Ms: null });
+    expect(summarizeStage(stage(Array.from({ length: 20 }, (_, i) => i + 1))).p95Ms).toBe(19);
+  });
+  it("separates total workload cost from typical latency and excludes skipped cases", () => {
+    const report = exampleReport([stage([10, 10, 10]), stage([25], { id: "slow" }), stage([100], { id: "skipped", status: "skipped" })]);
+    expect(rankedStages(report, "total").map((s) => s.id)).toEqual(["preview.fit.cold", "slow"]);
+    expect(rankedStages(report, "latency").map((s) => s.id)).toEqual(["slow", "preview.fit.cold"]);
+  });
+  it("excludes raw details, samples and unexpected fields from delivery", () => {
+    const input = exampleReport([stage([10], { detail: "/Photos/private.jpg failed" })]);
+    Object.assign(input, { photo: "secret.jpg" });
+    Object.assign(input.environment, { hostname: "private-machine" });
+    const json = JSON.stringify(diagnosticReport(input));
+    expect(json).not.toMatch(/private|secret|samplesMs|detail|hostname/);
+    expect(JSON.parse(json).stages[0].count).toBe(1);
+  });
+  it("prioritizes reliability failures even without completed samples", () => {
+    const suggestions = recommendations(exampleReport([stage([], { failures: 2, status: "failed" })]));
+    expect(suggestions).toHaveLength(1);
+    expect(suggestions[0].priority).toBe("high");
+  });
+  it("ties suggestions to measured latency and matched cache tiers", () => {
+    expect(recommendations(exampleReport([stage([1])]))).toEqual([]);
+    const suggestions = recommendations(exampleReport([stage([100]), stage([1], { id: "preview.fit.warm", cache: "warm" })]));
+    expect(suggestions.some((s) => /Cache reuse/.test(s.action))).toBe(true);
+    expect(suggestions.every((s) => s.evidence.length > 0)).toBe(true);
+  });
+});

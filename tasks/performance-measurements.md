@@ -53,3 +53,151 @@ show a lower constant cost. These results are machine- and runtime-specific;
 they do not include React rendering or real user timing.
 
 Validation: `PATH=/home/wisp/.npm/_npx/e609a7c1edf98e65/node_modules/.bin:$PATH npm exec vitest -- run src/lib/session-history.test.ts` passed (5 tests).
+
+## Native fixture baseline before portrait optimization
+
+A full isolated Thorough run on 2026-10-18 completed all 27 then-available native
+stages without failures in 7.696 seconds. Environment: Culltivate 0.6.1,
+`debug turbo-jpeg`, Linux x86_64, AMD Ryzen 5 7500F, 12 logical cores, 31,616 MB
+RAM; NVIDIA device detected. AI deliberately used the isolated CPU policy.
+Suite: `2-6000x4000-texture`; native preview fixtures are deterministic 24 MP
+textured images, with orientation 6 for the portrait case. OS caches were not
+flushed. The generated RAW wrapper is not a camera compatibility corpus.
+
+Command (choose an unused report filename):
+
+```sh
+cargo run --manifest-path src-tauri/Cargo.toml --features turbo \
+  --example benchmark_app -- thorough /tmp/culltivate-benchmark-thorough.json
+```
+
+| Stage | Samples | Median | Total |
+|---|---:|---:|---:|
+| Portrait upright decode | 24 | 145.259 ms | 3,456.80 ms |
+| Landscape full decode | 24 | 50.344 ms | 1,212.82 ms |
+| Cold fit preview | 24 | 40.766 ms | 986.68 ms |
+| Cold screen preview | 24 | 26.640 ms | 645.14 ms |
+| Cold thumbnail | 24 | 22.343 ms | 536.00 ms |
+| Warm advanced face analysis | 3 | 40.730 ms | 122.55 ms |
+| Warm basic face analysis | 5 | 8.355 ms | 41.29 ms |
+| Ingest copy | 24 | 1.122 ms | 28.10 ms |
+| Warm fit preview | 24 | 0.026 ms | 0.72 ms |
+
+The strongest measured candidate is portrait pixel orientation, rather than
+cached preview retrieval or folder scanning. Assigned to the portrait agent for
+an exact-output optimization and comparable before/after checks. AI sample
+counts are capped and too small for p95. These values describe these fixtures on
+this build and machine, not universal production latency.
+
+## Preview worker lifecycle
+
+Sol reproduced a resource leak: after the last preview-pool handle was dropped,
+worker-owned shared state was still retained after a two-second deadline. The
+new handle-owner lifecycle signals shutdown without joining on the calling
+thread; active work completes and queued/future requests receive an error.
+Six new regression cases verify shared-state release, clone safety, shutdown,
+final drop from a worker callback, reentrant/panicking cancellation callbacks,
+and waiter isolation. All 16 pool tests and the full Rust suite passed.
+
+## Browser and delivery checks
+
+Local Chromium verified Settings → Performance at 1440×1000 and 960×600:
+Quick completion, Thorough p95 visibility, ranked results, a recording surviving
+Settings closure, stopped-recording results, diagnostic preview, and no
+horizontal dialog overflow at the native minimum viewport. There were no page
+errors or outbound non-local requests. Screenshots and the temporary harness
+remain outside the repository. The in-app browser runtime returned no available
+browser instances, so this check used local Chromium; native WebKit behavior is
+covered separately by the desktop build and native runner checks.
+
+Ten native delivery tests passed using local mock HTTP servers: payloads,
+authentication, consent replacement/revocation, redirect refusal, independent
+failures, UTF-8 limits, field/privacy validation, and exact preview. No real
+webhook or ntfy topic was contacted during development.
+
+## Recording overhead sanity check
+
+A nine-round Node 22 microbenchmark compared a trivial fixed-Promise backend
+with its recording wrapper, after warmup. With recording disabled, 200,000
+calls per round measured a median 0.048 µs per wrapped call (range 0.043–0.052)
+versus 0.006 µs direct. With recording active, 500 awaited calls per round
+measured median 0.309 µs (range 0.184–1.515), including Promise bookkeeping.
+The disabled path preserves the original Promise and does not start timers.
+These are synthetic call-overhead checks, not a prediction of application
+latency. The active wrapper is bounded to 500 timing samples per operation;
+there is no unbounded session log.
+
+## Portrait rotation optimization
+
+The portrait agent isolated the orientation-6 pixel transpose from JPEG decode.
+The existing kernel already used 64×64 tiles. The new orientation-6 path keeps
+that tile size and reads each source row contiguously inside a tile, preserving
+the output mapping, dimensions and ICC profile. Other EXIF transformations keep
+their existing path.
+
+A controlled pinned-core comparison using the same Rust `opt-level=1` and
+6000×4000 RGB input collected 40 samples per run. Three baseline run medians
+were 99.06, 99.66 and 99.77 ms; candidate medians were 85.95, 84.06 and 80.34 ms.
+Baseline p90s were 101–104 ms and candidate p90s 85–95 ms. Output checksums
+matched. Separate O3 checks found no observed regression, but were variable;
+these numbers do not establish an equivalent release-build or end-to-end gain.
+Temporary harnesses are under `/tmp/culltivate-orient-paired-*` in this session.
+
+Regression tests compare all eight EXIF orientations on nonuniform 5×3 RGB,
+and orientation 6 on 65×67 and 67×131 images spanning full and partial tiles.
+The complete Rust suite passed after integration: 357 passed, one optional
+MobileCLIP reference-photo test ignored.
+
+## Final native runtime validation
+
+The final native debug no-bundle build passed. The existing native `--selftest`
+then passed with twelve disposable JPEG fixtures and an isolated XDG profile,
+using `OPENCULL_GRAPHICS=compatibility GDK_BACKEND=x11 OPENCULL_AI=cpu`.
+It exercised WebKit preview display/decode, portrait orientation, copy/ingest
+safety, sidecars, metadata ordering, AI analysis/cache reuse, histogram, keyboard
+navigation, local configuration, card-review state and theme/settings behavior.
+Native video playback was skipped because no video fixture was supplied.
+
+Direct Wayland with the software profile hit the already documented protocol
+error 71; the X11 compatibility run succeeded. A first X11 run using the normal
+profile inherited a RAW-only file preference and saw no JPEG fixtures, so the
+successful check used an isolated default profile. No user preferences or
+original photos were changed. macOS/Windows and GPU inference were not tested.
+
+The first final Thorough run overlapped native compilation and had materially
+distorted timings (for example a 334 ms portrait median). It passed functionally
+but is excluded from performance comparisons. Subsequent runs use the built
+example directly after compilation has stopped. Suite
+`3-6000x4000-texture-ai-cache` has 30 native stages; the Settings runner also adds
+four measured frontend-logic stages. These stages separately identify pure
+logic, API/pipeline time and manual rendering/device checks.
+
+Final repeated native runs, without compiler work (24 samples per listed stage):
+
+| Run | Elapsed | Cold fit median | Fit under active background | Warm fit median | Landscape decode | Portrait decode | AI result-cache hit |
+|---:|---:|---:|---:|---:|---:|---:|---:|
+| 2 | 17.592 s | 43.956 ms | 43.663 ms | 0.029 ms | 53.119 ms | 140.276 ms | 0.014 ms |
+| 3 | 17.562 s | 43.090 ms | 42.729 ms | 0.025 ms | 57.561 ms | 138.575 ms | 0.019 ms |
+| 4 | 17.495 s | 42.414 ms | 43.225 ms | 0.028 ms | 53.838 ms | 141.520 ms | 0.017 ms |
+
+Each run completed all 30 native stages with zero failures and zero skipped
+stages. Manual feature/device coverage remains labeled separately. Contention
+setup waits outside the foreground timer until an Idle worker is observed
+running; its deliberate quiet-window waits explain the longer overall runtime
+than the earlier 27-stage suite. Foreground medians were comparable to quiet fit
+requests in these runs. The cache and scan results do not justify speculative
+limits/concurrency changes.
+
+Portrait decode remains the largest stage. These repeated whole-pipeline
+medians versus the single earlier 145.259 ms result are insufficient to promise
+a general end-to-end improvement; the controlled paired rotation-only check is
+the evidence for the narrow traversal change. All input/output pixel checks
+passed. Run 2 briefly overlapped browser-QA startup; repeat runs 3 and 4 were taken
+after that check finished.
+
+Final checks: 136 frontend tests plus 11 launcher tests; 357 Rust tests passed,
+one existing optional-model test ignored; frontend production build; native
+Linux debug no-bundle build; isolated native self-test; Chromium Quick/Thorough,
+p95, recording persistence, exact-preview flow, minimum-viewport layout and
+zero non-local requests with reporting disabled. The local fixture resource
+checksum matches its provenance file. No lint script exists.

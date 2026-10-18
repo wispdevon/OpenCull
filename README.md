@@ -182,6 +182,10 @@ are the changes still specific to this fork:
 - **Performance log.** Settings → AI shows recent YuNet/YOLO analysis chunk
   times, MobileCLIP grouping times, and full-size preview orientation times.
   Entries are kept in memory for the current session, up to 500.
+- **Benchmarks and diagnostics.** [Settings → Performance](docs/features/PERFORMANCE.md)
+  measures isolated photo workflows, ranks costly stages, and suggests
+  investigations. Optional session recording and preview-approved webhook/ntfy
+  reports share aggregate diagnostics without uploading photos.
 
 ## Keyboard basics
 

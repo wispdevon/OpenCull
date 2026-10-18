@@ -5,10 +5,12 @@
 //! order to do it all in. The interface is in `../src`.
 
 pub mod ai;
+pub mod benchmark;
 pub mod burst;
 pub mod cache;
 pub mod commands;
 pub mod diagnostics;
+pub mod diagnostic_delivery;
 pub mod editors;
 pub mod embed;
 pub mod faces;
@@ -60,6 +62,7 @@ pub fn run() {
     }
     builder
         .manage(graphics)
+        .manage(diagnostic_delivery::DiagnosticDelivery::default())
         .setup(move |app| {
             // The dev page is HTTP, while previews use a custom scheme.
             // WebKitGTK otherwise rejects those cross-origin image requests.
@@ -187,6 +190,14 @@ pub fn run() {
             commands::report,
             diagnostics::timing_logs,
             diagnostics::clear_timing_logs,
+            benchmark::benchmark_environment,
+            benchmark::benchmark_start,
+            benchmark::benchmark_status,
+            benchmark::benchmark_cancel,
+            diagnostic_delivery::diagnostics_approve,
+            diagnostic_delivery::diagnostics_preview,
+            diagnostic_delivery::diagnostics_disable,
+            diagnostic_delivery::diagnostics_send,
             commands::finish_self_test,
             commands::pause,
             commands::open_folder,

@@ -7,6 +7,7 @@
 // out of the shipped bundle entirely.
 
 import { Channel, invoke } from "@tauri-apps/api/core";
+import { instrumentBackend } from "./performance-recording";
 import type { AiEvent, AiGroupingOptions, Compared, FileKinds, Framing, Histogram, Marks, MetaEvent, MobileClipStatus, RunFrame, Scanned } from "./types";
 
 export interface AiAccelerationInfo {
@@ -385,7 +386,7 @@ if (!inTauri) {
   backend = (await import("./mock")).mock;
 }
 
-export const api = backend;
+export const api = instrumentBackend(backend);
 
 /** The sizes thumbnails are kept at. Matches the backend's list. */
 export const THUMB_SIZES = [320, 640, 1280] as const;

@@ -234,6 +234,11 @@ impl<T: Send + Sync + 'static> Pool<T> {
         state.queue.iter().filter(|j| j.priority == Priority::Idle).count() + state.idle_running
     }
 
+    /// Background work currently executing, excluding queued requests.
+    pub(crate) fn idle_running(&self) -> usize {
+        self.owner.shared.0.lock().unwrap().idle_running
+    }
+
     fn work(shared: Arc<(Mutex<State<T>>, Condvar)>, only_now: bool) {
         let (lock, wake) = &*shared;
         loop {

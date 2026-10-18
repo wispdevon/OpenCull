@@ -4,7 +4,22 @@ use ort::session::{
     Session,
 };
 use ort::value::TensorRef;
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
+
+thread_local! {
+    static ISOLATED_CPU: Cell<bool> = const { Cell::new(false) };
+}
+
+/// Keep disposable benchmark inference away from live GPU caches and fallback
+/// state. The policy applies only to this worker and is restored on unwind.
+pub(crate) fn with_isolated_cpu<T>(operation: impl FnOnce() -> T) -> T {
+    struct Restore(bool);
+    impl Drop for Restore {
+        fn drop(&mut self) { ISOLATED_CPU.set(self.0); }
+    }
+    let _restore = Restore(ISOLATED_CPU.replace(true));
+    operation()
+}
 
 /// One input to a model: its name, its shape, and its numbers.
 pub type Input<'a> = (&'a str, Vec<usize>, Vec<f32>);
@@ -96,6 +111,9 @@ fn run_finder_with_cpu_fallback_policy<T>(
     allow_cpu_ep_fallback: bool,
 ) -> Result<T, String> {
     let (inputs, outputs) = owned(inputs, outputs);
+    if ISOLATED_CPU.get() {
+        return run_owned(slot, bytes, inputs, outputs, read, allow_cpu_ep_fallback);
+    }
     #[cfg(target_os = "macos")]
     let (inputs, read) = match super::gpu::run(bytes, inputs, &outputs, read) {
         Ok(done) => return done,
@@ -131,7 +149,7 @@ fn run_owned<T>(
     allow_cpu_ep_fallback: bool,
 ) -> Result<T, String> {
     #[cfg(all(feature = "cuda", target_os = "linux", target_arch = "x86_64"))]
-    let inputs = if super::acceleration::enabled() {
+    let inputs = if !ISOLATED_CPU.get() && super::acceleration::enabled() {
         let reply = if allow_cpu_ep_fallback {
             super::cuda::run_with_cpu_fallback(bytes, inputs, outputs.clone())?
         } else {
@@ -165,6 +183,26 @@ fn run_owned<T>(
             read,
         )
     })
+}
+
+#[cfg(test)]
+mod isolation_tests {
+    use super::*;
+
+    #[test]
+    fn cpu_scope_is_nested_thread_local_and_restored_after_unwind() {
+        assert!(!ISOLATED_CPU.get());
+        with_isolated_cpu(|| {
+            assert!(ISOLATED_CPU.get());
+            with_isolated_cpu(|| assert!(ISOLATED_CPU.get()));
+            assert!(ISOLATED_CPU.get());
+            assert!(!std::thread::spawn(|| ISOLATED_CPU.get()).join().unwrap());
+        });
+        assert!(!ISOLATED_CPU.get());
+        let result = std::panic::catch_unwind(|| with_isolated_cpu(|| panic!("test unwind")));
+        assert!(result.is_err());
+        assert!(!ISOLATED_CPU.get());
+    }
 }
 
 #[cfg(all(test, feature = "cuda", target_os = "linux", target_arch = "x86_64"))]
