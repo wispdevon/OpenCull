@@ -1,7 +1,34 @@
 # Changelog
 
-## Unreleased
+## 0.7.0 — The Performance
 
+### Added
+
+- Run thorough workflow benchmarks from Settings, with local results or explicit
+  submission to fixed diagnostic destinations after approval.
+- See a colored timing breakdown, average Score and median Typical time, clear
+  photo/sample counts, stage-specific guidance, failures and measured suggestions.
+- Benchmark bundled AI on supported NVIDIA/CUDA systems using private model
+  sessions; show the selected GPU and accurately label CPU fallback.
+- Record optional work-session timings, export reports, and preview concise
+  aggregate diagnostics before enabling reporting. Photos, filenames and EXIF
+  stay on the device.
+- Include app version/build, CPU, GPU, RAM, OS, AI provider and fixture version
+  alongside elapsed and measured timing totals in notification summaries.
+
+### Changed
+
+- Group panel sizes with icons and 10-pixel steps, move Zoom into Layout, and
+  give scrolling settings room around controls and the scrollbar.
+- Show Good in green, Watch in amber, and Alarming/Failed in red, using the
+  bundled Lospec500 palette.
+
+### Fixed
+
+- Improve portrait orientation traversal, avoid sorting recent-session history
+  for a single lookup, and release discarded preview workers.
+- Preserve explicit benchmark submission through temporary progress errors,
+  while cancellation and revoked approval keep results local.
 - Keep successful Finish Review copies recorded when a later source file or
   RAW/JPEG companion disappears, so retrying does not duplicate earlier copies.
 - Count histogram tones inside the committed crop, including turned and

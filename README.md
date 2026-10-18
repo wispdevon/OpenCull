@@ -37,13 +37,15 @@ the original application, not this fork's additions.
   <p><a href="docs/images/screenshot-annotated.png">View the annotated overview</a></p>
 </div>
 
-## What's new in 0.6.1
+## What's new in 0.7.0 — The Performance
 
-- Portrait photos are analysed about three times faster, and Culltivate can use
-  full-size previews embedded in newer Panasonic RAW files.
-- Development builds add an experimental YuNet/YOLO26n face-finder choice and
-  timing details in Settings → AI. See the [changelog](CHANGELOG.md) for the
-  release details.
+- **Settings → Performance** measures photo workflows, identifies slow stages,
+  and explains average scores, sample counts, failures and potential fixes.
+- Supported NVIDIA/CUDA systems benchmark GPU inference and show the GPU model,
+  with accurate CPU fallback reporting. Photos stay local; report submission is
+  optional and requires approval.
+- Faster portrait rotation, simpler panel sizing, and a clearer Layout settings
+  page. See the [changelog](CHANGELOG.md) and [benchmark guide](docs/features/PERFORMANCE.md).
 
 ## Try this fork
 
