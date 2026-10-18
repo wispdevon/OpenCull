@@ -15,6 +15,14 @@
     "core:window:allow-set-title",
     "dialog:allow-open",
     "dialog:allow-save",
-    "opener:allow-reveal-item-in-dir"
+    "opener:allow-reveal-item-in-dir",
+    {
+      "identifier": "opener:allow-open-url",
+      "allow": [
+        {
+          "url": "https://github.com/wispdevon/OpenCull/blob/main/benchmarks/README.md"
+        }
+      ]
+    }
   ]
 }

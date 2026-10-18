@@ -13,7 +13,7 @@
     "build:web": "node scripts/check-node.mjs && tsc && tsc -p tsconfig.node.json && vite build",
     "build:desktop": "node scripts/build-desktop.mjs",
     "test": "npm run test:web && npm run test:rust",
-    "test:web": "node scripts/check-node.mjs && node --test scripts/cuda-desktop.test.mjs scripts/dev-desktop.test.mjs && vitest run",
+    "test:web": "node scripts/check-node.mjs && node --experimental-strip-types --test scripts/cuda-desktop.test.mjs scripts/dev-desktop.test.mjs benchmarks/import.test.mjs && vitest run",
     "test:rust": "cargo test --manifest-path src-tauri/Cargo.toml --lib",
     "check": "npm test && npm run build:web",
     "tauri": "tauri"

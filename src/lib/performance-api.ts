@@ -218,6 +218,10 @@ export const performanceApi = {
   async cancel(runId: string): Promise<void> {
     if (status.runId !== runId) return;
     if (frontendRun === runId) {
+      if (latest?.id === runId) {
+        latest.outcome = "cancelled";
+        latest.finishedAtMs = Date.now();
+      }
       if (submittedBenchmark?.runId === runId) submittedBenchmark = null;
       status = { ...status, state: "cancelled", current: null }; notify();
     }

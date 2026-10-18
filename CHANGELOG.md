@@ -15,6 +15,9 @@
   stay on the device.
 - Include app version/build, CPU, GPU, RAM, OS, AI provider and fixture version
   alongside elapsed and measured timing totals in notification summaries.
+- Compare systems with versioned overall and GPU-assisted AI scores, backed by
+  a public reference database bundled for offline use. References distinguish
+  debug and release builds and expose their sample counts and hardware.
 
 ### Changed
 
@@ -25,6 +28,8 @@
 
 ### Fixed
 
+- Disable incremental debug compilation after reproducing missing hidden LLVM
+  symbol linker failures and verifying a clean non-incremental build.
 - Improve portrait orientation traversal, avoid sorting recent-session history
   for a single lookup, and release discarded preview workers.
 - Preserve explicit benchmark submission through temporary progress errors,

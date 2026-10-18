@@ -29,7 +29,7 @@ describe("performance controller", () => {
     const { performanceApi } = await import("./performance-api");
     await performanceApi.approve();
     expect(invoke).toHaveBeenCalledWith("diagnostics_approve", {
-      fieldsVersion: 2,
+      fieldsVersion: 3,
     });
     expect(performanceApi.reportingState().logsUrl).toBe("https://ntfy.sh/culltivate-logs");
     expect(performanceApi.reportingState()).not.toHaveProperty("webhookUrl");
@@ -167,6 +167,29 @@ describe("performance controller", () => {
     await vi.waitFor(() => expect(getLatestReport()?.id).toBe("stale-consent-run"));
     await vi.waitFor(async () => expect(getLatestReport()?.stages.length).toBeGreaterThan(1));
     expect(invoke.mock.calls.some(([name]) => name === "diagnostics_send")).toBe(false);
+  });
+  it("marks a report cancelled when frontend checks are cancelled after native completion", async () => {
+    const { performanceApi, getLatestReport } = await import("./performance-api");
+    let resume!: () => void;
+    const yieldWork = vi.fn(() => new Promise<void>((resolve) => { resume = resolve; }));
+    vi.stubGlobal("scheduler", { yield: yieldWork });
+    try {
+      invoke.mockImplementation(async (command: string) => {
+        if (command === "benchmark_start") return "frontend-cancel";
+        if (command === "benchmark_status") return { runId: "frontend-cancel", state: "completed", completed: 1, total: 1, current: null,
+          report: { ...benchmarkReport("frontend-cancel"), outcome: "completed" }, error: null };
+      });
+      const runId = await performanceApi.start("thorough");
+      await vi.waitFor(() => expect(yieldWork).toHaveBeenCalled());
+      await performanceApi.cancel(runId);
+      expect(getLatestReport()?.outcome).toBe("cancelled");
+      resume();
+      await Promise.resolve();
+      expect(invoke.mock.calls.some(([name]) => name === "diagnostics_send")).toBe(false);
+    } finally {
+      resume?.();
+      vi.unstubAllGlobals();
+    }
   });
   it("does not submit if cancellation races with native benchmark completion", async () => {
     const { performanceApi, getLatestReport } = await import("./performance-api");

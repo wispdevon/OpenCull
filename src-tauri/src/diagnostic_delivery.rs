@@ -11,7 +11,7 @@ use reqwest::{header, redirect::Policy, Client, Url};
 use serde::{de::Deserializer, Deserialize, Serialize};
 use tauri::State;
 
-const CURRENT_FIELDS_VERSION: u32 = 2;
+const CURRENT_FIELDS_VERSION: u32 = 3;
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
 const MAX_URL_BYTES: usize = 2_048;
 const MAX_REPORT_BYTES: usize = 128 * 1024;
@@ -41,12 +41,15 @@ pub struct DiagnosticReport {
     pub kind: ReportKind,
     #[serde(deserialize_with = "required_option")]
     pub mode: Option<BenchmarkMode>,
+    #[serde(deserialize_with = "required_option")]
+    pub outcome: Option<BenchmarkOutcome>,
     pub started_at_ms: u64,
     pub finished_at_ms: u64,
     pub environment: Environment,
     pub stages: Vec<StageSummary>,
     pub coverage: Vec<Coverage>,
     pub recommendations: Vec<Recommendation>,
+    pub performance_scores: PerformanceScores,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
@@ -61,6 +64,62 @@ pub enum ReportKind {
 pub enum BenchmarkMode {
     Quick,
     Thorough,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum BenchmarkOutcome {
+    Completed,
+    Cancelled,
+    Failed,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct PerformanceScores {
+    pub scoring_version: u32,
+    pub database_version: String,
+    #[serde(deserialize_with = "required_option")]
+    pub cohort_id: Option<String>,
+    pub system: ScoreResult,
+    pub gpu: ScoreResult,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ScoreResult {
+    #[serde(deserialize_with = "required_option")]
+    pub value: Option<u64>,
+    #[serde(deserialize_with = "required_option")]
+    pub reason: Option<ScoreUnavailableReason>,
+    #[serde(deserialize_with = "required_option")]
+    pub reference_id: Option<String>,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "kebab-case")]
+pub enum ScoreUnavailableReason {
+    UnsupportedReport,
+    IncompleteReport,
+    InvalidMeasurements,
+    UnmatchedCohort,
+    InvalidReference,
+    GpuNotMeasured,
+    GpuFallback,
+}
+
+impl ScoreUnavailableReason {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::UnsupportedReport => "unsupported-report",
+            Self::IncompleteReport => "incomplete-report",
+            Self::InvalidMeasurements => "invalid-measurements",
+            Self::UnmatchedCohort => "unmatched-cohort",
+            Self::InvalidReference => "invalid-reference",
+            Self::GpuNotMeasured => "gpu-not-measured",
+            Self::GpuFallback => "gpu-fallback",
+        }
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -99,8 +158,18 @@ pub struct StageSummary {
     pub units: u64,
     pub bytes: u64,
     pub failures: u32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub inference: Option<InferenceCalls>,
     #[serde(deserialize_with = "required_option")]
     pub throughput_per_second: Option<f64>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct InferenceCalls {
+    pub cuda_calls: u32,
+    pub cpu_calls: u32,
+    pub cpu_fallback_calls: u32,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
@@ -637,6 +706,18 @@ fn build_diagnostic_summary(report: &DiagnosticReport) -> String {
             format!("{:.1} s", measured_ms / 1_000.0),
             measured.len()
         ),
+        format!(
+            "- Score reference: v{} · database {} · cohort {}",
+            report.performance_scores.scoring_version,
+            report.performance_scores.database_version,
+            report
+                .performance_scores
+                .cohort_id
+                .as_deref()
+                .unwrap_or("unmatched")
+        ),
+        score_summary("System", &report.performance_scores.system),
+        score_summary("GPU", &report.performance_scores.gpu),
     ];
 
     let mut slowest = measured;
@@ -657,6 +738,18 @@ fn build_diagnostic_summary(report: &DiagnosticReport) -> String {
         ));
     }
     truncate_utf8(&lines.join("\n"), MAX_DIAGNOSTIC_SUMMARY_BYTES)
+}
+
+fn score_summary(name: &str, score: &ScoreResult) -> String {
+    match (score.value, score.reason, score.reference_id.as_deref()) {
+        (Some(value), None, Some(reference_id)) => {
+            format!("- {name} score: {value} · ref {reference_id}")
+        }
+        (None, Some(reason), None) => {
+            format!("- {name} score: unavailable ({})", reason.as_str())
+        }
+        _ => format!("- {name} score: unavailable (invalid-reference)"),
+    }
 }
 
 fn truncate_chars(value: &str, max_chars: usize) -> String {
@@ -812,6 +905,7 @@ fn validate_report(report: &DiagnosticReport) -> Result<(), String> {
     {
         return Err("invalid_report".to_owned());
     }
+    validate_performance_scores(&report.performance_scores)?;
 
     let environment = &report.environment;
     for (value, max) in [
@@ -867,6 +961,11 @@ fn validate_report(report: &DiagnosticReport) -> Result<(), String> {
                     || stage.max_ms != 0.0
                     || stage.p95_ms.is_some()
                     || stage.throughput_per_second.is_some())
+            || stage.inference.as_ref().is_some_and(|inference| {
+                inference.cuda_calls > 10_000_000
+                    || inference.cpu_calls > 10_000_000
+                    || inference.cpu_fallback_calls > 10_000_000
+            })
         {
             return Err("invalid_report".to_owned());
         }
@@ -892,6 +991,31 @@ fn validate_report(report: &DiagnosticReport) -> Result<(), String> {
         validate_text(&recommendation.action, 400, false)?;
     }
 
+    Ok(())
+}
+
+fn validate_performance_scores(scores: &PerformanceScores) -> Result<(), String> {
+    if scores.scoring_version != 1 {
+        return Err("invalid_report".to_owned());
+    }
+    validate_text(&scores.database_version, 40, false)?;
+    if scores
+        .cohort_id
+        .as_deref()
+        .is_some_and(|cohort_id| !is_identifier(cohort_id, 80))
+    {
+        return Err("invalid_report".to_owned());
+    }
+    for score in [&scores.system, &scores.gpu] {
+        match (score.value, score.reason, score.reference_id.as_deref()) {
+            (Some(value), None, Some(reference_id))
+                if (1..=1_000_000_000).contains(&value)
+                    && scores.cohort_id.as_deref() == Some(reference_id)
+                    && is_identifier(reference_id, 80) => {}
+            (None, Some(_), None) => {}
+            _ => return Err("invalid_report".to_owned()),
+        }
+    }
     Ok(())
 }
 
@@ -1128,11 +1252,12 @@ mod tests {
 
     fn test_report() -> DiagnosticReport {
         DiagnosticReport {
-            schema_version: 2,
+            schema_version: CURRENT_FIELDS_VERSION,
             id: "test-run-1".to_owned(),
             system_id: "Fern-482731".to_owned(),
             kind: ReportKind::Benchmark,
             mode: Some(BenchmarkMode::Quick),
+            outcome: Some(BenchmarkOutcome::Completed),
             started_at_ms: 1_000,
             finished_at_ms: 2_500,
             environment: Environment {
@@ -1161,6 +1286,7 @@ mod tests {
                 units: 2,
                 bytes: 1_024,
                 failures: 0,
+                inference: None,
                 throughput_per_second: Some(66.6),
             }],
             coverage: vec![Coverage {
@@ -1175,11 +1301,26 @@ mod tests {
                 evidence: "Cold preview rendering dominates measured time".to_owned(),
                 action: "Reuse cached previews".to_owned(),
             }],
+            performance_scores: PerformanceScores {
+                scoring_version: 1,
+                database_version: "2026-10-18.1".to_owned(),
+                cohort_id: Some("linux-x86_64-release-fixture4".to_owned()),
+                system: ScoreResult {
+                    value: Some(1_000),
+                    reason: None,
+                    reference_id: Some("linux-x86_64-release-fixture4".to_owned()),
+                },
+                gpu: ScoreResult {
+                    value: None,
+                    reason: Some(ScoreUnavailableReason::GpuNotMeasured),
+                    reference_id: None,
+                },
+            },
         }
     }
 
     fn approve_for(state: &DiagnosticDelivery, webhook_url: String, ntfy_url: String) -> String {
-        approve(state, &webhook_url, &ntfy_url, "", 2).unwrap()
+        approve(state, &webhook_url, &ntfy_url, "", CURRENT_FIELDS_VERSION).unwrap()
     }
 
     fn approve_with_logs(
@@ -1188,7 +1329,14 @@ mod tests {
         ntfy_url: String,
         logs_url: String,
     ) -> String {
-        approve(state, &webhook_url, &ntfy_url, &logs_url, 2).unwrap()
+        approve(
+            state,
+            &webhook_url,
+            &ntfy_url,
+            &logs_url,
+            CURRENT_FIELDS_VERSION,
+        )
+        .unwrap()
     }
 
     fn settings_with_values(
@@ -1264,18 +1412,53 @@ mod tests {
     #[test]
     fn approval_accepts_https_and_loopback_http_only() {
         let state = DiagnosticDelivery::default();
-        assert!(approve(&state, "http://example.com/hook", "", "", 2).is_err());
-        assert!(approve(&state, "https://user@example.com/hook", "", "", 2).is_err());
-        assert!(approve(&state, "", "https://ntfy.sh", "", 2).is_err());
-        assert!(approve(&state, "", "https://ntfy.sh/topic", "", 2).is_ok());
-        assert!(approve(&state, "http://127.0.0.1:8123/hook", "", "", 2).is_ok());
-        assert!(approve(&state, "https://discord.com/not-a-webhook", "", "", 2).is_err());
+        assert!(approve(
+            &state,
+            "http://example.com/hook",
+            "",
+            "",
+            CURRENT_FIELDS_VERSION
+        )
+        .is_err());
+        assert!(approve(
+            &state,
+            "https://user@example.com/hook",
+            "",
+            "",
+            CURRENT_FIELDS_VERSION
+        )
+        .is_err());
+        assert!(approve(&state, "", "https://ntfy.sh", "", CURRENT_FIELDS_VERSION).is_err());
+        assert!(approve(
+            &state,
+            "",
+            "https://ntfy.sh/topic",
+            "",
+            CURRENT_FIELDS_VERSION
+        )
+        .is_ok());
+        assert!(approve(
+            &state,
+            "http://127.0.0.1:8123/hook",
+            "",
+            "",
+            CURRENT_FIELDS_VERSION
+        )
+        .is_ok());
+        assert!(approve(
+            &state,
+            "https://discord.com/not-a-webhook",
+            "",
+            "",
+            CURRENT_FIELDS_VERSION
+        )
+        .is_err());
         assert!(approve(
             &state,
             "https://discord.com/api/webhooks/123456/test-token",
             "",
             "",
-            2
+            CURRENT_FIELDS_VERSION
         )
         .is_ok());
     }
@@ -1476,18 +1659,27 @@ mod tests {
         );
         assert_eq!(
             lines[10],
-            "- Slow one: 0.1 s total · 33.3 ms score · 30.0 ms typical"
+            "- Score reference: v1 · database 2026-10-18.1 · cohort linux-x86_64-release-fixture4"
         );
         assert_eq!(
             lines[11],
+            "- System score: 1000 · ref linux-x86_64-release-fixture4"
+        );
+        assert_eq!(lines[12], "- GPU score: unavailable (gpu-not-measured)");
+        assert_eq!(
+            lines[13],
+            "- Slow one: 0.1 s total · 33.3 ms score · 30.0 ms typical"
+        );
+        assert_eq!(
+            lines[14],
             "- Slow two: 0.1 s total · 30.0 ms score · 25.0 ms typical"
         );
         assert_eq!(
-            lines[12],
+            lines[15],
             "- Slow three: 0.1 s total · 26.7 ms score · 20.0 ms typical"
         );
-        assert_eq!(lines[13], "- Suggestion: Investigate slow preview reuse");
-        assert_eq!(lines.len(), 14);
+        assert_eq!(lines[16], "- Suggestion: Investigate slow preview reuse");
+        assert_eq!(lines.len(), 17);
         for omitted in [
             "Hidden fourth",
             "Verbose evidence",
@@ -1664,6 +1856,98 @@ mod tests {
 
         report.environment.cpu = None;
         report.system_id = "photos@home".to_owned();
+        assert_eq!(validate_report(&report).unwrap_err(), "invalid_report");
+    }
+
+    #[test]
+    fn schema_three_requires_outcome_and_scores_and_validates_inference_counters() {
+        let mut value = serde_json::to_value(test_report()).unwrap();
+        assert_eq!(value["schemaVersion"], CURRENT_FIELDS_VERSION);
+        assert_eq!(value["outcome"], "completed");
+        assert_eq!(value["performanceScores"]["scoringVersion"], 1);
+        assert!(serde_json::from_value::<DiagnosticReport>(value.clone()).is_ok());
+
+        let mut missing_outcome = value.clone();
+        missing_outcome.as_object_mut().unwrap().remove("outcome");
+        assert!(serde_json::from_value::<DiagnosticReport>(missing_outcome).is_err());
+        let mut missing_scores = value.clone();
+        missing_scores
+            .as_object_mut()
+            .unwrap()
+            .remove("performanceScores");
+        assert!(serde_json::from_value::<DiagnosticReport>(missing_scores).is_err());
+
+        let mut missing_score_reason = value.clone();
+        missing_score_reason["performanceScores"]["system"]
+            .as_object_mut()
+            .unwrap()
+            .remove("reason");
+        assert!(serde_json::from_value::<DiagnosticReport>(missing_score_reason).is_err());
+        let mut unknown_inference = value.clone();
+        unknown_inference["stages"][0]["inference"] = serde_json::json!({
+            "cudaCalls": 1,
+            "cpuCalls": 0,
+            "cpuFallbackCalls": 0,
+            "secret": "unexpected"
+        });
+        assert!(serde_json::from_value::<DiagnosticReport>(unknown_inference).is_err());
+
+        value["outcome"] = serde_json::Value::Null;
+        let mut report: DiagnosticReport = serde_json::from_value(value).unwrap();
+        assert!(report.outcome.is_none());
+        assert!(validate_report(&report).is_ok());
+
+        report.stages[0].inference = Some(InferenceCalls {
+            cuda_calls: 7,
+            cpu_calls: 3,
+            cpu_fallback_calls: 2,
+        });
+        assert!(validate_report(&report).is_ok());
+        let serialized = serde_json::to_value(&report).unwrap();
+        assert_eq!(serialized["stages"][0]["inference"]["cudaCalls"], 7);
+        assert!(serialized["stages"][0]["inference"].get("secret").is_none());
+
+        report.stages[0]
+            .inference
+            .as_mut()
+            .unwrap()
+            .cpu_fallback_calls = 10_000_001;
+        assert_eq!(validate_report(&report).unwrap_err(), "invalid_report");
+        report.stages[0]
+            .inference
+            .as_mut()
+            .unwrap()
+            .cpu_fallback_calls = 2;
+        report.stages[0].inference.as_mut().unwrap().cuda_calls = 10_000_001;
+        assert_eq!(validate_report(&report).unwrap_err(), "invalid_report");
+    }
+
+    #[test]
+    fn performance_score_allowlist_rejects_unsafe_or_inconsistent_indexes() {
+        let mut report = test_report();
+        report.performance_scores.system.value = Some(1_000_000_001);
+        assert_eq!(validate_report(&report).unwrap_err(), "invalid_report");
+
+        report.performance_scores.system.value = Some(1_000);
+        report.performance_scores.system.reference_id = Some("/tmp/private".to_owned());
+        assert_eq!(validate_report(&report).unwrap_err(), "invalid_report");
+
+        report.performance_scores.system.reference_id = Some("different-safe-reference".to_owned());
+        assert_eq!(validate_report(&report).unwrap_err(), "invalid_report");
+
+        report.performance_scores.system.reference_id = None;
+        report.performance_scores.system.reason = Some(ScoreUnavailableReason::InvalidReference);
+        assert_eq!(validate_report(&report).unwrap_err(), "invalid_report");
+
+        report.performance_scores.system.value = None;
+        report.performance_scores.system.reason = None;
+        report.performance_scores.system.reference_id = None;
+        assert_eq!(validate_report(&report).unwrap_err(), "invalid_report");
+
+        report.performance_scores.system.reason = Some(ScoreUnavailableReason::InvalidReference);
+        assert!(validate_report(&report).is_ok());
+
+        report.performance_scores.scoring_version = 2;
         assert_eq!(validate_report(&report).unwrap_err(), "invalid_report");
     }
 

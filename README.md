@@ -44,6 +44,9 @@ the original application, not this fork's additions.
 - Supported NVIDIA/CUDA systems benchmark GPU inference and show the GPU model,
   with accurate CPU fallback reporting. Photos stay local; report submission is
   optional and requires approval.
+- Overall system and GPU-assisted AI scores use a versioned, offline reference.
+  See the [public speeds database](benchmarks/README.md) for hardware, run counts
+  and how to contribute reviewed results.
 - Faster portrait rotation, simpler panel sizing, and a clearer Layout settings
   page. See the [changelog](CHANGELOG.md) and [benchmark guide](docs/features/PERFORMANCE.md).
 

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import bundledDatabase from "../../benchmarks/typical-speeds.json";
 import { diagnosticReport, ntfySummary, rankedStages, recommendations, stageScoreMs, summarizeStage, type BenchmarkReport, type StageMeasurement } from "./performance";
 
 const stage = (values: number[], extra: Partial<StageMeasurement> = {}): StageMeasurement => ({
@@ -22,6 +23,31 @@ describe("performance reports", () => {
     expect(rankedStages(report, "score")[0].id).toBe("preview.fit.cold");
     expect(rankedStages(report, "latency")[0].id).toBe("steady");
   });
+  it("projects outcome and inference counters with an explicit allowlist", () => {
+    const measured = {
+      ...stage([12]),
+      inference: { cudaCalls: 7, cpuCalls: 3, cpuFallbackCalls: 2, private: "discard me" },
+    } as unknown as StageMeasurement;
+    const source = Object.assign(exampleReport([measured]), {
+      outcome: "completed",
+      performanceScores: { scoringVersion: 1, databaseVersion: "untrusted", cohortId: "secret", system: { value: 999, reason: null, referenceId: "secret" }, gpu: {} },
+    });
+    const projected = diagnosticReport(source);
+
+    expect(projected).toMatchObject({ schemaVersion: 3, outcome: "completed" });
+    expect(projected.stages[0].inference).toEqual({ cudaCalls: 7, cpuCalls: 3, cpuFallbackCalls: 2 });
+    expect(projected.performanceScores).toMatchObject({
+      scoringVersion: 1,
+      databaseVersion: bundledDatabase.version,
+      cohortId: null,
+      system: { value: null, reason: "unsupported-report", referenceId: null },
+      gpu: { value: null, reason: "unsupported-report", referenceId: null },
+    });
+    expect(JSON.stringify(projected)).not.toMatch(/discard me|private|untrusted|secret/);
+
+    const legacy = diagnosticReport(exampleReport());
+    expect(legacy.outcome).toBeNull();
+  });
   it("keeps notification previews to three stages and one short suggestion", () => {
     const report = diagnosticReport(exampleReport(Array.from({ length: 5 }, (_, i) => stage([100 + i], { id: `test-${i}`, label: `Stage ${i}` }))));
     report.environment.cpu = "AMD Ryzen 5 7500F";
@@ -39,6 +65,20 @@ describe("performance reports", () => {
     source.environment = { appVersion: "0.7.0", build: "debug turbo-jpeg cuda", os: "linux", arch: "x86_64", cpu: "AMD Ryzen 5 7500F", logicalCores: 12, memoryMb: 31616, gpu: "NVIDIA GeForce RTX 3060 Ti", aiProvider: "CUDA", fixtureVersion: "4-6000x4000-texture-gpu-ai" };
     const message = ntfySummary(diagnosticReport(source));
     for (const value of ["v0.7.0", "debug turbo-jpeg cuda", "linux / x86_64", "AMD Ryzen 5 7500F", "12 cores", "31616 MB", "NVIDIA GeForce RTX 3060 Ti", "AI: CUDA", "4-6000x4000-texture-gpu-ai", "0.1 s elapsed", "0.1 s measured", "1 stages", "40.0 ms score", "10.0 ms typical"]) expect(message).toContain(value);
+  });
+  it("shows system and GPU score indexes with references before slow-stage detail", () => {
+    const report = diagnosticReport(exampleReport([stage([100], { label: "Slow stage" })]));
+    report.performanceScores = {
+      scoringVersion: 1,
+      databaseVersion: "1.0.0",
+      cohortId: "linux-x86_64-release-fixture4",
+      system: { value: 875, reason: null, referenceId: "linux-x86_64-release-fixture4" },
+      gpu: { value: null, reason: "gpu-fallback", referenceId: null },
+    };
+    const message = ntfySummary(report);
+    expect(message.indexOf("- Score reference:")).toBeLessThan(message.indexOf("- Slow stage:"));
+    expect(message).toContain("- System score: 875 · ref linux-x86_64-release-fixture4");
+    expect(message).toContain("- GPU score: unavailable (gpu-fallback)");
   });
   it("bounds large Unicode notification previews without splitting characters", () => {
     const report = diagnosticReport(exampleReport(Array.from({ length: 3 }, (_, i) => stage([1], { id: String(i), label: "顔".repeat(120) }))));
@@ -65,7 +105,7 @@ describe("performance reports", () => {
     const json = JSON.stringify(diagnosticReport(input));
     expect(json).not.toMatch(/private|secret|samplesMs|detail|hostname/);
     expect(JSON.parse(json).stages[0].count).toBe(1);
-    expect(JSON.parse(json)).toMatchObject({ schemaVersion: 2, systemId: expect.stringMatching(/^[a-z]+-[a-z]+-\d{6}$/) });
+    expect(JSON.parse(json)).toMatchObject({ schemaVersion: 3, systemId: expect.stringMatching(/^[a-z]+-[a-z]+-\d{6}$/) });
   });
   it("prioritizes reliability failures even without completed samples", () => {
     const suggestions = recommendations(exampleReport([stage([], { failures: 2, status: "failed" })]));

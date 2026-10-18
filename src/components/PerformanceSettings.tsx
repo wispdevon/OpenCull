@@ -3,6 +3,7 @@ import { Activity, ChevronDown, Download, RotateCcw, ShieldCheck } from "lucide-
 
 import { Button } from "@/components/ui/button";
 import { inTauri } from "@/lib/api";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import {
   Dialog,
   DialogContent,
@@ -24,6 +25,12 @@ import {
   type Recommendation,
   type StageSummary,
 } from "@/lib/performance";
+import {
+  scoreReport,
+  type PerformanceScores,
+  type ScoreUnavailableReason,
+  type TypicalDatabase,
+} from "@/lib/performance-scores";
 import { getSystemId, DEFAULT_LOGS_NTFY_URL, DEFAULT_PERF_NTFY_URL } from "@/lib/performance-preferences";
 import {
   getLatestReport,
@@ -33,6 +40,9 @@ import {
 } from "@/lib/performance-api";
 import { colorForStage, ETC_THRESHOLD_MS, timingBreakdown } from "@/lib/performance-breakdown";
 import { compactWorkload, interpretStage } from "@/lib/performance-interpretation";
+import typicalSpeeds from "../../benchmarks/typical-speeds.json";
+
+const SCORE_REFERENCE_URL = "https://github.com/wispdevon/OpenCull/blob/main/benchmarks/README.md";
 
 const EMPTY_STATUS: BenchmarkStatus = {
   runId: null,
@@ -235,12 +245,21 @@ export function PerformanceSettings() {
     }
   };
 
+  const openScoreReference = async () => {
+    try {
+      await openUrl(SCORE_REFERENCE_URL);
+    } catch (cause) {
+      setError(readableError(cause));
+    }
+  };
+
   const exportReport = () => {
     if (!report) return;
     // Keep useful numeric samples in the local export while excluding any
     // implementation detail a stage might attach to its in-memory result.
     const exportable = {
       ...report,
+      performanceScores: scoreReport(report, typicalSpeeds as TypicalDatabase),
       stages: report.stages.map((stage) => ({ ...stage, detail: null })),
     };
     const blob = new Blob([JSON.stringify(exportable, null, 2)], { type: "application/json" });
@@ -365,6 +384,7 @@ export function PerformanceSettings() {
           suggestions={suggestions}
           onRankBy={setRankBy}
           onExport={exportReport}
+          onOpenReference={() => void openScoreReference()}
         />
       )}
 
@@ -386,7 +406,7 @@ export function PerformanceSettings() {
           </DialogHeader>
           <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1 text-xs">
             <ul className="list-disc space-y-1 pl-4 text-muted-foreground">
-              <li>System ID, app/build, OS and architecture, CPU and cores, GPU, RAM, AI provider, fixture version, timings, failures and suggestions.</li>
+              <li>System ID, app/build, OS and architecture, CPU and cores, GPU, RAM, AI provider, fixture version, versioned system and GPU-assisted AI scores, timings, failures and suggestions.</li>
               <li>Photos and filenames stay on this device.</li>
               <li>Benchmarks → culltivate-perf · session logs → culltivate-logs{previewWebhookConfigured ? " · webhook included" : ""}.</li>
             </ul>
@@ -511,6 +531,7 @@ function ReportResults({
   suggestions,
   onRankBy,
   onExport,
+  onOpenReference,
 }: {
   report: BenchmarkReport;
   ranked: StageSummary[];
@@ -519,12 +540,14 @@ function ReportResults({
   suggestions: Recommendation[];
   onRankBy: (by: "score" | "latency") => void;
   onExport: () => void;
+  onOpenReference: () => void;
 }) {
   const durationMs = Math.max(0, report.finishedAtMs - report.startedAtMs);
   const failedStages = report.stages.filter((stage) => stage.status === "failed" || stage.failures > 0).length;
   const majorStages = ranked.filter((stage) => stage.totalMs >= ETC_THRESHOLD_MS);
   const minorStages = ranked.filter((stage) => stage.totalMs < ETC_THRESHOLD_MS);
   const minorTotalMs = minorStages.reduce((sum, stage) => sum + stage.totalMs, 0);
+  const scores = scoreReport(report, typicalSpeeds as TypicalDatabase);
   return (
     <section className="space-y-3" aria-labelledby="performance-results-heading">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -539,13 +562,15 @@ function ReportResults({
 
       <EnvironmentSummary report={report} />
 
+      <ReferenceScoreCards report={report} scores={scores} onOpenReference={onOpenReference} />
+
       <TimingOverview reportId={report.id} stages={totalRanked} elapsedMs={durationMs} />
 
       <div className="rounded-lg border border-border p-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h3 className="text-xs font-semibold">Measured stages</h3>
-            <p className="mt-0.5 text-[11px] text-muted-foreground">Typical: median · Score: average per run. Lower is faster.</p>
+            <p className="mt-0.5 text-[11px] text-muted-foreground">Typical: median · Score: average ms per run. Lower is faster.</p>
           </div>
           <div className="flex gap-1" role="group" aria-label="Rank stages by">
             <Button size="sm" variant={rankBy === "score" ? "secondary" : "ghost"} aria-pressed={rankBy === "score"} onClick={() => onRankBy("score")}>Score</Button>
@@ -595,6 +620,100 @@ function ReportResults({
       <RecommendationsResults recommendations={suggestions} />
     </section>
   );
+}
+
+function ReferenceScoreCards({ report, scores, onOpenReference }: { report: BenchmarkReport; scores: PerformanceScores; onOpenReference: () => void }) {
+  const build = buildProfileLabel(report.environment.build);
+  const gpuDetails = [report.environment.aiProvider, report.environment.gpu].filter(Boolean).join(" · ") || "Provider or GPU unavailable";
+  return (
+    <section className="@container rounded-lg border border-border p-3" aria-labelledby="performance-reference-scores-heading">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <h3 id="performance-reference-scores-heading" className="text-xs font-semibold">Reference scores</h3>
+          <p className="mt-0.5 text-[11px] text-muted-foreground">1000 = reference · higher is faster · {build}</p>
+        </div>
+        <a className="text-[11px] text-muted-foreground underline underline-offset-4 hover:text-foreground"
+          href={SCORE_REFERENCE_URL} target="_blank" rel="noreferrer"
+          onClick={inTauri ? (event) => { event.preventDefault(); onOpenReference(); } : undefined}>
+          Public reference v{scores.databaseVersion}
+        </a>
+      </div>
+      <ul className="mt-3 grid gap-2 @md:grid-cols-2">
+        <li>
+          <PerformanceScoreCard
+            title="System score"
+            result={scores.system}
+            context={`${build} · ${report.environment.os} / ${report.environment.arch}`}
+            kind="system"
+            reportKind={report.kind}
+          />
+        </li>
+        <li>
+          <PerformanceScoreCard
+            title="GPU-assisted AI score"
+            result={scores.gpu}
+            context={gpuDetails}
+            kind="gpu"
+            reportKind={report.kind}
+          />
+        </li>
+      </ul>
+      <p className="mt-2 text-[11px] text-muted-foreground">Bundled offline seed from one machine; it is not fleet typical.</p>
+    </section>
+  );
+}
+
+function PerformanceScoreCard({
+  title,
+  result,
+  context,
+  kind,
+  reportKind,
+}: {
+  title: string;
+  result: PerformanceScores["system"];
+  context: string;
+  kind: "system" | "gpu";
+  reportKind: BenchmarkReport["kind"];
+}) {
+  return (
+    <div className="h-full rounded-md border border-border/70 bg-muted/20 p-3">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h4 className="text-xs font-medium text-foreground">{title}</h4>
+          <p className="mt-0.5 break-words text-[11px] text-muted-foreground">{context}</p>
+        </div>
+        {result.value === null
+          ? <span className="shrink-0 text-xs font-medium text-muted-foreground">Unavailable</span>
+          : <span className="shrink-0 font-mono text-lg font-semibold tabular-nums text-foreground">{result.value.toLocaleString()}</span>}
+      </div>
+      {result.value === null && <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">{scoreUnavailableText(result.reason, kind, reportKind)}</p>}
+    </div>
+  );
+}
+
+function scoreUnavailableText(reason: ScoreUnavailableReason | null, kind: "system" | "gpu", reportKind: BenchmarkReport["kind"]): string {
+  if (!reason) return "No score is available for this report.";
+  switch (reason) {
+    case "unsupported-report":
+      if (reportKind !== "benchmark") return "Only benchmark reports can be scored.";
+      return kind === "gpu" ? "No reference for this profile or AI provider." : "No reference for this benchmark profile.";
+    case "incomplete-report": return "Complete the benchmark to get a score.";
+    case "invalid-measurements": return "Valid comparison measurements are unavailable.";
+    case "unmatched-cohort": return "No reference matches this platform and profile.";
+    case "invalid-reference": return "The bundled reference data is invalid.";
+    case "gpu-not-measured": return "GPU-assisted AI was not measured.";
+    case "gpu-fallback": return "AI used CPU fallback, not the GPU.";
+  }
+}
+
+function buildProfileLabel(build: string): string {
+  const value = build.trim();
+  const normalized = value.toLowerCase();
+  if (normalized.includes("debug")) return "Debug build";
+  if (normalized.includes("release")) return "Release build";
+  if (normalized.includes("browser")) return "Browser demo";
+  return value ? `${value} build` : "Unknown build profile";
 }
 
 function StageTableHead() {
@@ -701,7 +820,7 @@ function InterpretationGuide({ report }: { report: BenchmarkReport }) {
     <details className="mt-2 text-[11px] text-muted-foreground">
       <summary className="w-fit cursor-pointer">About these numbers</summary>
       <p className="mt-1 leading-relaxed">Runs reuse the same inputs. Targets are rough guides for this workload; hardware and system load affect results.</p>
-      {hasNativeFixture && <p className="mt-1 leading-relaxed">Scans: {report.mode === "thorough" ? "50 photo entries / 98 files" : "14 photo entries / 26 files"}. Previews: one 24 MP texture. Face analysis: one 512 × 512 photo, CPU only.</p>}
+      {hasNativeFixture && <p className="mt-1 leading-relaxed">Scans: {report.mode === "thorough" ? "50 photo entries / 98 files" : "14 photo entries / 26 files"}. Previews: one 24 MP texture. Face analysis: one 512 × 512 photo.</p>}
     </details>
   );
 }

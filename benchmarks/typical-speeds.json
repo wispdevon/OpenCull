@@ -1,0 +1,528 @@
+{
+  "schemaVersion": 1,
+  "scoringVersion": 1,
+  "version": "1.0.2",
+  "sourceUrl": "https://github.com/wispdevon/OpenCull/blob/main/benchmarks/typical-speeds.json",
+  "references": [
+    {
+      "id": "reference-ebeedcc5d30598cf",
+      "cohort": {
+        "os": "linux",
+        "arch": "x86_64",
+        "build": "debug turbo-jpeg cuda",
+        "fixtureVersion": "4-6000x4000-texture-gpu-ai"
+      },
+      "runCount": 3,
+      "installationCount": 1,
+      "system": {
+        "preview-thumbnail-cold": 22.397641916666668,
+        "preview-fit-cold": 42.064713833333336,
+        "image-decode": 58.95797095833334,
+        "portrait-orientation": 148.12285920833332,
+        "scan-pairing": 0.17142729166666668,
+        "ingest-copy": 1.151357625
+      },
+      "gpu": {
+        "face-analysis-warm": 4.835112199999999,
+        "advanced-face-warm": 8.851809666666666
+      },
+      "provenance": {
+        "sourceCommit": "5d4a8b07b3fea3176477d90ce8b356092c02d7d7",
+        "collectedAt": "2026-10-18",
+        "method": "maintainer-reviewed"
+      }
+    },
+    {
+      "id": "reference-752837c9f4418d77",
+      "cohort": {
+        "os": "linux",
+        "arch": "x86_64",
+        "build": "release turbo-jpeg cuda",
+        "fixtureVersion": "4-6000x4000-texture-gpu-ai"
+      },
+      "runCount": 3,
+      "installationCount": 1,
+      "system": {
+        "preview-thumbnail-cold": 31.193793458333328,
+        "preview-fit-cold": 56.5026485,
+        "image-decode": 76.17566895833335,
+        "portrait-orientation": 154.57178433333334,
+        "scan-pairing": 0.212657625,
+        "ingest-copy": 1.4400294583333337
+      },
+      "gpu": {
+        "face-analysis-warm": 6.064113799999999,
+        "advanced-face-warm": 10.277962
+      },
+      "provenance": {
+        "sourceCommit": "5d4a8b07b3fea3176477d90ce8b356092c02d7d7",
+        "collectedAt": "2026-10-18",
+        "method": "maintainer-reviewed"
+      }
+    }
+  ],
+  "systems": [
+    {
+      "id": "system-caafea15e0ab9d43",
+      "cohort": {
+        "os": "linux",
+        "arch": "x86_64",
+        "build": "debug turbo-jpeg cuda",
+        "fixtureVersion": "4-6000x4000-texture-gpu-ai"
+      },
+      "appVersion": "0.7.0",
+      "cpu": "AMD Ryzen 5 7500F 6-Core Processor",
+      "logicalCores": 12,
+      "memoryMb": 31616,
+      "gpu": "NVIDIA GeForce RTX 3060 Ti",
+      "aiProvider": "CUDA (YOLO may use CPU operators)",
+      "runCount": 3,
+      "installationCount": 1,
+      "stages": {
+        "advanced-face-cold": {
+          "meanAverageMs": 278.776984333,
+          "medianAverageMs": 276.432507,
+          "minAverageMs": 273.296744,
+          "maxAverageMs": 286.601702,
+          "runCount": 3
+        },
+        "advanced-face-warm": {
+          "meanAverageMs": 8.785356556,
+          "medianAverageMs": 8.851809667,
+          "minAverageMs": 8.426971667,
+          "maxAverageMs": 9.077288333,
+          "runCount": 3
+        },
+        "ai-result-cache-load": {
+          "meanAverageMs": 0.013617153,
+          "medianAverageMs": 0.01363575,
+          "minAverageMs": 0.013472417,
+          "maxAverageMs": 0.013743292,
+          "runCount": 3
+        },
+        "ai-result-cache-save": {
+          "meanAverageMs": 0.032147333,
+          "medianAverageMs": 0.032079417,
+          "minAverageMs": 0.029932333,
+          "maxAverageMs": 0.03443025,
+          "runCount": 3
+        },
+        "burst-grouping": {
+          "meanAverageMs": 0.003758181,
+          "medianAverageMs": 0.003763708,
+          "minAverageMs": 0.00369875,
+          "maxAverageMs": 0.003812083,
+          "runCount": 3
+        },
+        "cache-trim": {
+          "meanAverageMs": 0.143025069,
+          "medianAverageMs": 0.142552583,
+          "minAverageMs": 0.142393417,
+          "maxAverageMs": 0.144129208,
+          "runCount": 3
+        },
+        "capture-time": {
+          "meanAverageMs": 0.005414,
+          "medianAverageMs": 0.00475,
+          "minAverageMs": 0.004690792,
+          "maxAverageMs": 0.006801208,
+          "runCount": 3
+        },
+        "crop-sidecar-write": {
+          "meanAverageMs": 0.79399425,
+          "medianAverageMs": 0.79349325,
+          "minAverageMs": 0.78575875,
+          "maxAverageMs": 0.80273075,
+          "runCount": 3
+        },
+        "face-analysis-cold": {
+          "meanAverageMs": 751.268700333,
+          "medianAverageMs": 582.716186,
+          "minAverageMs": 557.091812,
+          "maxAverageMs": 1113.998103,
+          "runCount": 3
+        },
+        "face-analysis-warm": {
+          "meanAverageMs": 4.8176216,
+          "medianAverageMs": 4.8351122,
+          "minAverageMs": 4.7385628,
+          "maxAverageMs": 4.8791898,
+          "runCount": 3
+        },
+        "histogram": {
+          "meanAverageMs": 0.606104958,
+          "medianAverageMs": 0.601462208,
+          "minAverageMs": 0.599887625,
+          "maxAverageMs": 0.616965042,
+          "runCount": 3
+        },
+        "image-decode": {
+          "meanAverageMs": 57.764254014,
+          "medianAverageMs": 58.957970958,
+          "minAverageMs": 55.096894333,
+          "maxAverageMs": 59.23789675,
+          "runCount": 3
+        },
+        "ingest-copy": {
+          "meanAverageMs": 1.144950986,
+          "medianAverageMs": 1.151357625,
+          "minAverageMs": 1.12605275,
+          "maxAverageMs": 1.157442583,
+          "runCount": 3
+        },
+        "ingest-scan": {
+          "meanAverageMs": 0.168844486,
+          "medianAverageMs": 0.168153708,
+          "minAverageMs": 0.164985375,
+          "maxAverageMs": 0.173394375,
+          "runCount": 3
+        },
+        "marks-sidecar-write": {
+          "meanAverageMs": 0.777185722,
+          "medianAverageMs": 0.753486,
+          "minAverageMs": 0.727900708,
+          "maxAverageMs": 0.850170458,
+          "runCount": 3
+        },
+        "metadata-probe": {
+          "meanAverageMs": 0.008712319,
+          "medianAverageMs": 0.008269125,
+          "minAverageMs": 0.008238292,
+          "maxAverageMs": 0.009629542,
+          "runCount": 3
+        },
+        "motion-blur": {
+          "meanAverageMs": 0.228111292,
+          "medianAverageMs": 0.218650125,
+          "minAverageMs": 0.199771417,
+          "maxAverageMs": 0.265912333,
+          "runCount": 3
+        },
+        "portrait-orientation": {
+          "meanAverageMs": 147.131254083,
+          "medianAverageMs": 148.122859208,
+          "minAverageMs": 144.342850917,
+          "maxAverageMs": 148.928052125,
+          "runCount": 3
+        },
+        "preview-fit-cold": {
+          "meanAverageMs": 42.041590306,
+          "medianAverageMs": 42.064713833,
+          "minAverageMs": 41.308876958,
+          "maxAverageMs": 42.751180125,
+          "runCount": 3
+        },
+        "preview-fit-warm": {
+          "meanAverageMs": 0.028219306,
+          "medianAverageMs": 0.0295465,
+          "minAverageMs": 0.024512833,
+          "maxAverageMs": 0.030598583,
+          "runCount": 3
+        },
+        "preview-foreground-under-load": {
+          "meanAverageMs": 43.221666306,
+          "medianAverageMs": 42.997291917,
+          "minAverageMs": 42.1947205,
+          "maxAverageMs": 44.4729865,
+          "runCount": 3
+        },
+        "preview-full": {
+          "meanAverageMs": 0.17028825,
+          "medianAverageMs": 0.173978208,
+          "minAverageMs": 0.149543792,
+          "maxAverageMs": 0.18734275,
+          "runCount": 3
+        },
+        "preview-screen-cold": {
+          "meanAverageMs": 27.709288111,
+          "medianAverageMs": 27.875175208,
+          "minAverageMs": 27.350375958,
+          "maxAverageMs": 27.902313167,
+          "runCount": 3
+        },
+        "preview-screen-warm": {
+          "meanAverageMs": 0.032247347,
+          "medianAverageMs": 0.032606083,
+          "minAverageMs": 0.029223167,
+          "maxAverageMs": 0.034912792,
+          "runCount": 3
+        },
+        "preview-thumbnail-cold": {
+          "meanAverageMs": 22.529607792,
+          "medianAverageMs": 22.397641917,
+          "minAverageMs": 22.275412542,
+          "maxAverageMs": 22.915768917,
+          "runCount": 3
+        },
+        "preview-thumbnail-warm": {
+          "meanAverageMs": 0.017833944,
+          "medianAverageMs": 0.017942875,
+          "minAverageMs": 0.015909917,
+          "maxAverageMs": 0.019649042,
+          "runCount": 3
+        },
+        "scan-pairing": {
+          "meanAverageMs": 0.170120569,
+          "medianAverageMs": 0.171427292,
+          "minAverageMs": 0.166193292,
+          "maxAverageMs": 0.172741125,
+          "runCount": 3
+        },
+        "session-history": {
+          "meanAverageMs": 0.0409005,
+          "medianAverageMs": 0.0408785,
+          "minAverageMs": 0.040755708,
+          "maxAverageMs": 0.041067292,
+          "runCount": 3
+        },
+        "ship-copy-conflicts": {
+          "meanAverageMs": 0.109873167,
+          "medianAverageMs": 0.107443583,
+          "minAverageMs": 0.107085708,
+          "maxAverageMs": 0.115090208,
+          "runCount": 3
+        },
+        "sidecar-read": {
+          "meanAverageMs": 0.04954325,
+          "medianAverageMs": 0.048928917,
+          "minAverageMs": 0.0487135,
+          "maxAverageMs": 0.050987333,
+          "runCount": 3
+        }
+      },
+      "systemScore": 1002,
+      "gpuScore": 998
+    },
+    {
+      "id": "system-00c15ac5be38d5e9",
+      "cohort": {
+        "os": "linux",
+        "arch": "x86_64",
+        "build": "release turbo-jpeg cuda",
+        "fixtureVersion": "4-6000x4000-texture-gpu-ai"
+      },
+      "appVersion": "0.7.0",
+      "cpu": "AMD Ryzen 5 7500F 6-Core Processor",
+      "logicalCores": 12,
+      "memoryMb": 31616,
+      "gpu": "NVIDIA GeForce RTX 3060 Ti",
+      "aiProvider": "CUDA (YOLO may use CPU operators)",
+      "runCount": 3,
+      "installationCount": 1,
+      "stages": {
+        "advanced-face-cold": {
+          "meanAverageMs": 485.656337333,
+          "medianAverageMs": 487.680311,
+          "minAverageMs": 432.455233,
+          "maxAverageMs": 536.833468,
+          "runCount": 3
+        },
+        "advanced-face-warm": {
+          "meanAverageMs": 10.370031556,
+          "medianAverageMs": 10.277962,
+          "minAverageMs": 9.958013667,
+          "maxAverageMs": 10.874119,
+          "runCount": 3
+        },
+        "ai-result-cache-load": {
+          "meanAverageMs": 0.017466431,
+          "medianAverageMs": 0.016937833,
+          "minAverageMs": 0.016647417,
+          "maxAverageMs": 0.018814042,
+          "runCount": 3
+        },
+        "ai-result-cache-save": {
+          "meanAverageMs": 0.047578639,
+          "medianAverageMs": 0.043470583,
+          "minAverageMs": 0.042001458,
+          "maxAverageMs": 0.057263875,
+          "runCount": 3
+        },
+        "burst-grouping": {
+          "meanAverageMs": 0.002781931,
+          "medianAverageMs": 0.002834125,
+          "minAverageMs": 0.00266375,
+          "maxAverageMs": 0.002847917,
+          "runCount": 3
+        },
+        "cache-trim": {
+          "meanAverageMs": 0.19136525,
+          "medianAverageMs": 0.193593583,
+          "minAverageMs": 0.182501125,
+          "maxAverageMs": 0.198001042,
+          "runCount": 3
+        },
+        "capture-time": {
+          "meanAverageMs": 0.005268042,
+          "medianAverageMs": 0.005508292,
+          "minAverageMs": 0.004159583,
+          "maxAverageMs": 0.00613625,
+          "runCount": 3
+        },
+        "crop-sidecar-write": {
+          "meanAverageMs": 0.402702042,
+          "medianAverageMs": 0.403943292,
+          "minAverageMs": 0.388046292,
+          "maxAverageMs": 0.416116542,
+          "runCount": 3
+        },
+        "face-analysis-cold": {
+          "meanAverageMs": 898.994221,
+          "medianAverageMs": 955.941624,
+          "minAverageMs": 752.333683,
+          "maxAverageMs": 988.707356,
+          "runCount": 3
+        },
+        "face-analysis-warm": {
+          "meanAverageMs": 6.032067933,
+          "medianAverageMs": 6.0641138,
+          "minAverageMs": 5.7929732,
+          "maxAverageMs": 6.2391168,
+          "runCount": 3
+        },
+        "histogram": {
+          "meanAverageMs": 0.774352556,
+          "medianAverageMs": 0.756379292,
+          "minAverageMs": 0.639356625,
+          "maxAverageMs": 0.92732175,
+          "runCount": 3
+        },
+        "image-decode": {
+          "meanAverageMs": 78.481849319,
+          "medianAverageMs": 76.175668958,
+          "minAverageMs": 70.763034875,
+          "maxAverageMs": 88.506844125,
+          "runCount": 3
+        },
+        "ingest-copy": {
+          "meanAverageMs": 1.263820222,
+          "medianAverageMs": 1.440029458,
+          "minAverageMs": 0.82583475,
+          "maxAverageMs": 1.525596458,
+          "runCount": 3
+        },
+        "ingest-scan": {
+          "meanAverageMs": 0.211509014,
+          "medianAverageMs": 0.212328875,
+          "minAverageMs": 0.163151625,
+          "maxAverageMs": 0.259046542,
+          "runCount": 3
+        },
+        "marks-sidecar-write": {
+          "meanAverageMs": 0.365048194,
+          "medianAverageMs": 0.357748917,
+          "minAverageMs": 0.349866458,
+          "maxAverageMs": 0.387529208,
+          "runCount": 3
+        },
+        "metadata-probe": {
+          "meanAverageMs": 0.008768139,
+          "medianAverageMs": 0.008802042,
+          "minAverageMs": 0.007115792,
+          "maxAverageMs": 0.010386583,
+          "runCount": 3
+        },
+        "motion-blur": {
+          "meanAverageMs": 0.228118375,
+          "medianAverageMs": 0.223422125,
+          "minAverageMs": 0.22251425,
+          "maxAverageMs": 0.23841875,
+          "runCount": 3
+        },
+        "portrait-orientation": {
+          "meanAverageMs": 157.6951975,
+          "medianAverageMs": 154.571784333,
+          "minAverageMs": 135.784649458,
+          "maxAverageMs": 182.729158708,
+          "runCount": 3
+        },
+        "preview-fit-cold": {
+          "meanAverageMs": 52.984612889,
+          "medianAverageMs": 56.5026485,
+          "minAverageMs": 44.450626792,
+          "maxAverageMs": 58.000563375,
+          "runCount": 3
+        },
+        "preview-fit-warm": {
+          "meanAverageMs": 0.044107,
+          "medianAverageMs": 0.050580583,
+          "minAverageMs": 0.026366125,
+          "maxAverageMs": 0.055374292,
+          "runCount": 3
+        },
+        "preview-foreground-under-load": {
+          "meanAverageMs": 63.070766208,
+          "medianAverageMs": 65.932744375,
+          "minAverageMs": 47.579553417,
+          "maxAverageMs": 75.700000833,
+          "runCount": 3
+        },
+        "preview-full": {
+          "meanAverageMs": 0.226843778,
+          "medianAverageMs": 0.219266708,
+          "minAverageMs": 0.21770175,
+          "maxAverageMs": 0.243562875,
+          "runCount": 3
+        },
+        "preview-screen-cold": {
+          "meanAverageMs": 37.055848792,
+          "medianAverageMs": 37.656489542,
+          "minAverageMs": 32.552437458,
+          "maxAverageMs": 40.958619375,
+          "runCount": 3
+        },
+        "preview-screen-warm": {
+          "meanAverageMs": 0.040717153,
+          "medianAverageMs": 0.042465583,
+          "minAverageMs": 0.035246917,
+          "maxAverageMs": 0.044438958,
+          "runCount": 3
+        },
+        "preview-thumbnail-cold": {
+          "meanAverageMs": 30.135999736,
+          "medianAverageMs": 31.193793458,
+          "minAverageMs": 23.309551583,
+          "maxAverageMs": 35.904654167,
+          "runCount": 3
+        },
+        "preview-thumbnail-warm": {
+          "meanAverageMs": 0.023279611,
+          "medianAverageMs": 0.023694875,
+          "minAverageMs": 0.0203695,
+          "maxAverageMs": 0.025774458,
+          "runCount": 3
+        },
+        "scan-pairing": {
+          "meanAverageMs": 0.209471375,
+          "medianAverageMs": 0.212657625,
+          "minAverageMs": 0.163099542,
+          "maxAverageMs": 0.252656958,
+          "runCount": 3
+        },
+        "session-history": {
+          "meanAverageMs": 0.053105972,
+          "medianAverageMs": 0.053990958,
+          "minAverageMs": 0.043776417,
+          "maxAverageMs": 0.061550542,
+          "runCount": 3
+        },
+        "ship-copy-conflicts": {
+          "meanAverageMs": 0.138639806,
+          "medianAverageMs": 0.137825083,
+          "minAverageMs": 0.1366405,
+          "maxAverageMs": 0.141453833,
+          "runCount": 3
+        },
+        "sidecar-read": {
+          "meanAverageMs": 0.053634569,
+          "medianAverageMs": 0.054825542,
+          "minAverageMs": 0.039360625,
+          "maxAverageMs": 0.066717542,
+          "runCount": 3
+        }
+      },
+      "systemScore": 1063,
+      "gpuScore": 986
+    }
+  ]
+}

@@ -1,7 +1,11 @@
 /** Versioned, aggregate-only diagnostic schema. Never include photo identifiers. */
 import { getSystemId } from "./performance-preferences";
-export const FIELD_VERSION = 2;
+import databaseJSON from "../../benchmarks/typical-speeds.json";
+import { scoreReport, type PerformanceScores, type TypicalDatabase } from "./performance-scores";
+export const FIELD_VERSION = 3;
 export type BenchmarkMode = "quick" | "thorough";
+export type BenchmarkOutcome = "completed" | "cancelled" | "failed";
+export interface InferenceCalls { cudaCalls: number; cpuCalls: number; cpuFallbackCalls: number }
 export interface PerformanceEnvironment {
   appVersion: string; build: string; os: string; arch: string;
   cpu: string | null; logicalCores: number; memoryMb: number | null;
@@ -11,6 +15,7 @@ export interface StageMeasurement {
   id: string; label: string; category: string; cache: "cold" | "warm" | "none";
   samplesMs: number[]; units: number; bytes: number; failures: number;
   status: "passed" | "failed" | "skipped"; detail: string | null;
+  inference?: InferenceCalls;
 }
 export interface CoverageEntry {
   id: string; label: string; status: "measured" | "skipped" | "manual"; reason: string | null;
@@ -19,6 +24,7 @@ export interface BenchmarkReport {
   schemaVersion: number; id: string; kind: "benchmark" | "recording"; mode: BenchmarkMode | null;
   startedAtMs: number; finishedAtMs: number; environment: PerformanceEnvironment;
   stages: StageMeasurement[]; coverage: CoverageEntry[];
+  outcome?: BenchmarkOutcome;
 }
 export interface BenchmarkStatus {
   runId: string | null; state: "idle" | "running" | "completed" | "cancelled" | "failed";
@@ -31,8 +37,10 @@ export interface StageSummary extends Omit<StageMeasurement, "samplesMs" | "deta
 export interface Recommendation {
   stageId: string; priority: "high" | "medium" | "low"; evidence: string; action: string;
 }
-export interface DiagnosticReport extends Omit<BenchmarkReport, "stages"> {
+export interface DiagnosticReport extends Omit<BenchmarkReport, "stages" | "outcome"> {
+  outcome: BenchmarkOutcome | null;
   systemId: string; stages: StageSummary[]; recommendations: Recommendation[];
+  performanceScores: PerformanceScores;
 }
 export interface DestinationResult { status: "sent" | "failed" | "disabled"; error: string | null }
 export interface DeliveryResult { webhook: DestinationResult; ntfy: DestinationResult }
@@ -49,6 +57,11 @@ export function summarizeStage(stage: StageMeasurement): StageSummary {
     maxMs: samples[count - 1] ?? 0,
     p95Ms: count >= 20 ? samples[Math.ceil(count * 0.95) - 1] : null,
     throughputPerSecond: totalMs > 0 && stage.units > 0 ? stage.units * 1000 / totalMs : null,
+    ...(stage.inference ? { inference: {
+      cudaCalls: stage.inference.cudaCalls,
+      cpuCalls: stage.inference.cpuCalls,
+      cpuFallbackCalls: stage.inference.cpuFallbackCalls,
+    } } : {}),
   };
 }
 
@@ -100,12 +113,16 @@ export function diagnosticReport(report: BenchmarkReport): DiagnosticReport {
   const e = report.environment;
   return {
     schemaVersion: FIELD_VERSION, systemId: getSystemId(), id: report.id, kind: report.kind, mode: report.mode,
+    outcome: report.outcome ?? null,
     startedAtMs: report.startedAtMs, finishedAtMs: report.finishedAtMs,
     environment: { appVersion: e.appVersion, build: e.build, os: e.os, arch: e.arch, cpu: e.cpu,
       logicalCores: e.logicalCores, memoryMb: e.memoryMb, gpu: e.gpu, aiProvider: e.aiProvider, fixtureVersion: e.fixtureVersion },
     stages: report.stages.map(summarizeStage),
     coverage: report.coverage.map((c) => ({ id: c.id, label: c.label, status: c.status, reason: c.reason })),
     recommendations: recommendations(report),
+    // Derive scores from the raw report and the bundled reference database.
+    // Any score-like fields on the raw input are deliberately ignored.
+    performanceScores: scoreReport(report, databaseJSON as TypicalDatabase),
   };
 }
 
@@ -115,6 +132,10 @@ export function ntfySummary(report: DiagnosticReport): string {
   const measuredMs = measured.reduce((sum, s) => sum + s.totalMs, 0);
   const slow = [...measured].sort((a, b) => b.totalMs - a.totalMs).slice(0, 3);
   const e = report.environment;
+  const scores = report.performanceScores;
+  const scoreResult = (name: string, score: PerformanceScores["system"]) => score.value === null
+    ? `- ${name} score: unavailable (${score.reason ?? "invalid-reference"})`
+    : `- ${name} score: ${score.value} · ref ${score.referenceId ?? "unavailable"}`;
   const text = [
     `Culltivate ${report.kind}${report.mode ? ` (${report.mode})` : ""}`,
     `- System: ${report.systemId}`,
@@ -126,6 +147,9 @@ export function ntfySummary(report: DiagnosticReport): string {
     `- AI: ${e.aiProvider ?? "Unavailable"}`,
     `- Fixtures: ${e.fixtureVersion}`,
     `- Timing: ${Math.max(0, (report.finishedAtMs - report.startedAtMs) / 1000).toFixed(1)} s elapsed · ${(measuredMs / 1000).toFixed(1)} s measured · ${measured.length} stages · ${failures} failures`,
+    `- Score reference: v${scores.scoringVersion} · database ${scores.databaseVersion} · cohort ${scores.cohortId ?? "unmatched"}`,
+    scoreResult("System", scores.system),
+    scoreResult("GPU", scores.gpu),
     ...slow.map((s) => `- ${s.label}: ${(s.totalMs / 1000).toFixed(1)} s total · ${(s.totalMs / s.count).toFixed(1)} ms score · ${s.medianMs.toFixed(1)} ms typical`),
     ...report.recommendations.slice(0, 1).map((r) => `- Suggestion: ${Array.from(r.action).slice(0, 160).join("")}${Array.from(r.action).length > 160 ? "…" : ""}`),
   ].join("\n");

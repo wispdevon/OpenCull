@@ -45,3 +45,13 @@ See [measurements](performance-measurements.md) and the [feature guide](../docs/
 - [x] Report privacy/consent, disabled networking, credentials and synthetic-fixture limits reviewed. Documentation links and fixture checksum verified.
 - [x] Baseline and final fixture/build/hardware evidence recorded. Compiler-contended timing run excluded from performance comparisons.
 - [x] Commit the final benchmark/reporting feature after the final repeated-run evidence review. Focused session, pool and portrait fixes are already committed on `dev`.
+
+## 0.7.0 system scoring and public typical speeds
+
+- [x] Define a versioned, reproducible GPU-assisted AI pipeline score and overall system score. Higher is faster; fixed workloads and a public reference define the scale.
+- [x] Keep debug/release builds, fixture versions, providers, failures and incomplete runs distinguishable; never score CPU fallback as GPU performance.
+- [x] Seed a public, versioned typical-speeds database from verified aggregate runs; include app/build, OS/architecture, CPU/cores, GPU, RAM, provider, fixture, run counts and provenance without photos or private identifiers.
+- [x] Bundle the reference for offline scoring, link to its public source, show score eligibility and reference version, and include scores in exports/submissions.
+- [x] Provide validated, deduplicated ingestion of explicitly approved benchmark contributions; document how published typical values are calculated and how sparse data is labeled.
+- [ ] Verify score math/edge cases, data privacy, UI and native delivery; update the unpublished 0.7.0 tag only after final verification (explicitly authorized by the user).
+- [ ] Finish installer verification and publication. GitHub Actions currently rejects dispatch with “Actions has been disabled for this user”; Linux packages are being rebuilt with the verified scoring changes in an isolated Ubuntu 24.04 environment.

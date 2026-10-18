@@ -2182,11 +2182,16 @@ mod tests {
             })
             .collect::<Vec<_>>();
         serde_json::json!({
-            "schemaVersion": 2, "id": report.id, "systemId": "Fern-482731",
-            "kind": report.kind, "mode": report.mode,
+            "schemaVersion": 3, "id": report.id, "systemId": "Fern-482731",
+            "kind": report.kind, "mode": report.mode, "outcome": report.outcome,
             "startedAtMs": report.started_at_ms, "finishedAtMs": timestamp_ms(),
             "environment": report.environment, "stages": stages,
             "coverage": report.coverage, "recommendations": [],
+            "performanceScores": {
+                "scoringVersion": 1, "databaseVersion": "1.0.0", "cohortId": null,
+                "system": { "value": null, "reason": "unsupported-report", "referenceId": null },
+                "gpu": { "value": null, "reason": "unsupported-report", "referenceId": null }
+            },
         })
     }
 
@@ -2209,6 +2214,9 @@ mod tests {
             status = benchmark_status();
         }
         assert_eq!(status.state, RunState::Cancelled);
+        if let Some(report) = &status.report {
+            assert_eq!(report.outcome, RunState::Cancelled);
+        }
         assert_eq!(status.run_id.as_deref(), Some(id.as_str()));
         assert!(benchmark_cancel(id.clone()).is_err());
         let fixture_root =

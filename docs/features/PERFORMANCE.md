@@ -118,6 +118,28 @@ Timing bars and function swatches use the bundled 42-color
 [Lospec500 palette](https://lospec.com/palette-list/lospec500). Colors identify
 functions, not speed ratings; labels and tables carry the interpretation.
 
+## System and GPU scores
+
+The **system score** compares a fixed set of native photo workflows with a
+frozen reference. The **GPU-assisted AI score** compares warm basic and advanced
+face analysis only when typed inference counters confirm CUDA execution without
+whole-model CPU fallback. It includes CPU preparation and postprocessing; YOLO
+may also place unsupported operators on the CPU.
+
+These indices are separate from the stage **Score** column in milliseconds:
+**1,000 matches the reference; higher is faster.** Debug and release builds use
+separate references, as do incompatible fixtures, operating systems, architectures
+and decoder features. Incomplete runs, failures and unmatched references show a
+reason instead of a misleading score. The browser demo cannot earn native scores.
+
+The [public speeds database](../../benchmarks/README.md) records app version,
+build, hardware, workload and run counts. Its initial rows describe one measured
+system, not typical performance across a population. The app bundles the database
+and does not fetch it during benchmarking. Reference anchors stay fixed so new
+community results do not change historical scores. Public contributions require
+maintainer review and explicit publication approval; diagnostic submission alone
+does not publish a database row.
+
 ## Recording a work session
 
 Choose **Start recording**, use the app, then **Stop and save report**. Recording
@@ -138,7 +160,7 @@ read-only: the app has no webhook URL, ntfy URL or bearer-token configuration
 controls. Choose **Preview and approve**. The preview renders the message as
 bullet points; exact webhook JSON is available under **Raw JSON**. Notifications
 include system ID, app version/build, OS/architecture, CPU/core count, GPU, RAM,
-AI provider and fixture version. Elapsed time, measured stage time, stage count,
+AI provider, fixture version and versioned system/GPU score results. Elapsed time, measured stage time, stage count,
 failures, the three slowest stages and at most one short suggestion accompany
 that system context. The app never uploads photos.
 

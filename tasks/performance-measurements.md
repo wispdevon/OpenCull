@@ -226,3 +226,39 @@ reported CPU fallback and skipped accelerated coverage; the latter reported
 CPU inference and CUDA not requested. Neither claimed measured GPU inference.
 These are functional checks on one system, not general hardware benchmarks.
 Core ML GPU contexts and macOS/Windows runtime behavior were not verified here.
+
+
+## 0.7.0 score references — 2026-10-18
+
+The public dataset in `benchmarks/typical-speeds.json` uses three separate
+Thorough runs for each of `debug turbo-jpeg cuda` and `release turbo-jpeg cuda`,
+from benchmark code commit `5d4a8b07b3fea3176477d90ce8b356092c02d7d7`.
+All six completed all 30 native stages, recorded 32 CUDA session calls per run,
+and recorded zero whole-model CPU/fallback calls. The machine was Linux x86_64,
+AMD Ryzen 5 7500F (12 logical cores), NVIDIA GeForce RTX 3060 Ti, 31,616 MiB RAM,
+app 0.7.0, fixture `4-6000x4000-texture-gpu-ai`.
+
+| Cohort | Elapsed seconds, three runs | Basic warm mean ms, across-run median | Advanced warm mean ms, across-run median |
+|---|---|---:|---:|
+| Debug | 18.938 / 18.133 / 18.357 | 4.835 | 8.852 |
+| Release | 20.762 / 19.381 / 20.726 | 6.064 | 10.278 |
+
+These are compiler-idle desktop measurements. Other desktop applications were
+left running; GPU activity was spot-checked at 11–30%, and OS filesystem cache
+was uncontrolled. They establish one seed system, not fleet typical speeds or a
+debug-versus-release performance claim. Public rows contain per-stage means,
+medians and min/max across runs. Frozen component reference medians define the
+index; hardware-row scores are medians of individual run indices.
+
+The debug example initially reproduced undefined hidden LLVM-symbol linker
+errors. `CARGO_INCREMENTAL=0 cargo build --manifest-path src-tauri/Cargo.toml
+--features turbo,cuda --example benchmark_app` linked successfully. The dev
+profile now disables incremental compilation so ordinary desktop development
+uses the verified configuration.
+
+Release examples were compiled inside the isolated Ubuntu 24.04 build root.
+Two initial host executions fell back to CPU because provider-library symlinks
+pointed inside the namespace; those runs were excluded. Replacing only the
+example's two provider symlinks with byte-identical library copies restored
+CUDA. Packaged libraries are checked separately. No photo library or normal
+app cache/configuration was used for the reference runs.
