@@ -5,12 +5,20 @@ use super::{
     onnx,
 };
 use ort::session::Session;
+use std::cell::RefCell;
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::sync::{
     mpsc::{self, SyncSender},
     OnceLock,
 };
 use std::{collections::HashMap, path::PathBuf};
+
+thread_local! {
+    /// Disposable sessions used only by the Settings benchmark. They stay on
+    /// its worker thread and never share the production CUDA worker's cache.
+    static ISOLATED_SESSIONS: RefCell<HashMap<(usize, bool), Session>> =
+        RefCell::new(HashMap::new());
+}
 
 enum ModelSource {
     Embedded {
@@ -190,6 +198,54 @@ fn submit(model: ModelSource, inputs: Vec<Input>, outputs: Vec<String>) -> Resul
         .map_err(|_| "CUDA worker stopped before returning its input".into())
 }
 
+/// Runs one disposable inference in a private session cache. Errors remain
+/// local to the benchmark and never trip the application's global fallback.
+pub(super) fn run_isolated(
+    bytes: &'static [u8],
+    inputs: &[Input],
+    outputs: &[String],
+    allow_cpu_ep_fallback: bool,
+) -> Result<Vec<file_backend::Output>, String> {
+    catch_unwind(AssertUnwindSafe(|| {
+        ISOLATED_SESSIONS.with(|sessions| {
+            let mut sessions = sessions.borrow_mut();
+            let key = (bytes.as_ptr() as usize, allow_cpu_ep_fallback);
+            if !sessions.contains_key(&key) {
+                let builder = onnx::builder()?
+                    .with_execution_providers([opencull_cuda::provider()])
+                    .map_err(|error| error.to_string())?;
+                let mut builder = if allow_cpu_ep_fallback {
+                    builder
+                } else {
+                    builder
+                        .with_config_entry("session.disable_cpu_ep_fallback", "1")
+                        .map_err(|error| error.to_string())?
+                };
+                let session = builder
+                    .commit_from_memory(bytes)
+                    .map_err(|error| error.to_string())?;
+                sessions.insert(key, session);
+            }
+            onnx::evaluate(
+                sessions.get_mut(&key).expect("isolated model opened"),
+                inputs,
+                outputs,
+                |values| {
+                    values
+                        .iter()
+                        .map(|(shape, data)| (shape.clone(), data.to_vec()))
+                        .collect()
+                },
+            )
+        })
+    }))
+    .unwrap_or_else(|_| Err("CUDA benchmark inference panicked".into()))
+}
+
+pub(super) fn clear_isolated_sessions() {
+    ISOLATED_SESSIONS.with(|sessions| sessions.borrow_mut().clear());
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -203,6 +259,25 @@ mod tests {
         let file = ModelSource::File(PathBuf::from("model"));
         assert_ne!(embedded.key(), file.key());
         assert_eq!(file.key(), ModelSource::File(PathBuf::from("model")).key());
+    }
+
+    #[test]
+    fn isolated_sessions_are_cleared_when_benchmark_scope_unwinds() {
+        let outcome = catch_unwind(AssertUnwindSafe(|| {
+            onnx::with_isolated_benchmark(false, || {
+                let model = include_bytes!("../../models/finder.onnx");
+                let session = onnx::builder()
+                    .unwrap()
+                    .commit_from_memory(model)
+                    .unwrap();
+                ISOLATED_SESSIONS.with(|sessions| {
+                    sessions.borrow_mut().insert((usize::MAX, false), session);
+                });
+                panic!("force benchmark cleanup during unwind");
+            });
+        }));
+        assert!(outcome.is_err());
+        assert!(ISOLATED_SESSIONS.with(|sessions| sessions.borrow().is_empty()));
     }
 
     #[test]

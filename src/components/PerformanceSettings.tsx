@@ -61,6 +61,7 @@ export function PerformanceSettings() {
   const [previewReport, setPreviewReport] = useState<BenchmarkReport | null>(null);
   const [previewPayload, setPreviewPayload] = useState<{ webhookJson: string; ntfyMessage: string } | null>(null);
   const [previewWebhookConfigured, setPreviewWebhookConfigured] = useState(false);
+  const [submitAfterApproval, setSubmitAfterApproval] = useState(false);
   const previewRevision = useRef(0);
 
   const refresh = useCallback(async () => {
@@ -116,11 +117,11 @@ export function PerformanceSettings() {
     };
   }, [status.state, status.runId, refresh]);
 
-  const run = async (mode: BenchmarkMode) => {
+  const run = async (mode: BenchmarkMode, submit = false) => {
     setBusy(true);
     setError(null);
     try {
-      const runId = await performanceApi.start(mode);
+      const runId = await performanceApi.start(mode, submit);
       statusRef.current = { ...EMPTY_STATUS, runId, state: "running" };
       setStatus(statusRef.current);
       await refresh();
@@ -158,7 +159,7 @@ export function PerformanceSettings() {
     }
   };
 
-  const previewReporting = async () => {
+  const previewReporting = async (): Promise<boolean> => {
     const revision = ++previewRevision.current;
     setPreviewLoading(true);
     setError(null);
@@ -167,32 +168,49 @@ export function PerformanceSettings() {
       const latest = getLatestReport() ?? await performanceApi.previewReport();
       const configuration = await configurationPromise;
       const payload = await performanceApi.previewPayload(diagnosticReport(latest));
-      if (revision !== previewRevision.current) return;
+      if (revision !== previewRevision.current) return false;
       setReportingConfiguration(configuration);
       setPreviewWebhookConfigured(configuration.webhookConfigured);
       setPreviewReport(latest);
       setPreviewPayload(payload);
       setPreviewOpen(true);
+      return true;
     } catch (cause) {
       setError(readableError(cause));
+      return false;
     } finally {
       if (revision === previewRevision.current) setPreviewLoading(false);
     }
   };
 
+  const runAndSubmit = async () => {
+    if (!inTauri) return;
+    if (reporting.approved) {
+      await run("thorough", true);
+      return;
+    }
+    setSubmitAfterApproval(true);
+    if (!(await previewReporting())) setSubmitAfterApproval(false);
+  };
+
   const approveReporting = async () => {
     if (!previewReport || !previewPayload) return;
+    const shouldRunAndSubmit = submitAfterApproval;
+    let launchBenchmark = false;
     setBusy(true);
     setError(null);
     try {
       await performanceApi.approve();
       setPreviewOpen(false);
+      setSubmitAfterApproval(false);
       await refresh();
+      launchBenchmark = shouldRunAndSubmit;
     } catch (cause) {
       setError(readableError(cause));
     } finally {
       setBusy(false);
     }
+    if (launchBenchmark) await run("thorough", true);
   };
 
   const disableReporting = async () => {
@@ -253,16 +271,16 @@ export function PerformanceSettings() {
             </h2>
             <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
               {inTauri
-                ? "Measure photo workflows with disposable fixtures. Your current folder and photos are left alone. Quick runs take about a minute; Thorough runs repeat more work."
-                : "Browser demo mode measures frontend tasks only. Native photo scanning, RAW handling, ingest, and AI are unavailable and will be marked as skipped."}
+                ? "Thorough tests use disposable fixtures. Your photos stay untouched."
+                : "Browser demo: frontend tests only. Submission requires the desktop app."}
             </p>
           </div>
           <div className="flex shrink-0 gap-2">
-            <Button size="sm" variant="outline" disabled={!canStartBenchmark} onClick={() => void run("quick")}>
-              Run Quick
+            <Button size="sm" variant="outline" disabled={!canStartBenchmark} onClick={() => void run("thorough", false)}>
+              Run benchmark
             </Button>
-            <Button size="sm" disabled={!canStartBenchmark} onClick={() => void run("thorough")}>
-              Run Thorough
+            <Button size="sm" disabled={!canStartBenchmark || !inTauri} onClick={() => void runAndSubmit()}>
+              Run and submit
             </Button>
           </div>
         </div>
@@ -351,14 +369,19 @@ export function PerformanceSettings() {
       )}
 
       <Dialog open={previewOpen} onOpenChange={(open) => {
-        if (!open) previewRevision.current++;
+        if (!open) {
+          previewRevision.current++;
+          setSubmitAfterApproval(false);
+        }
         setPreviewOpen(open);
       }}>
         <DialogContent className="flex max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] flex-col overflow-hidden sm:max-w-3xl">
           <DialogHeader className="shrink-0">
             <DialogTitle>Review diagnostic reporting</DialogTitle>
             <DialogDescription>
-              Share short benchmark and session summaries for this app session.
+              {submitAfterApproval
+                ? <>Approve these destinations, then the thorough benchmark starts and its aggregate report is submitted automatically. <span className="mt-1 block">Values shown below are a preview; the completed run supplies its own measurements.</span></>
+                : "Approve these destinations for automatic delivery after work-session recording. Benchmarks stay local unless you choose Run and submit."}
             </DialogDescription>
           </DialogHeader>
           <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1 text-xs">
@@ -370,10 +393,10 @@ export function PerformanceSettings() {
             {previewDiagnostic && previewPayload && <ReportPreview webhookJson={previewWebhookConfigured ? previewPayload.webhookJson : null} message={previewPayload.ntfyMessage} />}
           </div>
           <DialogFooter className="shrink-0">
-            <Button variant="outline" disabled={busy} onClick={() => { previewRevision.current++; setPreviewOpen(false); }}>Cancel</Button>
+            <Button variant="outline" disabled={busy} onClick={() => { previewRevision.current++; setPreviewOpen(false); setSubmitAfterApproval(false); }}>Cancel</Button>
             <Button disabled={busy || !inTauri} onClick={() => void approveReporting()}>
               <ShieldCheck aria-hidden="true" />
-              Approve and enable
+              {submitAfterApproval ? "Approve and run benchmark" : "Approve and enable"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -418,7 +441,7 @@ function ReportingSection({
         <div className="max-w-xl">
           <h2 id="performance-reporting-heading" className="text-sm font-semibold text-foreground">Optional diagnostic reporting</h2>
           <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-            Reports stay on this device unless you approve delivery. Destinations are fixed: benchmarks use the performance topic, work-session recordings use the logs topic, and an existing webhook receives aggregate reports when configured.
+            Reports stay on this device unless you approve delivery. Destinations are fixed: benchmarks are sent only when you choose Run and submit; work-session recordings send automatically after you stop and save while reporting is approved. An existing webhook receives aggregate reports when configured.
           </p>
         </div>
         <div className="flex shrink-0 gap-2">
@@ -673,7 +696,7 @@ function TimingOverview({ reportId, stages, elapsedMs }: { reportId: string; sta
 }
 
 function InterpretationGuide({ report }: { report: BenchmarkReport }) {
-  const hasNativeFixture = report.kind === "benchmark" && ["2-6000x4000-texture", "3-6000x4000-texture-ai-cache"].includes(report.environment.fixtureVersion);
+  const hasNativeFixture = report.kind === "benchmark" && ["2-6000x4000-texture", "3-6000x4000-texture-ai-cache", "4-6000x4000-texture-gpu-ai"].includes(report.environment.fixtureVersion);
   return (
     <details className="mt-2 text-[11px] text-muted-foreground">
       <summary className="w-fit cursor-pointer">About these numbers</summary>

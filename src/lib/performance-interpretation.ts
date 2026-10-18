@@ -54,7 +54,7 @@ export function interpretStage(stage: StageSummary, report: BenchmarkReport): St
   };
   // Real request timings have unknown batch sizes; never pretend each call is a photo.
   const frontend = stage.id.startsWith("frontend.");
-  const knownFixture = ["2-6000x4000-texture", "3-6000x4000-texture-ai-cache"].includes(report.environment.fixtureVersion);
+  const knownFixture = ["2-6000x4000-texture", "3-6000x4000-texture-ai-cache", "4-6000x4000-texture-gpu-ai"].includes(report.environment.fixtureVersion);
   if (report.kind === "benchmark" && (knownFixture || frontend && report.environment.fixtureVersion === "frontend-1")) {
     const perRun = stage.count > 0 ? stage.units / stage.count : 0;
     const runs = `${stage.count} completed ${stage.count === 1 ? "run" : "runs"}`;

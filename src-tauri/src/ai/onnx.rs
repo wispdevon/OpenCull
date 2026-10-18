@@ -8,6 +8,98 @@ use std::cell::{Cell, RefCell};
 
 thread_local! {
     static ISOLATED_CPU: Cell<bool> = const { Cell::new(false) };
+    static ISOLATED_BENCHMARK: Cell<bool> = const { Cell::new(false) };
+    static BENCHMARK_CUDA: Cell<bool> = const { Cell::new(false) };
+    static BENCHMARK_CUDA_FAILED: Cell<bool> = const { Cell::new(false) };
+    static BENCHMARK_FAILURE_KIND: Cell<Option<&'static str>> = const { Cell::new(None) };
+    static BENCHMARK_USAGE: Cell<BenchmarkUsage> = const {
+        Cell::new(BenchmarkUsage {
+            cuda_calls: 0,
+            cpu_calls: 0,
+            cpu_fallback_calls: 0,
+            failure_kind: None,
+        })
+    };
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(crate) struct BenchmarkUsage {
+    pub cuda_calls: u64,
+    pub cpu_calls: u64,
+    pub cpu_fallback_calls: u64,
+    pub failure_kind: Option<&'static str>,
+}
+
+impl BenchmarkUsage {
+    pub(crate) fn since(self, earlier: Self) -> Self {
+        let cpu_fallback_calls = self.cpu_fallback_calls.saturating_sub(earlier.cpu_fallback_calls);
+        Self {
+            cuda_calls: self.cuda_calls.saturating_sub(earlier.cuda_calls),
+            cpu_calls: self.cpu_calls.saturating_sub(earlier.cpu_calls),
+            cpu_fallback_calls,
+            failure_kind: (cpu_fallback_calls > 0).then_some(self.failure_kind).flatten(),
+        }
+    }
+}
+
+/// Uses a private CUDA session cache and fallback latch for disposable benchmark inference.
+pub(crate) fn with_isolated_benchmark<T>(try_cuda: bool, operation: impl FnOnce() -> T) -> (T, BenchmarkUsage) {
+    assert!(
+        !ISOLATED_BENCHMARK.get(),
+        "isolated benchmark scopes cannot be nested"
+    );
+    struct Restore {
+        cpu: bool,
+        benchmark: bool,
+        cuda: bool,
+        failed: bool,
+        failure_kind: Option<&'static str>,
+        usage: BenchmarkUsage,
+    }
+    impl Drop for Restore {
+        fn drop(&mut self) {
+            #[cfg(all(feature = "cuda", target_os = "linux", target_arch = "x86_64"))]
+            super::cuda::clear_isolated_sessions();
+            ISOLATED_CPU.set(self.cpu);
+            ISOLATED_BENCHMARK.set(self.benchmark);
+            BENCHMARK_CUDA.set(self.cuda);
+            BENCHMARK_CUDA_FAILED.set(self.failed);
+            BENCHMARK_FAILURE_KIND.set(self.failure_kind);
+            BENCHMARK_USAGE.set(self.usage);
+        }
+    }
+    let _restore = Restore {
+        cpu: ISOLATED_CPU.replace(false),
+        benchmark: ISOLATED_BENCHMARK.replace(true),
+        cuda: BENCHMARK_CUDA.replace(try_cuda),
+        failed: BENCHMARK_CUDA_FAILED.replace(false),
+        failure_kind: BENCHMARK_FAILURE_KIND.replace(None),
+        usage: BENCHMARK_USAGE.replace(BenchmarkUsage::default()),
+    };
+    let result = operation();
+    let usage = BENCHMARK_USAGE.get();
+    (result, usage)
+}
+
+pub(crate) fn benchmark_usage() -> BenchmarkUsage {
+    BENCHMARK_USAGE.get()
+}
+
+fn record_benchmark_cpu(fallback_kind: Option<&'static str>) {
+    let mut usage = BENCHMARK_USAGE.get();
+    usage.cpu_calls += 1;
+    if let Some(kind) = fallback_kind {
+        usage.cpu_fallback_calls += 1;
+        usage.failure_kind.get_or_insert(kind);
+    }
+    BENCHMARK_USAGE.set(usage);
+}
+
+fn record_benchmark_failure(reason: &str) -> &'static str {
+    let kind = super::acceleration::failure_kind(reason);
+    BENCHMARK_FAILURE_KIND.set(Some(kind));
+    BENCHMARK_CUDA_FAILED.set(true);
+    kind
 }
 
 /// Keep disposable benchmark inference away from live GPU caches and fallback
@@ -111,7 +203,7 @@ fn run_finder_with_cpu_fallback_policy<T>(
     allow_cpu_ep_fallback: bool,
 ) -> Result<T, String> {
     let (inputs, outputs) = owned(inputs, outputs);
-    if ISOLATED_CPU.get() {
+    if ISOLATED_CPU.get() || ISOLATED_BENCHMARK.get() {
         return run_owned(slot, bytes, inputs, outputs, read, allow_cpu_ep_fallback);
     }
     #[cfg(target_os = "macos")]
@@ -149,7 +241,35 @@ fn run_owned<T>(
     allow_cpu_ep_fallback: bool,
 ) -> Result<T, String> {
     #[cfg(all(feature = "cuda", target_os = "linux", target_arch = "x86_64"))]
-    let inputs = if !ISOLATED_CPU.get() && super::acceleration::enabled() {
+    let inputs = if ISOLATED_BENCHMARK.get() && ISOLATED_CPU.get() {
+        record_benchmark_cpu(None);
+        inputs
+    } else if ISOLATED_BENCHMARK.get() {
+        let fallback_kind = if BENCHMARK_CUDA.get() {
+            if BENCHMARK_CUDA_FAILED.get() {
+                BENCHMARK_FAILURE_KIND.get()
+            } else {
+                match super::cuda::run_isolated(bytes, &inputs, &outputs, allow_cpu_ep_fallback) {
+                    Ok(result) => {
+                        let mut usage = BENCHMARK_USAGE.get();
+                        usage.cuda_calls += 1;
+                        BENCHMARK_USAGE.set(usage);
+                        return Ok(read(
+                            &result
+                                .iter()
+                                .map(|(shape, data)| (shape.clone(), data.as_slice()))
+                                .collect::<Vec<_>>(),
+                        ));
+                    }
+                    Err(reason) => Some(record_benchmark_failure(&reason)),
+                }
+            }
+        } else {
+            None
+        };
+        record_benchmark_cpu(fallback_kind);
+        inputs
+    } else if !ISOLATED_CPU.get() && super::acceleration::enabled() {
         let reply = if allow_cpu_ep_fallback {
             super::cuda::run_with_cpu_fallback(bytes, inputs, outputs.clone())?
         } else {
@@ -170,7 +290,12 @@ fn run_owned<T>(
         inputs
     };
     #[cfg(not(all(feature = "cuda", target_os = "linux", target_arch = "x86_64")))]
-    let _ = allow_cpu_ep_fallback;
+    {
+        let _ = allow_cpu_ep_fallback;
+        if ISOLATED_BENCHMARK.get() {
+            record_benchmark_cpu(None);
+        }
+    }
     slot.with(|cell| {
         let mut cell = cell.borrow_mut();
         if cell.is_none() {
@@ -203,11 +328,47 @@ mod isolation_tests {
         assert!(result.is_err());
         assert!(!ISOLATED_CPU.get());
     }
+
+    #[test]
+    fn benchmark_scope_restores_usage_and_local_fallback_after_unwind() {
+        let result = std::panic::catch_unwind(|| {
+            with_isolated_benchmark(true, || {
+                assert!(ISOLATED_BENCHMARK.get());
+                assert!(BENCHMARK_CUDA.get());
+                let kind = record_benchmark_failure("CUDA out of memory");
+                record_benchmark_cpu(Some(kind));
+                panic!("force benchmark scope unwind");
+            });
+        });
+        assert!(result.is_err());
+        assert!(!ISOLATED_BENCHMARK.get());
+        assert!(!BENCHMARK_CUDA.get());
+        assert!(!BENCHMARK_CUDA_FAILED.get());
+        assert_eq!(BENCHMARK_FAILURE_KIND.get(), None);
+        assert_eq!(benchmark_usage(), BenchmarkUsage::default());
+    }
+
+    #[test]
+    fn forced_cpu_scope_wins_inside_benchmark_and_nested_benchmarks_are_rejected() {
+        with_isolated_benchmark(true, || {
+            with_isolated_cpu(|| {
+                assert!(ISOLATED_CPU.get());
+                assert!(ISOLATED_BENCHMARK.get());
+            });
+            assert!(!ISOLATED_CPU.get());
+            let nested = std::panic::catch_unwind(|| with_isolated_benchmark(false, || {}));
+            assert!(nested.is_err());
+            assert!(ISOLATED_BENCHMARK.get());
+            assert!(BENCHMARK_CUDA.get());
+        });
+        assert!(!ISOLATED_BENCHMARK.get());
+    }
 }
 
 #[cfg(all(test, feature = "cuda", target_os = "linux", target_arch = "x86_64"))]
 mod cuda_tests {
     use super::*;
+    thread_local!(static ISOLATED_TEST_SESSION: RefCell<Option<Session>> = const { RefCell::new(None) });
     #[test]
     #[ignore = "requires OPENCULL_AI=cuda, NVIDIA GPU, CUDA 13 and cuDNN 9"]
     fn advanced_yolo_runs_with_cuda_and_cpu_ep_fallback() {
@@ -251,6 +412,67 @@ mod cuda_tests {
             crate::ai::acceleration::failure().is_none(),
             "CUDA silently fell back"
         );
+    }
+
+    #[test]
+    #[ignore = "requires OPENCULL_AI=cuda, NVIDIA GPU, CUDA 13 and cuDNN 9"]
+    fn isolated_benchmark_cuda_matches_cpu_without_touching_global_fallback() {
+        assert!(
+            crate::ai::acceleration::requested(),
+            "run with OPENCULL_AI=cuda"
+        );
+        let model = include_bytes!("../../models/faces-turning.onnx");
+        let shape = vec![1, 3, 640, 640];
+        let data = (0..shape.iter().product::<usize>())
+            .map(|i| ((i * 19 % 251) as f32) / 250.0)
+            .collect::<Vec<_>>();
+        let inputs = vec![("images".to_owned(), shape, data)];
+
+        let global_failure_before = crate::ai::acceleration::failure();
+        let (cpu, cpu_usage) = with_isolated_benchmark(false, || {
+            run_finder_with_cpu_fallback(
+                &ISOLATED_TEST_SESSION,
+                model,
+                vec![("images", vec![1, 3, 640, 640], inputs[0].2.clone())],
+                &["output0"],
+                |values| {
+                    values
+                        .iter()
+                        .map(|(shape, data)| (shape.clone(), data.to_vec()))
+                        .collect::<Vec<_>>()
+                },
+            )
+            .unwrap()
+        });
+        assert_eq!(cpu_usage.cuda_calls, 0);
+        let (gpu, usage) = with_isolated_benchmark(true, || {
+            run_finder_with_cpu_fallback(
+                &ISOLATED_TEST_SESSION,
+                model,
+                vec![("images", vec![1, 3, 640, 640], inputs[0].2.clone())],
+                &["output0"],
+                |values| {
+                    values
+                        .iter()
+                        .map(|(shape, data)| (shape.clone(), data.to_vec()))
+                        .collect::<Vec<_>>()
+                },
+            )
+            .unwrap()
+        });
+        assert_eq!(global_failure_before, crate::ai::acceleration::failure());
+        assert!(usage.cuda_calls > 0, "benchmark did not complete CUDA inference: {usage:?}");
+        assert_eq!(gpu.len(), cpu.len());
+        for ((cpu_shape, cpu_values), (gpu_shape, gpu_values)) in cpu.iter().zip(&gpu) {
+            assert_eq!(cpu_shape, gpu_shape);
+            assert_eq!(cpu_values.len(), gpu_values.len());
+            for (cpu_value, gpu_value) in cpu_values.iter().zip(gpu_values) {
+                assert!(
+                    (cpu_value - gpu_value).abs() <= 0.001 + 0.001 * cpu_value.abs(),
+                    "CPU {cpu_value}, CUDA {gpu_value}"
+                );
+            }
+        }
     }
 
     #[test]

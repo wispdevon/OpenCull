@@ -73,3 +73,13 @@ describe("benchmark interpretation", () => {
     expect(interpretStage(stage("frontend.crop", 1, 5), demo).workload).toContain("8 orientation/placement iterations");
   });
 });
+
+
+it("recognizes accelerated fixture workloads without changing photo counts", () => {
+  const accelerated = { ...report, environment: { ...report.environment, fixtureVersion: "4-6000x4000-texture-gpu-ai", aiProvider: "CUDA" } };
+  const stage = summarizeStage({ id: "face-analysis-warm", label: "Face analysis", category: "ai", cache: "warm", samplesMs: [20, 30, 40], units: 3, bytes: 0, failures: 0, status: "passed", detail: null });
+  const interpreted = interpretStage(stage, accelerated);
+  expect(interpreted.assessment).toBe("good");
+  expect(interpreted.workload).toContain("3 completed runs");
+  expect(compactWorkload(stage, accelerated)).toBe("1 reused photo · 512 × 512 · 3 runs");
+});

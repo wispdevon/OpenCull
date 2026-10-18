@@ -26,6 +26,7 @@ export const subscribePerformance = (listener: () => void) => { listeners.add(li
 let latest: BenchmarkReport | null = null;
 export const getLatestReport = () => latest;
 let status: BenchmarkStatus = { runId: null, state: "idle", completed: 0, total: 0, current: null, report: null, error: null };
+let submittedBenchmark: { runId: string; reportingEpoch: number } | null = null;
 let approval: string | null = null;
 let reportingEpoch = 0;
 export interface ReportingConfiguration { webhookConfigured: boolean; ntfyUrl: string; logsUrl: string }
@@ -51,7 +52,12 @@ function browserEnvironment(build: string): PerformanceEnvironment {
 async function publish(report: BenchmarkReport): Promise<void> {
   latest = report;
   notify();
-  if (approval) enqueueAutomatic(report);
+  const explicitlySubmitted = report.kind === "benchmark"
+    && submittedBenchmark?.runId === report.id
+    && submittedBenchmark.reportingEpoch === reportingEpoch
+    && Boolean(approval);
+  if (submittedBenchmark?.runId === report.id) submittedBenchmark = null;
+  if ((report.kind === "recording" && Boolean(approval)) || explicitlySubmitted) enqueueAutomatic(report);
 }
 function enqueueAutomatic(report: BenchmarkReport): void {
   if (!report.stages.some((stage) => stage.samplesMs.length > 0 || stage.failures > 0)) return;
@@ -81,6 +87,7 @@ async function poll(runId: string): Promise<void> {
       status = next;
       notify();
       if (next.state !== "running") {
+        if ((next.state === "cancelled" || next.state === "failed") && submittedBenchmark?.runId === runId) submittedBenchmark = null;
         if (next.report) {
           latest = next.report;
           // Only completed runs are automatically sent. Cancelled/failed partial runs remain local.
@@ -105,6 +112,8 @@ async function poll(runId: string): Promise<void> {
     }
   } catch {
     if (status.runId === runId) {
+      // A failed status request is a transport failure, not a failed benchmark.
+      // Keep submit intent until recovery confirms a terminal backend state.
       status = { ...status, state: "failed", error: "Could not read benchmark progress. Reopen Performance to recover the native run status." };
       notify();
     }
@@ -149,17 +158,22 @@ async function yieldToMain(): Promise<void> {
 }
 
 export const performanceApi = {
-  async start(mode: BenchmarkMode): Promise<string> {
+  async start(mode: BenchmarkMode, submit = false): Promise<string> {
     if (status.state === "running" || recordingActive()) throw new Error("Stop the active run or recording first.");
     if (mode !== "quick" && mode !== "thorough") throw new Error("Choose Quick or Thorough.");
+    if (submit && !approval) throw new Error("Preview and approve diagnostic reporting before submitting a benchmark.");
+    const submitEpoch = reportingEpoch;
+    submittedBenchmark = null;
     if (native) {
       const runId = await invoke<string>("benchmark_start", { mode });
+      if (submit && submitEpoch === reportingEpoch && approval) submittedBenchmark = { runId, reportingEpoch: submitEpoch };
       status = { runId, state: "running", completed: 0, total: 0, current: "Preparing fixtures", report: null, error: null };
       notify();
       void poll(runId);
       return runId;
     }
     const runId = `browser-${Date.now()}`;
+    if (submit && submitEpoch === reportingEpoch && approval) submittedBenchmark = { runId, reportingEpoch: submitEpoch };
     const startedAtMs = Date.now();
     status = { runId, state: "running", completed: 0, total: 4, current: "Frontend fixture checks", report: null, error: null };
     notify();
@@ -173,7 +187,11 @@ export const performanceApi = {
           { id: "rendering", label: "Image decode and visual interaction latency", status: "manual", reason: "Pure logic checks do not measure DOM painting, image decoding or display latency." }] };
       status = { runId, state: "completed", completed: 4, total: 4, current: null, report, error: null };
       await publish(report);
-    })().catch(() => { status = { ...status, state: "failed", error: "Frontend benchmark could not complete." }; notify(); });
+    })().catch(() => {
+      if (submittedBenchmark?.runId === runId) submittedBenchmark = null;
+      status = { ...status, state: "failed", error: "Frontend benchmark could not complete." };
+      notify();
+    });
     return runId;
   },
   async status(): Promise<BenchmarkStatus> {
@@ -185,12 +203,11 @@ export const performanceApi = {
           if (expectedRun && recovered.runId !== expectedRun) return;
           if (status.runId !== expectedRun) return;
           initializedNativeStatus = true;
+          if ((recovered.state === "cancelled" || recovered.state === "failed") && submittedBenchmark?.runId === recovered.runId) submittedBenchmark = null;
           status = recovered;
           if (recovered.state === "running") void poll(recovered.runId!);
-          else if (recovered.report && latest?.id !== recovered.report.id) {
-            latest = recovered.report;
-            if (recovered.state === "completed") enqueueAutomatic(recovered.report);
-          }
+          else if (recovered.report && latest?.id !== recovered.report.id && recovered.state === "completed") await publish(recovered.report);
+          else if (recovered.report && latest?.id !== recovered.report.id) { latest = recovered.report; notify(); }
         } catch { /* Keep the last local error and allow another explicit refresh. */ }
         finally { recovering = null; }
       })();
@@ -200,9 +217,19 @@ export const performanceApi = {
   },
   async cancel(runId: string): Promise<void> {
     if (status.runId !== runId) return;
-    if (frontendRun === runId) { status = { ...status, state: "cancelled", current: null }; notify(); }
-    else if (native) await invoke("benchmark_cancel", { runId });
-    else { status = { ...status, state: "cancelled", current: null }; notify(); }
+    if (frontendRun === runId) {
+      if (submittedBenchmark?.runId === runId) submittedBenchmark = null;
+      status = { ...status, state: "cancelled", current: null }; notify();
+    }
+    else if (native) {
+      // Revoke submit intent before IPC: completion can race the cancel reply.
+      if (submittedBenchmark?.runId === runId) submittedBenchmark = null;
+      await invoke("benchmark_cancel", { runId });
+    }
+    else {
+      if (submittedBenchmark?.runId === runId) submittedBenchmark = null;
+      status = { ...status, state: "cancelled", current: null }; notify();
+    }
   },
   startRecording(): void {
     if (status.state === "running") throw new Error("Wait for the benchmark to finish first.");
@@ -237,6 +264,7 @@ export const performanceApi = {
   async approve(): Promise<string> {
     if (!native) throw new Error("Diagnostic delivery requires the desktop app.");
     const epoch = ++reportingEpoch;
+    submittedBenchmark = null;
     approval = null;
     reporting = { ...reporting, approved: false, sending: false, result: null, error: null, reportId: null };
     notify();
@@ -254,6 +282,7 @@ export const performanceApi = {
   },
   async disableReporting(): Promise<void> {
     reportingEpoch++;
+    submittedBenchmark = null;
     approval = null;
     reporting = { ...reporting, approved: false, sending: false, result: null, error: null, reportId: null };
     notify();

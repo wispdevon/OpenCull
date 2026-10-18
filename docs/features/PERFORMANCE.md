@@ -1,8 +1,10 @@
 # Performance diagnostics
 
-Open **Settings → Performance** and choose **Run Quick** or **Run Thorough**.
-Quick uses a few samples and aims to finish within about a minute. Thorough
-repeats inexpensive stages at least 20 times and has a five-minute budget.
+Open **Settings → Performance** and choose **Run benchmark** for local results
+or **Run and submit** to send the completed report to the fixed destinations.
+Both use Thorough: inexpensive stages repeat at least 20 times, with a five-minute
+budget. Run and submit uses the existing reporting approval; first use shows
+the preview before starting. The developer CLI also supports Quick samples.
 A native operation already in progress may finish after the budget or a Cancel
 request; the runner checks between operations. Cancelled and timed-out runs
 retain any available measurements and are not automatically uploaded.
@@ -48,8 +50,13 @@ repeat runs, and consider variability before attributing a difference
 to a change. Debug builds and synthetic local files do not predict every real
 shoot or storage device. One portrait does not establish face-analysis accuracy.
 
-GPU inference is a manual check: benchmark AI uses a worker-local CPU policy so
-it cannot change the live GPU cache or disable a live provider after a failure.
+On supported NVIDIA/CUDA builds, bundled AI stages use private GPU sessions.
+The results identify the selected NVIDIA device and the provider that actually
+ran inference; CPU fallback is labeled. Benchmark failures do not disable the
+live app’s provider. CPU-only builds still measure CPU inference. Compare AI
+scores only across matching providers and fixture versions. Core ML GPU
+benchmarking remains a manual check on macOS; these isolated AI stages use CPU
+there.
 Optional MobileCLIP, camera-specific RAW compatibility, physical card throughput,
 actual video playback, external editors, updater installation, trash service and
 rendered interaction checks are labeled skipped or manual. The browser demo
@@ -74,7 +81,7 @@ Frontend logic collects 5/20 samples.
 | Folder/ingest scan | Quick: 14 logical photo entries / 26 image files; Thorough: 50 / 98. RAW/JPEG pairs count as one entry. All small images reuse the astronaut content. |
 | Preview / full RGB decode / portrait orientation | One reused 6000 × 4000 textured image; portrait changes its EXIF orientation. |
 | Histogram | One cached 320-tier thumbnail from the texture, not a full 24 MP histogram. |
-| Basic/advanced face analysis, motion blur | One reused 512 × 512 astronaut image; isolated CPU inference. |
+| Basic/advanced face analysis, motion blur | One reused 512 × 512 astronaut image; provider shown in the report. |
 | Ingest / Ship copy | Four RAW/JPEG pairs / one pair respectively, plus sidecars where present; fresh destinations each repeat. |
 | Grouping | 14/50 synthetic timestamp/face records; no photo pixels. |
 | AI result cache, sidecar operations | One analysis record or sidecar operation; model inference excluded. |

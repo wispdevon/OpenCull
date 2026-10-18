@@ -28,7 +28,7 @@ use crate::serve::{Previews, Wanted};
 use crate::transfer;
 use crate::xmp::{self, Color, Flag, Marks};
 
-const FIXTURE_VERSION: &str = "3-6000x4000-texture-ai-cache";
+const FIXTURE_VERSION: &str = "4-6000x4000-texture-gpu-ai";
 const TOTAL_STAGES: usize = 30;
 const MAX_QUICK_SECONDS: u64 = 60;
 const MAX_THOROUGH_SECONDS: u64 = 300;
@@ -332,8 +332,12 @@ fn finish_run(id: String, mode: Mode, cancel: Arc<AtomicBool>) {
     let started = Instant::now();
     let deadline = started + Duration::from_secs(mode.seconds());
     let mut progress = Progress::new(id.clone(), cancel, deadline);
+    let try_cuda = ai::acceleration::requested();
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        crate::ai::onnx::with_isolated_cpu(|| run_benchmark(&mut progress, mode, started_at_ms))
+        ai::onnx::with_isolated_benchmark(try_cuda, || {
+            run_benchmark(&mut progress, mode, started_at_ms, try_cuda)
+        })
+        .0
     }))
     .unwrap_or(Err(()));
     let finished_at_ms = timestamp_ms();
@@ -697,6 +701,102 @@ fn skip_unexercised_judge(stage: &mut Stage, face_found: bool) {
     }
 }
 
+fn annotate_ai_stage(stage: &mut Stage, earlier: ai::onnx::BenchmarkUsage, try_cuda: bool) {
+    let usage = ai::onnx::benchmark_usage().since(earlier);
+    let provider = ai_provider_summary(usage, try_cuda);
+    let detail = stage.detail.get_or_insert_with(String::new);
+    if !detail.is_empty() {
+        detail.push(' ');
+    }
+    detail.push_str("Observed provider: ");
+    detail.push_str(&provider);
+    if usage.cuda_calls > 0 {
+        detail.push_str(". YOLO may place unsupported operators on CPU.");
+    }
+}
+
+fn ai_provider_summary(usage: ai::onnx::BenchmarkUsage, try_cuda: bool) -> String {
+    if usage.cuda_calls > 0 {
+        if usage.cpu_fallback_calls > 0 {
+            format!(
+                "CUDA + CPU fallback ({})",
+                usage.failure_kind.unwrap_or("runtime")
+            )
+        } else {
+            "CUDA (YOLO may use CPU operators)".into()
+        }
+    } else if usage.cpu_fallback_calls > 0 {
+        format!(
+            "CPU fallback after CUDA {} failure",
+            usage.failure_kind.unwrap_or("runtime")
+        )
+    } else if usage.cpu_calls > 0 {
+        "CPU benchmark inference".into()
+    } else if try_cuda {
+        "CUDA selected; no CUDA inference completed".into()
+    } else {
+        "CPU benchmark inference".into()
+    }
+}
+
+fn accelerated_ai_coverage(
+    usage: ai::onnx::BenchmarkUsage,
+    try_cuda: bool,
+    coreml_available: bool,
+    cuda_supported: bool,
+) -> Coverage {
+    let (status, reason) = if usage.cuda_calls > 0 {
+        let reason = if usage.cpu_fallback_calls > 0 {
+            format!(
+                "{} isolated CUDA model call(s) completed; {} call(s) used CPU after a CUDA {} failure. YOLO may also place unsupported operators on CPU.",
+                usage.cuda_calls,
+                usage.cpu_fallback_calls,
+                usage.failure_kind.unwrap_or("runtime")
+            )
+        } else {
+            format!(
+                "{} isolated CUDA model call(s) completed on logical device 0; YOLO may place unsupported operators on CPU.",
+                usage.cuda_calls
+            )
+        };
+        (CoverageStatus::Measured, reason)
+    } else if coreml_available {
+        (
+            CoverageStatus::Manual,
+            "This benchmark uses isolated CPU sessions; isolated Core ML sessions are not available yet.".into(),
+        )
+    } else if !cuda_supported {
+        (
+            CoverageStatus::Manual,
+            "This build does not include the isolated CUDA benchmark provider.".into(),
+        )
+    } else if !try_cuda {
+        (
+            CoverageStatus::Skipped,
+            "CUDA was not requested; AI stages used isolated CPU inference.".into(),
+        )
+    } else if usage.cpu_fallback_calls > 0 {
+        (
+            CoverageStatus::Skipped,
+            format!(
+                "No CUDA inference completed; benchmark sessions used CPU fallback after a CUDA {} failure.",
+                usage.failure_kind.unwrap_or("runtime")
+            ),
+        )
+    } else {
+        (
+            CoverageStatus::Skipped,
+            "No CUDA inference completed during the AI stages.".into(),
+        )
+    };
+    Coverage {
+        id: "accelerated-ai".into(),
+        label: "GPU-accelerated AI inference".into(),
+        status,
+        reason: Some(reason),
+    }
+}
+
 struct TempRun {
     root: PathBuf,
 }
@@ -866,7 +966,12 @@ fn create_fixtures(
     })
 }
 
-fn run_benchmark(progress: &mut Progress, mode: Mode, started_at_ms: u64) -> Result<Report, ()> {
+fn run_benchmark(
+    progress: &mut Progress,
+    mode: Mode,
+    started_at_ms: u64,
+    try_cuda: bool,
+) -> Result<Report, ()> {
     let temp = TempRun::new(&progress.id)?;
     if let Some(reason) = progress.stopping_reason() {
         let _ = reason;
@@ -1143,6 +1248,7 @@ fn run_benchmark(progress: &mut Progress, mode: Mode, started_at_ms: u64) -> Res
 
     let face_spec = StageSpec { id: "face-analysis-cold", label: "Face analysis (first model use)", category: "ai", cache: CacheState::None, units: 1, bytes: face_fixture_bytes, detail: Some("Uses bundled YuNet and judge models on the licensed 512x512 astronaut sample; one inference is timed for cold model setup.") };
     let mut face_cold_found = false;
+    let face_cold_usage = ai::onnx::benchmark_usage();
     let mut face_cold = measure(progress, mode, face_spec, 1, |_| {
         let analysis = ai::analyze(&fixtures.raw, ai::Rules::Basic).map_err(|_| ())?;
         face_cold_found = !analysis.faces.is_empty();
@@ -1150,11 +1256,13 @@ fn run_benchmark(progress: &mut Progress, mode: Mode, started_at_ms: u64) -> Res
         Ok(())
     });
     skip_unexercised_judge(&mut face_cold, face_cold_found);
+    annotate_ai_stage(&mut face_cold, face_cold_usage, try_cuda);
     stages.push(face_cold);
 
     let warm_ai_samples = if mode == Mode::Quick { 1 } else { 5 };
     let face_warm_spec = StageSpec { id: "face-analysis-warm", label: "Face analysis (warm model use)", category: "ai", cache: CacheState::Warm, units: 1, bytes: face_fixture_bytes, detail: Some("Repeated local inference on one licensed astronaut sample; sample count is capped because model inference is expensive.") };
     let mut face_warm_found = true;
+    let face_warm_usage = ai::onnx::benchmark_usage();
     let mut face_warm = measure(progress, mode, face_warm_spec, warm_ai_samples, |_| {
         let analysis = ai::analyze(&fixtures.raw, ai::Rules::Basic).map_err(|_| ())?;
         face_warm_found &= !analysis.faces.is_empty();
@@ -1162,6 +1270,7 @@ fn run_benchmark(progress: &mut Progress, mode: Mode, started_at_ms: u64) -> Res
         Ok(())
     });
     skip_unexercised_judge(&mut face_warm, face_warm_found);
+    annotate_ai_stage(&mut face_warm, face_warm_usage, try_cuda);
     stages.push(face_warm);
 
     // Exercise the same durable result store used by AI analysis, without
@@ -1281,6 +1390,7 @@ fn run_benchmark(progress: &mut Progress, mode: Mode, started_at_ms: u64) -> Res
 
     let advanced_cold_spec = StageSpec { id: "advanced-face-cold", label: "Advanced face analysis (first use)", category: "ai", cache: CacheState::None, units: 1, bytes: face_fixture_bytes, detail: Some("Runs bundled YOLO26n advanced face analysis on the licensed 512x512 astronaut sample; one cold inference is timed.") };
     let mut advanced_cold_found = false;
+    let advanced_cold_usage = ai::onnx::benchmark_usage();
     let mut advanced_cold = measure(progress, mode, advanced_cold_spec, 1, |_| {
         let analysis = ai::analyze_record_with_finder(
             &fixtures.raw,
@@ -1294,9 +1404,11 @@ fn run_benchmark(progress: &mut Progress, mode: Mode, started_at_ms: u64) -> Res
         Ok(())
     });
     skip_unexercised_judge(&mut advanced_cold, advanced_cold_found);
+    annotate_ai_stage(&mut advanced_cold, advanced_cold_usage, try_cuda);
     stages.push(advanced_cold);
     let advanced_warm_spec = StageSpec { id: "advanced-face-warm", label: "Advanced face analysis (warm use)", category: "ai", cache: CacheState::Warm, units: 1, bytes: face_fixture_bytes, detail: Some("Repeated bundled YOLO26n inference on one licensed sample; count is capped because model inference is expensive.") };
     let mut advanced_warm_found = true;
+    let advanced_warm_usage = ai::onnx::benchmark_usage();
     let mut advanced_warm = measure(
         progress,
         mode,
@@ -1316,6 +1428,7 @@ fn run_benchmark(progress: &mut Progress, mode: Mode, started_at_ms: u64) -> Res
         },
     );
     skip_unexercised_judge(&mut advanced_warm, advanced_warm_found);
+    annotate_ai_stage(&mut advanced_warm, advanced_warm_usage, try_cuda);
     stages.push(advanced_warm);
 
     let motion_spec = StageSpec { id: "motion-blur", label: "Motion-blur analysis", category: "ai", cache: CacheState::None, units: 1, bytes: face_fixture_bytes, detail: Some("Runs the local directional-blur check over a deterministic subject region from the bundled fixture.") };
@@ -1490,7 +1603,8 @@ fn run_benchmark(progress: &mut Progress, mode: Mode, started_at_ms: u64) -> Res
         }
     }));
 
-    let coverage = build_coverage(&stages, mode);
+    let usage = ai::onnx::benchmark_usage();
+    let coverage = build_coverage(&stages, mode, usage, try_cuda);
     Ok(Report {
         schema_version: 1,
         id: progress.id.clone(),
@@ -1500,7 +1614,7 @@ fn run_benchmark(progress: &mut Progress, mode: Mode, started_at_ms: u64) -> Res
         finished_at_ms: timestamp_ms(),
         environment: {
             let mut environment = benchmark_environment();
-            environment.ai_provider = Some("CPU (isolated benchmark)".into());
+            environment.ai_provider = Some(ai_provider_summary(usage, try_cuda));
             environment
         },
         stages,
@@ -1508,7 +1622,12 @@ fn run_benchmark(progress: &mut Progress, mode: Mode, started_at_ms: u64) -> Res
     })
 }
 
-fn build_coverage(stages: &[Stage], mode: Mode) -> Vec<Coverage> {
+fn build_coverage(
+    stages: &[Stage],
+    mode: Mode,
+    usage: ai::onnx::BenchmarkUsage,
+    try_cuda: bool,
+) -> Vec<Coverage> {
     let mut coverage: Vec<Coverage> = stages
         .iter()
         .map(|stage| Coverage {
@@ -1577,7 +1696,6 @@ fn build_coverage(stages: &[Stage], mode: Mode) -> Vec<Coverage> {
         "Culltivate reads embedded JPEG previews and does not decode RAW sensor data.",
     );
     add("mobileclip", "MobileCLIP visual grouping", CoverageStatus::Skipped, "Optional MobileCLIP model is not bundled in the isolated fixture environment; the benchmark never downloads models.");
-    add("accelerated-ai", "GPU-accelerated AI inference", CoverageStatus::Manual, "AI stages use an isolated CPU policy so benchmarking cannot change live GPU caches or provider fallback state.");
     add("frontend-render", "Grid, filmstrip, loupe and settings rendering", CoverageStatus::Manual, "Native fixture measurements do not include browser layout, React rendering or keyboard event handling.");
     add(
         "physical-ingest",
@@ -1589,6 +1707,16 @@ fn build_coverage(stages: &[Stage], mode: Mode) -> Vec<Coverage> {
     if mode == Mode::Thorough {
         add("native-runtime", "External editor, updater, trash and video runtime", CoverageStatus::Manual, "Long mode increases repeat counts for local work; external services and native device state remain manual checks.");
     }
+    coverage.push(accelerated_ai_coverage(
+        usage,
+        try_cuda,
+        cfg!(target_os = "macos"),
+        cfg!(all(
+            feature = "cuda",
+            target_os = "linux",
+            target_arch = "x86_64"
+        )),
+    ));
     coverage
 }
 
@@ -1772,6 +1900,12 @@ fn total_memory_mb() -> Option<u64> {
 fn gpu_vendor() -> Option<String> {
     #[cfg(target_os = "linux")]
     {
+        #[cfg(all(feature = "cuda", target_arch = "x86_64"))]
+        if ai::acceleration::requested() {
+            if let Ok(name) = opencull_cuda::device_name() {
+                return Some(name);
+            }
+        }
         let entries = fs::read_dir("/sys/class/drm").ok()?;
         for entry in entries.flatten() {
             let Ok(vendor) = fs::read_to_string(entry.path().join("device/vendor")) else {
@@ -1819,6 +1953,48 @@ mod tests {
     }
 
     #[test]
+    fn ai_provider_summary_reports_only_observed_cuda_inference() {
+        let successful = ai::onnx::BenchmarkUsage {
+            cuda_calls: 4,
+            cpu_calls: 0,
+            cpu_fallback_calls: 0,
+            failure_kind: None,
+        };
+        assert_eq!(
+            ai_provider_summary(successful, true),
+            "CUDA (YOLO may use CPU operators)"
+        );
+
+        let fallback = ai::onnx::BenchmarkUsage {
+            cuda_calls: 0,
+            cpu_calls: 2,
+            cpu_fallback_calls: 2,
+            failure_kind: Some("runtime"),
+        };
+        assert_eq!(
+            ai_provider_summary(fallback, true),
+            "CPU fallback after CUDA runtime failure"
+        );
+    }
+
+    #[test]
+    fn accelerated_ai_coverage_needs_a_successful_cuda_model_call() {
+        let fallback = ai::onnx::BenchmarkUsage {
+            cuda_calls: 0,
+            cpu_calls: 1,
+            cpu_fallback_calls: 1,
+            failure_kind: Some("memory"),
+        };
+        let coverage = accelerated_ai_coverage(fallback, true, false, true);
+        assert_eq!(coverage.status, CoverageStatus::Skipped);
+        assert!(coverage.reason.unwrap().contains("No CUDA inference completed"));
+
+        let coreml = accelerated_ai_coverage(ai::onnx::BenchmarkUsage::default(), false, true, false);
+        assert_eq!(coreml.status, CoverageStatus::Manual);
+        assert!(coreml.reason.unwrap().contains("Core ML"));
+    }
+
+    #[test]
     fn synthetic_raf_fixture_probes_its_embedded_jpeg_and_exif() {
         let (pixels, width, height) = decode_bundled_png(ASTRONAUT_PNG).unwrap();
         let jpeg = preview::encode_jpeg(pixels, width, height, 86).unwrap();
@@ -1853,11 +2029,14 @@ mod tests {
             cancel,
             Instant::now() + Duration::from_secs(MAX_QUICK_SECONDS),
         );
-        let report = crate::ai::onnx::with_isolated_cpu(|| {
-            run_benchmark(&mut progress, Mode::Quick, timestamp_ms()).unwrap()
-        });
+        let report = crate::ai::onnx::with_isolated_benchmark(false, || {
+            run_benchmark(&mut progress, Mode::Quick, timestamp_ms(), false).unwrap()
+        })
+        .0;
 
         assert_eq!(report.stages.len(), TOTAL_STAGES);
+        assert_eq!(report.environment.fixture_version, FIXTURE_VERSION);
+        assert_eq!(report.environment.ai_provider.as_deref(), Some("CPU benchmark inference"));
         assert!(report
             .stages
             .iter()

@@ -201,3 +201,28 @@ Linux debug no-bundle build; isolated native self-test; Chromium Quick/Thorough,
 p95, recording persistence, exact-preview flow, minimum-viewport layout and
 zero non-local requests with reporting disabled. The local fixture resource
 checksum matches its provenance file. No lint script exists.
+
+## Isolated NVIDIA benchmark validation — 2026-10-18
+
+Fixture `4-6000x4000-texture-gpu-ai`, Linux x86_64, `debug turbo-jpeg cuda`,
+NVIDIA GeForce RTX 3060 Ti (driver 615.78.08). One Thorough run completed all
+30 native stages without failures. The provider reported
+`CUDA (YOLO may use CPU operators)` with 32 successful private CUDA model calls.
+These measurements use one reused 512 × 512 astronaut image and include the
+whole analysis stage, rather than only GPU kernel time.
+
+| AI stage | Runs | Average score |
+|---|---:|---:|
+| Basic, first model use | 1 | 580.51 ms |
+| Basic, warm models | 5 | 4.79 ms |
+| Advanced, first use | 1 | 320.69 ms |
+| Advanced, warm models | 3 | 10.01 ms |
+
+The explicit hardware test compared isolated CUDA and CPU model outputs and
+verified that the global fallback state stayed unchanged. Separate fresh
+Quick processes with `CUDA_VISIBLE_DEVICES=` and `OPENCULL_AI=cuda`, and with
+`OPENCULL_AI=cpu`, also completed all native stages without failures. The former
+reported CPU fallback and skipped accelerated coverage; the latter reported
+CPU inference and CUDA not requested. Neither claimed measured GPU inference.
+These are functional checks on one system, not general hardware benchmarks.
+Core ML GPU contexts and macOS/Windows runtime behavior were not verified here.
