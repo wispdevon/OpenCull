@@ -1,7 +1,7 @@
 // A sideways strip of cells — the filmstrip, the row of scenes — that only
 // makes the cells in view.
 
-import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 
 /** How far either side of what is in view cells are kept, in pixels. */
@@ -19,8 +19,8 @@ const MARGIN = 1500;
  *
  * Give the scroller an isolated stacking context (`isolate`). WebKitGTK can
  * otherwise promote the entire wide content row to a graphics layer because
- * it overlaps composited photo/face previews. Fast high-resolution wheel
- * scrolling then leaves blank or stale tiles even though the cells exist.
+ * it overlaps composited photo/face previews. Isolation bounds that layer;
+ * it does not by itself prevent all native paint corruption.
  *
  * This is done here and not by a list library because the strip has to be
  * scrolled and redrawn in ONE step. The library learned where a strip was
@@ -90,24 +90,44 @@ export function useStrip({ starts, pad, position, anchor }: { starts: ArrayLike<
   // Native scrolling can paint before React's batched continuous events
   // commit, especially with two photo canvases. Commit the next cells before
   // returning to the browser, but keep the margin so small scrolls are free.
-  const followScroll = (at: number) => {
-    if (Math.abs(at - offset) > MARGIN / 3) flushSync(() => setOffset(at));
-  };
+  const committedOffset = useRef(offset);
+  useLayoutEffect(() => { committedOffset.current = offset; }, [offset]);
+  const followScroll = useCallback((at: number) => {
+    if (Math.abs(at - committedOffset.current) > MARGIN / 3) flushSync(() => setOffset(at));
+  }, []);
   const onScroll = (e: React.UIEvent<HTMLDivElement>) => {
     followScroll(e.currentTarget.scrollLeft);
   };
 
-  // A mouse wheel only turns one way; over a strip, that way is sideways.
-  const onWheel = (e: React.WheelEvent) => {
-    strayed.current = true;
-    if (e.altKey || Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
+  // React delegates wheel events through a passive listener. Mapping those
+  // events while also allowing WebKit's default wheel handling gives native
+  // scrolling and our virtual row competing owners. A non-passive listener
+  // consumes the event once, retaining high-resolution fractional deltas.
+  useLayoutEffect(() => {
     const el = scroller.current;
     if (!el) return;
-    el.scrollBy({ left: e.deltaY * 1.5 });
-    // A fast wheel can pass the entire overscan margin in one event. Do not
-    // wait for the subsequent native scroll event to mount its destination.
-    followScroll(el.scrollLeft);
-  };
+    let desired = el.scrollLeft;
+    let applied = desired;
+    const onWheel = (e: WheelEvent) => {
+      if (e.altKey || e.ctrlKey || e.metaKey) return;
+      e.preventDefault();
+      e.stopPropagation();
+      strayed.current = true;
+      const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? el.clientWidth : 1;
+      const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY * 1.5;
+      // Some web views quantize scrollLeft. Accumulate subpixel input rather
+      // than discarding it on every event; a scrollbar drag or recenter resets
+      // the accumulator to the new actual position.
+      if (el.scrollLeft !== applied) desired = el.scrollLeft;
+      desired = Math.max(0, Math.min(el.scrollWidth - el.clientWidth, desired + delta * unit));
+      el.scrollLeft = desired;
+      applied = el.scrollLeft;
+      // Cover the destination before returning control to native painting.
+      followScroll(el.scrollLeft);
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, [followScroll]);
 
-  return { scroller, length, from, to, onScroll, onWheel };
+  return { scroller, length, from, to, onScroll };
 }

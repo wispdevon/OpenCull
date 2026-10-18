@@ -48,11 +48,18 @@ separate work.
 
 ## Native scrolling regression check
 
-On WebKitGTK, overlapping photo and face layers can promote the entire wide
-virtual thumbnail row into a graphics backing. High-resolution mouse scrolling
-can then leave blank or stale tiles despite loaded thumbnail elements. Both
-the filmstrip and scene overview isolate their scroll viewport's stacking
-context. Wheel deltas and smooth/inertial scrolling behavior are unchanged.
+The strips consume wheel input through a non-passive native listener. This
+prevents browser wheel handling from competing with the application's sideways
+mapping. Pixel deltas retain a fractional remainder, horizontal input keeps its
+axis, and line/page input is normalized. Alt, Ctrl and Meta wheel gestures stay
+available to the browser. Scrollbar dragging still updates virtual cell coverage.
+
+On the affected Linux/NVIDIA setup, physical high-resolution mouse testing
+confirmed this removes blank thumbnails after comparison. Image tile corruption
+can still occur and remains unresolved. Isolated viewport stacking contexts
+bound oversized graphics layers, but neither isolation nor the layer check below
+establishes that native painting is correct. Disabling WebKit's DMA-BUF image
+atlas also failed to prevent the reported corruption.
 
 For a native check, start a debug app with a local inspector endpoint:
 

@@ -96,12 +96,12 @@ function SceneStrip({ scenes, active }: { scenes: Scene[]; active: Scene | undef
     positions[scenes.length] = x;
     return positions;
   }, [scenes.length, widths]);
-  const { scroller, length, from, to, onScroll, onWheel } = useStrip({ starts, pad: 10 - CARD_GAP, position: active ? active.number - 1 : -1, anchor: active?.frames[0] });
+  const { scroller, length, from, to, onScroll } = useStrip({ starts, pad: 10 - CARD_GAP, position: active ? active.number - 1 : -1, anchor: active?.frames[0] });
 
   return (
     <div className="scene-overview flex shrink-0 flex-col bg-strip" style={{ height }}>
       <FilmstripResizeHandle setting="sceneStripHeight" label="Resize stack overview" />
-    <div ref={scroller} onWheel={onWheel} onScroll={onScroll} className="isolate min-h-0 flex-1 overflow-x-auto overflow-y-hidden border-t border-[var(--ui-line-333333)] bg-strip">
+    <div ref={scroller} onScroll={onScroll} className="isolate min-h-0 flex-1 overflow-x-auto overflow-y-hidden border-t border-[var(--ui-line-333333)] bg-strip">
       <div className="relative h-full" style={{ width: length }}>
         {scenes.slice(from, to).map((scene, i) => (
           <div key={scene.frames[0]} className="absolute top-2.5" style={{ left: starts[from + i] }}>

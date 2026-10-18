@@ -103,12 +103,12 @@ export function Filmstrip({ only, height: fixedHeight, resizable = true }: { onl
   }, [rows, widths]);
   // Keep the photo in the loupe in the middle of the strip.
   const position = useMemo(() => rows.findIndex((r) => r.index === current), [rows, current]);
-  const { scroller, length, from, to, onScroll, onWheel } = useStrip({ starts, pad: PAD, position, anchor: current });
+  const { scroller, length, from, to, onScroll } = useStrip({ starts, pad: PAD, position, anchor: current });
 
   return (
     <div className="relative flex shrink-0 flex-col bg-strip" style={{ height }}>
       {resizable ? <FilmstripResizeHandle /> : <div style={{ height: HANDLE }} className="shrink-0 bg-[var(--ui-surface-262626)]" />}
-      <div ref={scroller} onWheel={onWheel} onScroll={onScroll} className="relative isolate min-h-0 flex-1 overflow-x-auto overflow-y-hidden">
+      <div ref={scroller} onScroll={onScroll} className="relative isolate min-h-0 flex-1 overflow-x-auto overflow-y-hidden">
         <div className="relative h-full" style={{ width: length }}>
           {rows.slice(from, to).map((row, i) => {
             const at = from + i;
