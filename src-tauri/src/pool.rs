@@ -65,15 +65,36 @@ struct State<T> {
     quiet_until: Instant,
     idle_running: usize,
     idle_limit: usize,
+    stopped: bool,
+}
+
+// Workers own only shared state. Keeping public handles separate lets their
+// final drop wake the workers without joining them, even from a callback.
+struct Owner<T> {
+    shared: Arc<(Mutex<State<T>>, Condvar)>,
+}
+
+impl<T> Owner<T> {
+    fn shutdown(&self) {
+        let (lock, wake) = &*self.shared;
+        lock.lock().unwrap_or_else(|e| e.into_inner()).stopped = true;
+        wake.notify_all();
+    }
+}
+
+impl<T> Drop for Owner<T> {
+    fn drop(&mut self) {
+        self.shutdown();
+    }
 }
 
 pub struct Pool<T> {
-    shared: Arc<(Mutex<State<T>>, Condvar)>,
+    owner: Arc<Owner<T>>,
 }
 
 impl<T> Clone for Pool<T> {
     fn clone(&self) -> Self {
-        Self { shared: self.shared.clone() }
+        Self { owner: self.owner.clone() }
     }
 }
 
@@ -95,17 +116,26 @@ impl<T: Send + Sync + 'static> Pool<T> {
                 quiet_until: Instant::now(),
                 idle_running: 0,
                 idle_limit: idle_limit.clamp(1, workers - 1),
+                stopped: false,
             }),
             Condvar::new(),
         ));
+        let owner = Arc::new(Owner { shared });
         for i in 0..workers {
-            let shared = shared.clone();
+            let shared = owner.shared.clone();
             std::thread::Builder::new()
                 .name(format!("opencull-preview-{i}"))
                 .spawn(move || Self::work(shared, i == 0))
                 .expect("spawn preview worker");
         }
-        Self { shared }
+        Self { owner }
+    }
+
+    /// Stops this pool and all of its clones without waiting for workers.
+    /// Running jobs finish normally; workers reject queued jobs before exiting.
+    /// Dropping the final handle does the same, including from a callback.
+    pub fn shutdown(&self) {
+        self.owner.shutdown();
     }
 
     /// Asks for `key` to be made by `work`, and for `done` to be told.
@@ -122,8 +152,13 @@ impl<T: Send + Sync + 'static> Pool<T> {
         work: impl FnOnce() -> Result<T, String> + Send + 'static,
         done: impl FnOnce(Result<Arc<T>, String>) + Send + 'static,
     ) {
-        let (lock, wake) = &*self.shared;
+        let (lock, wake) = &*self.owner.shared;
         let mut state = lock.lock().unwrap();
+        if state.stopped {
+            drop(state);
+            done(Err("preview pool stopped".into()));
+            return;
+        }
         state.seq += 1;
         let seq = state.seq;
         if priority != Priority::Idle {
@@ -148,7 +183,7 @@ impl<T: Send + Sync + 'static> Pool<T> {
     /// For when a folder is closed: its thumbnails are no longer wanted, and
     /// should not hold up the next folder's.
     pub fn clear_queued(&self) {
-        let (lock, _) = &*self.shared;
+        let (lock, _) = &*self.owner.shared;
         let abandoned: Vec<Done<T>> = {
             let mut state = lock.lock().unwrap();
             let keys: Vec<String> = state.queue.drain(..).map(|j| j.key).collect();
@@ -163,7 +198,7 @@ impl<T: Send + Sync + 'static> Pool<T> {
     /// is worth preparing has changed — the photographer has moved to another
     /// part of the folder — and the old list would only delay the new one.
     pub fn clear_idle(&self) {
-        let (lock, _) = &*self.shared;
+        let (lock, _) = &*self.owner.shared;
         let abandoned: Vec<Done<T>> = {
             let mut state = lock.lock().unwrap();
             let mut keys = Vec::new();
@@ -185,17 +220,17 @@ impl<T: Send + Sync + 'static> Pool<T> {
     /// than spare-time work is waiting, or was asked for a moment ago. Work
     /// that should never get in their way checks this and stands aside.
     pub fn busy(&self) -> bool {
-        let state = self.shared.0.lock().unwrap();
+        let state = self.owner.shared.0.lock().unwrap();
         Instant::now() < state.quiet_until || state.queue.iter().any(|j| j.priority != Priority::Idle)
     }
 
     pub fn queued(&self) -> usize {
-        self.shared.0.lock().unwrap().queue.len()
+        self.owner.shared.0.lock().unwrap().queue.len()
     }
 
     /// Idle work still to do: waiting, plus under way.
     pub fn idle_remaining(&self) -> usize {
-        let state = self.shared.0.lock().unwrap();
+        let state = self.owner.shared.0.lock().unwrap();
         state.queue.iter().filter(|j| j.priority == Priority::Idle).count() + state.idle_running
     }
 
@@ -205,6 +240,21 @@ impl<T: Send + Sync + 'static> Pool<T> {
             let job = {
                 let mut state = lock.lock().unwrap();
                 loop {
+                    if state.stopped {
+                        let queued = std::mem::take(&mut state.queue);
+                        let abandoned: Vec<Done<T>> = queued.iter()
+                            .filter_map(|job| state.waiting.remove(&job.key))
+                            .flatten()
+                            .collect();
+                        drop(state);
+                        // Work and callbacks can own pool handles or reenter
+                        // the pool. Release them only after unlocking.
+                        drop(queued);
+                        for done in abandoned {
+                            let _ = catch_unwind(AssertUnwindSafe(|| done(Err("preview pool stopped".into()))));
+                        }
+                        return;
+                    }
                     let now = Instant::now();
                     let idle_has_room = !only_now && state.idle_running < state.idle_limit;
                     let idle_allowed = idle_has_room && now >= state.quiet_until;
@@ -259,7 +309,7 @@ impl<T: Send + Sync + 'static> Pool<T> {
                 wake.notify_all();
             }
             for done in waiters {
-                done(result.clone());
+                let _ = catch_unwind(AssertUnwindSafe(|| done(result.clone())));
             }
         }
     }
@@ -270,6 +320,148 @@ mod tests {
     use super::*;
     use std::sync::atomic::{AtomicUsize, Ordering};
     use std::sync::mpsc;
+
+    fn wait_for_workers<T>(shared: std::sync::Weak<(Mutex<State<T>>, Condvar)>) {
+        let deadline = Instant::now() + Duration::from_secs(2);
+        while shared.strong_count() != 0 && Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(1));
+        }
+        assert!(shared.upgrade().is_none(), "workers retained the discarded pool");
+    }
+
+    #[test]
+    fn dropping_the_last_handle_releases_worker_state() {
+        let pool = Pool::<u32>::new(2);
+        let shared = Arc::downgrade(&pool.owner.shared);
+        drop(pool);
+        wait_for_workers(shared);
+    }
+
+    #[test]
+    fn dropping_a_handle_keeps_its_clone_usable() {
+        let pool = Pool::<u32>::new(2);
+        let clone = pool.clone();
+        let shared = Arc::downgrade(&pool.owner.shared);
+        drop(pool);
+
+        let (tx, rx) = mpsc::channel();
+        clone.submit("after-drop".into(), Priority::Now, || Ok(7), move |result| {
+            tx.send(result.map(|value| *value)).unwrap();
+        });
+        assert_eq!(rx.recv_timeout(Duration::from_secs(2)).unwrap(), Ok(7));
+        drop(clone);
+        wait_for_workers(shared);
+    }
+
+    #[test]
+    fn shutdown_rejects_pending_work_and_lets_running_work_finish() {
+        let pool = Pool::<u32>::new(2);
+        let clone = pool.clone();
+        let shared = Arc::downgrade(&pool.owner.shared);
+        let (release, gate) = mpsc::channel();
+        let gate = Arc::new(Mutex::new(gate));
+        let (ready, started) = mpsc::channel();
+        let (tx, rx) = mpsc::channel();
+        for i in 0..2 {
+            let (gate, ready, tx) = (gate.clone(), ready.clone(), tx.clone());
+            pool.submit(format!("running-{i}"), Priority::Now, move || {
+                ready.send(()).unwrap();
+                gate.lock().unwrap().recv().unwrap();
+                Ok(7)
+            }, move |result| tx.send(("running", result.map(|value| *value))).unwrap());
+        }
+        for _ in 0..2 {
+            started.recv_timeout(Duration::from_secs(2)).unwrap();
+        }
+
+        let made = Arc::new(AtomicUsize::new(0));
+        for _ in 0..2 {
+            let (made, tx) = (made.clone(), tx.clone());
+            pool.submit("queued".into(), Priority::Soon, move || {
+                made.fetch_add(1, Ordering::SeqCst);
+                Ok(9)
+            }, move |result| tx.send(("queued", result.map(|value| *value))).unwrap());
+        }
+        pool.shutdown();
+        clone.shutdown(); // Idempotent across handles.
+        let later = tx.clone();
+        clone.submit("future".into(), Priority::Now, || Ok(9), move |result| {
+            later.send(("future", result.map(|value| *value))).unwrap();
+        });
+        assert_eq!(rx.recv_timeout(Duration::from_secs(2)).unwrap(), ("future", Err("preview pool stopped".into())));
+
+        // Shutdown returned while both workers were still waiting here.
+        for _ in 0..2 {
+            release.send(()).unwrap();
+        }
+        let mut completed = Vec::new();
+        for _ in 0..4 {
+            completed.push(rx.recv_timeout(Duration::from_secs(2)).unwrap());
+        }
+        assert_eq!(completed.iter().filter(|(name, result)| *name == "running" && *result == Ok(7)).count(), 2);
+        assert_eq!(completed.iter().filter(|(name, result)| *name == "queued" && *result == Err("preview pool stopped".into())).count(), 2);
+        assert_eq!(made.load(Ordering::SeqCst), 0);
+        drop(pool);
+        drop(clone);
+        wait_for_workers(shared);
+    }
+
+    #[test]
+    fn a_completion_callback_can_drop_the_final_handle() {
+        let pool = Pool::<u32>::new(2);
+        let shared = Arc::downgrade(&pool.owner.shared);
+        let callback_pool = pool.clone();
+        let (release, gate) = mpsc::channel();
+        let (tx, rx) = mpsc::channel();
+        pool.submit("last-handle".into(), Priority::Now, move || {
+            gate.recv().unwrap();
+            Ok(7)
+        }, move |result| {
+            drop(callback_pool);
+            tx.send(result.map(|value| *value)).unwrap();
+        });
+        drop(pool);
+        release.send(()).unwrap();
+        assert_eq!(rx.recv_timeout(Duration::from_secs(2)).unwrap(), Ok(7));
+        wait_for_workers(shared);
+    }
+
+    #[test]
+    fn a_shutdown_callback_can_reenter_and_drop_the_final_handle() {
+        let pool = Pool::<u32>::new(2);
+        let (open, reserved) = hold(&pool, 2);
+        let shared = Arc::downgrade(&pool.owner.shared);
+        let callback_pool = pool.clone();
+        let (tx, rx) = mpsc::channel();
+        pool.submit("queued".into(), Priority::Soon, || Ok(7), |_| panic!("failed cancelled waiter"));
+        pool.submit("queued".into(), Priority::Soon, || Ok(7), move |result| {
+            assert!(result.is_err());
+            callback_pool.shutdown();
+            callback_pool.submit("reentered".into(), Priority::Now, || Ok(9), move |result| {
+                tx.send(result.map(|value| *value)).unwrap();
+            });
+        });
+        pool.shutdown();
+        drop(pool);
+        open.send(()).unwrap();
+        reserved.send(()).unwrap();
+        assert_eq!(rx.recv_timeout(Duration::from_secs(2)).unwrap(), Err("preview pool stopped".into()));
+        wait_for_workers(shared);
+    }
+
+    #[test]
+    fn a_panicking_callback_does_not_strand_other_waiters() {
+        let pool = Pool::<u32>::new(2);
+        let (open, reserved) = hold(&pool, 2);
+        pool.submit("shared".into(), Priority::Soon, || Ok(7), |_| panic!("failed waiter"));
+        let (tx, rx) = mpsc::channel();
+        pool.submit("shared".into(), Priority::Soon, || Ok(9), move |result| {
+            tx.send(result.map(|value| *value)).unwrap();
+        });
+        open.send(()).unwrap();
+        reserved.send(()).unwrap();
+        assert_eq!(rx.recv_timeout(Duration::from_secs(2)).unwrap(), Ok(7));
+    }
 
     /// Holds every worker until released, so a queue can be built up behind
     /// them and the order it drains in observed.
