@@ -414,11 +414,18 @@ a share of the photo — where its middle is and how much it takes, across and
 down — so it lands on the same part of a photo of any size, and is kept on
 the picture if a tilt would take it off.
 
+The native histogram counts only pixels inside the saved crop, using the
+existing upright thumbnail and the same turn, mirror and tilt geometry as
+the displayed photo. It refreshes when a crop is committed or removed; it
+does not follow the temporary crop outline while dragging. This is a
+thumbnail estimate, not a RAW histogram. Without a crop, its counts stay
+the same. The browser demo retains its synthetic sample histogram.
+
 Not done, and worth knowing:
 
 - Face analysis is not run again for a photo that has been turned, and faces
   a crop leaves out are still listed.
-- The histogram and the dimensions in the EXIF panel are of the whole frame.
+- The dimensions in the EXIF panel are of the whole frame.
 - Lightroom reads a DNG's settings from inside the DNG, so a crop saved
   beside one shows here and not there.
 - A camera set to shoot a shape other than its sensor's (16:9, square) saves

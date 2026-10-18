@@ -211,7 +211,7 @@ export interface Backend {
    * and whether it is saved nowhere (`lost`) or only missing from a JPEG.
    */
   onFramingNotSaved(handler: (path: string, why: string, lost: boolean) => void): () => void;
-  histogram(path: string, version: string): Promise<Histogram>;
+  histogram(path: string, version: string, view?: { framing: Framing; fullWidth: number; fullHeight: number }): Promise<Histogram>;
   folderCover(path: string): Promise<Scanned[]>;
   foldersExist(paths: string[]): Promise<boolean[]>;
   cacheUsage(): Promise<CacheUsage>;
@@ -355,7 +355,7 @@ const tauri: Backend = {
       stop?.();
     };
   },
-  histogram: (path, version) => invoke("histogram", { path, version }),
+  histogram: (path, version, view) => invoke("histogram", { path, version, view: view ?? null }),
   folderCover: (path) => invoke("folder_cover", { path }),
   foldersExist: (paths) => invoke("folders_exist", { paths }),
   cacheUsage: () => invoke("cache_usage"),

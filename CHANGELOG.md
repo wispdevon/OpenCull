@@ -4,6 +4,8 @@
 
 - Keep successful Finish Review copies recorded when a later source file or
   RAW/JPEG companion disappears, so retrying does not duplicate earlier copies.
+- Count histogram tones inside the committed crop, including turned and
+  mirrored photos, using the existing thumbnail without rendering the RAW.
 
 ## 0.6.1
 

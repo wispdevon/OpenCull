@@ -60,6 +60,63 @@ impl Framing {
     }
 }
 
+/// Tests upright-image points against a crop in VIEW coordinates.
+///
+/// The thumbnail is upright, but its crop is stored in the photographer's
+/// view. Keeping this transform here lets preview-derived measurements use
+/// the same eight turns and crop angle as the interface.
+#[derive(Clone, Copy, Debug)]
+pub struct CropMask {
+    turn: u8,
+    upright: (f64, f64),
+    offset: (f64, f64),
+    half: (f64, f64),
+    cos: f64,
+    sin: f64,
+}
+
+impl CropMask {
+    /// A mask for a photo's crop, or `None` when there is no usable crop.
+    pub fn new(framing: Framing, upright: (u32, u32)) -> Option<Self> {
+        let crop = framing.crop?;
+        let (width, height) = (upright.0 as f64, upright.1 as f64);
+        if width <= 0.0 || height <= 0.0 || crop.w <= 0.0 || crop.h <= 0.0
+            || ![crop.cx, crop.cy, crop.w, crop.h, crop.angle].iter().all(|v| v.is_finite())
+            || crop.angle.abs() > 45.0001
+        {
+            return None;
+        }
+
+        let turn = known(framing.turn);
+        let (view_width, view_height) = if sideways(turn) { (height, width) } else { (width, height) };
+        let angle = crop.angle.to_radians();
+        Some(Self {
+            turn,
+            upright: (width, height),
+            offset: (crop.cx - view_width / 2.0, crop.cy - view_height / 2.0),
+            half: (crop.w / 2.0, crop.h / 2.0),
+            cos: angle.cos(),
+            sin: angle.sin(),
+        })
+    }
+
+    /// Whether a point of the upright image, given as fractions of its width
+    /// and height, falls inside the crop. X and Y scale independently, which
+    /// matters for portrait thumbnails whose rounded dimensions differ.
+    pub fn contains_upright_fraction(&self, x: f64, y: f64) -> bool {
+        if !x.is_finite() || !y.is_finite() || !(0.0..=1.0).contains(&x) || !(0.0..=1.0).contains(&y) {
+            return false;
+        }
+        let centered = ((x - 0.5) * self.upright.0, (y - 0.5) * self.upright.1);
+        let in_view = apply(matrix(self.turn), centered);
+        let (dx, dy) = (in_view.0 - self.offset.0, in_view.1 - self.offset.1);
+        // The crop is tilted clockwise in VIEW coordinates. To test a point,
+        // level it by the opposite angle, just as `uprightToShown` does.
+        let (local_x, local_y) = (dx * self.cos + dy * self.sin, -dx * self.sin + dy * self.cos);
+        local_x.abs() <= self.half.0 + 1e-6 && local_y.abs() <= self.half.1 + 1e-6
+    }
+}
+
 /// A crop as Adobe stores it: the top-left and bottom-right corners of the
 /// turned rectangle, as fractions of the SENSOR frame, and the turn in
 /// degrees.
@@ -391,6 +448,43 @@ mod tests {
 
     fn close(a: f64, b: f64, by: f64) -> bool {
         (a - b).abs() <= by
+    }
+
+    #[test]
+    fn crop_mask_tracks_all_eight_view_turns() {
+        // The upright point at (1/4, 1/4) lands at each listed view-space
+        // centre after the turn. A small crop there contains it, but not the
+        // opposite upright point.
+        let cases = [
+            (1, (1.0, 0.5)),
+            (2, (3.0, 0.5)),
+            (3, (3.0, 1.5)),
+            (4, (1.0, 1.5)),
+            (5, (0.5, 1.0)),
+            (6, (1.5, 1.0)),
+            (7, (1.5, 3.0)),
+            (8, (0.5, 3.0)),
+        ];
+        for (turn, (cx, cy)) in cases {
+            let mask = CropMask::new(Framing {
+                turn,
+                crop: Some(Crop { cx, cy, w: 0.5, h: 0.5, angle: 0.0 }),
+            }, (4, 2)).unwrap();
+            assert!(mask.contains_upright_fraction(0.25, 0.25), "turn {turn} lost the cropped point");
+            assert!(!mask.contains_upright_fraction(0.75, 0.75), "turn {turn} included the opposite point");
+        }
+    }
+
+    #[test]
+    fn crop_mask_levels_tilted_crops_before_testing_points() {
+        let mask = CropMask::new(Framing {
+            turn: 1,
+            crop: Some(Crop { cx: 5.0, cy: 5.0, w: 4.0, h: 2.0, angle: 30.0 }),
+        }, (10, 10)).unwrap();
+        let inside = ((5.0 + 1.5 * 30f64.to_radians().cos()) / 10.0, (5.0 + 1.5 * 30f64.to_radians().sin()) / 10.0);
+
+        assert!(mask.contains_upright_fraction(inside.0, inside.1));
+        assert!(!mask.contains_upright_fraction(0.65, 0.65));
     }
 
     // Four crops as Adobe's own programs wrote them, for a 7008 × 4672

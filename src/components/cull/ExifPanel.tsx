@@ -140,18 +140,23 @@ function StillHistogram({ photo }: { photo: Photo | undefined }) {
   const rgb = useStore((s) => s.rgbHistogram);
   const path = photo?.display;
   const version = photo?.version;
+  const framing = photo?.framing;
+  const frameKey = framing ? JSON.stringify(framing) : "";
+  const fullWidth = photo?.fullWidth ?? 0;
+  const fullHeight = photo?.fullHeight ?? 0;
 
   useEffect(() => {
     if (!path || version === undefined) return setData(null);
     let stale = false;
+    const view = photo ? { framing: photo.framing, fullWidth, fullHeight } : undefined;
     const timer = setTimeout(() => {
-      api.histogram(path, version).then((h) => !stale && setData(h), () => !stale && setData(null));
+      api.histogram(path, version, view).then((h) => !stale && setData(h), () => !stale && setData(null));
     }, 120);
     return () => {
       stale = true;
       clearTimeout(timer);
     };
-  }, [path, version]);
+  }, [path, version, frameKey, fullWidth, fullHeight]);
 
   // The canvas is sized to the panel. Dragging the panel changes that, and
   // the drawing has to follow or it stays the width the panel opened at.

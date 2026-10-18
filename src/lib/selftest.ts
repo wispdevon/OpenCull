@@ -405,7 +405,24 @@ export async function runSelfTest(folder: string): Promise<void> {
     s().next();
     const moved = s().current !== first;
     s().previousGroup();
-    say(`navigation ${moved ? "moves" : "DOES NOT MOVE"}; histogram ${(await api.histogram(sample[0].display, sample[0].version)).luma.length === 256 ? "ok" : "BAD"}`);
+    const histogramPhoto = sample[0];
+    const wholeHistogram = await api.histogram(histogramPhoto.display, histogramPhoto.version);
+    if (wholeHistogram.luma.length !== 256) throw new Error("histogram has the wrong number of bins");
+    const wholePixels = wholeHistogram.luma.reduce((sum, count) => sum + count, 0);
+    if (wholePixels === 0) throw new Error("histogram counted no pixels");
+    if (histogramPhoto.fullWidth > 0 && histogramPhoto.fullHeight > 0) {
+      const { fullWidth, fullHeight } = histogramPhoto;
+      const cropped = await api.histogram(histogramPhoto.display, histogramPhoto.version, {
+        framing: { turn: 1, crop: { cx: fullWidth / 2, cy: fullHeight / 2, w: fullWidth / 2, h: fullHeight / 2, angle: 0 } },
+        fullWidth, fullHeight,
+      });
+      const cropPixels = cropped.luma.reduce((sum, count) => sum + count, 0);
+      if (cropPixels === 0 || cropPixels >= wholePixels) throw new Error("cropped histogram did not restrict the counted pixels");
+      const restored = await api.histogram(histogramPhoto.display, histogramPhoto.version);
+      if (JSON.stringify(restored) !== JSON.stringify(wholeHistogram)) throw new Error("cropped histogram changed the whole-frame result");
+      say(`histogram: crop counts ${cropPixels} of ${wholePixels} thumbnail pixels; whole frame unchanged`);
+    }
+    say(`navigation ${moved ? "moves" : "DOES NOT MOVE"}; histogram ok`);
     if (!moved) throw new Error("the arrow keys' action did not change the photo");
 
     await (await import("./linux-features.selftest")).checkLinuxFeatures(folder, scratch);

@@ -1196,29 +1196,131 @@ pub struct Histogram {
     luma: Vec<u32>,
 }
 
+#[derive(Clone, Copy, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HistogramView {
+    framing: framing::Framing,
+    full_width: u32,
+    full_height: u32,
+}
+
 /// How a photo's tones are distributed, counted from its thumbnail. A few
 /// hundred pixels across is plenty for a distribution, and is already made.
 #[tauri::command]
-pub async fn histogram(app: AppState<'_>, path: String, version: String) -> Result<Histogram, String> {
+pub async fn histogram(app: AppState<'_>, path: String, version: String, view: Option<HistogramView>) -> Result<Histogram, String> {
     let previews = app.previews.clone();
     tauri::async_runtime::spawn_blocking(move || {
         let wanted = Wanted { path: PathBuf::from(path), version, tier: Tier::Thumb(320) };
         let served = previews.get_blocking(wanted, Priority::Now)?;
         let mut decoder = jpeg_decoder::Decoder::new(&served.bytes[..]);
         let pixels = decoder.decode().map_err(|e| e.to_string())?;
-
-        let mut h = Histogram { r: vec![0; 256], g: vec![0; 256], b: vec![0; 256], luma: vec![0; 256] };
-        for px in pixels.chunks_exact(3) {
-            h.r[px[0] as usize] += 1;
-            h.g[px[1] as usize] += 1;
-            h.b[px[2] as usize] += 1;
-            let luma = 0.2126 * px[0] as f32 + 0.7152 * px[1] as f32 + 0.0722 * px[2] as f32;
-            h.luma[(luma.round() as usize).min(255)] += 1;
-        }
-        Ok(h)
+        let info = decoder.info().ok_or_else(|| "no JPEG image info".to_string())?;
+        Ok(histogram_from_pixels(&pixels, info.width as u32, info.height as u32, view.as_ref()))
     })
     .await
     .map_err(|e| e.to_string())?
+}
+
+fn histogram_from_pixels(pixels: &[u8], width: u32, height: u32, view: Option<&HistogramView>) -> Histogram {
+    let mut h = Histogram { r: vec![0; 256], g: vec![0; 256], b: vec![0; 256], luma: vec![0; 256] };
+    let mask = view.and_then(|view| framing::CropMask::new(view.framing, (view.full_width, view.full_height)));
+    if width == 0 || height == 0 {
+        return h;
+    }
+
+    for (index, px) in pixels.chunks_exact(3).enumerate() {
+        if let Some(mask) = &mask {
+            let x = index % width as usize;
+            let y = index / width as usize;
+            let in_crop = mask.contains_upright_fraction((x as f64 + 0.5) / width as f64, (y as f64 + 0.5) / height as f64);
+            if !in_crop {
+                continue;
+            }
+        }
+        h.r[px[0] as usize] += 1;
+        h.g[px[1] as usize] += 1;
+        h.b[px[2] as usize] += 1;
+        let luma = 0.2126 * px[0] as f32 + 0.7152 * px[1] as f32 + 0.0722 * px[2] as f32;
+        h.luma[(luma.round() as usize).min(255)] += 1;
+    }
+    h
+}
+
+#[cfg(test)]
+mod histogram_tests {
+    use super::*;
+
+    #[test]
+    fn histogram_counts_only_pixels_inside_the_crop() {
+        let pixels = [
+            0, 0, 0, 0, 0, 0,
+            255, 255, 255, 255, 255, 255,
+        ];
+        let view = HistogramView {
+            framing: framing::Framing {
+                turn: 1,
+                crop: Some(framing::Crop { cx: 3.0, cy: 0.5, w: 2.0, h: 1.0, angle: 0.0 }),
+            },
+            full_width: 4,
+            full_height: 1,
+        };
+
+        let cropped = histogram_from_pixels(&pixels, 4, 1, Some(&view));
+
+        assert_eq!(cropped.r[0], 0);
+        assert_eq!(cropped.r[255], 2);
+        assert_eq!(cropped.luma.iter().sum::<u32>(), 2);
+    }
+
+    #[test]
+    fn histogram_without_a_crop_counts_the_entire_frame() {
+        let pixels = [0, 0, 0, 255, 255, 255];
+
+        let full = histogram_from_pixels(&pixels, 2, 1, None);
+
+        assert_eq!(full.r[0], 1);
+        assert_eq!(full.r[255], 1);
+        assert_eq!(full.luma.iter().sum::<u32>(), 2);
+
+        for turn in 1..=8 {
+            let uncropped_turn = HistogramView {
+                framing: framing::Framing { turn, crop: None },
+                full_width: 2,
+                full_height: 1,
+            };
+            assert_eq!(histogram_from_pixels(&pixels, 2, 1, Some(&uncropped_turn)).r, full.r);
+        }
+
+        let unknown_size = HistogramView {
+            framing: framing::Framing {
+                turn: 1,
+                crop: Some(framing::Crop { cx: 1.0, cy: 0.5, w: 1.0, h: 1.0, angle: 0.0 }),
+            },
+            full_width: 0,
+            full_height: 1,
+        };
+        let fallback = histogram_from_pixels(&pixels, 2, 1, Some(&unknown_size));
+        assert_eq!(fallback.r, full.r, "unknown dimensions retain the full-frame histogram");
+    }
+
+    #[test]
+    fn portrait_crop_scales_horizontal_and_vertical_thumbnail_axes_separately() {
+        let pixels = [0, 0, 0, 255, 255, 255];
+        let view = HistogramView {
+            framing: framing::Framing {
+                turn: 1,
+                crop: Some(framing::Crop { cx: 1.0, cy: 3.0, w: 2.0, h: 2.0, angle: 0.0 }),
+            },
+            full_width: 2,
+            full_height: 4,
+        };
+
+        let cropped = histogram_from_pixels(&pixels, 1, 2, Some(&view));
+
+        assert_eq!(cropped.r[0], 0);
+        assert_eq!(cropped.r[255], 1);
+        assert_eq!(cropped.luma.iter().sum::<u32>(), 1);
+    }
 }
 
 /// A few photos to stand for a folder on the home screen.

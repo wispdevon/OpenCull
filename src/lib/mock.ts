@@ -234,7 +234,9 @@ export const mock: Backend = {
   onJpegNotWritten: () => () => {},
   onMarksNotSaved: () => () => {},
   onFramingNotSaved: () => () => {},
-  histogram: (path) => {
+  // The browser demo uses a synthetic bell-curve histogram for its generated
+  // sample photos; only the native backend counts pixels inside a crop.
+  histogram: (path, _version, _view) => {
     const seed = path.length;
     const bell = (centre: number) => Array.from({ length: 256 }, (_, x) => Math.round(900 * Math.exp(-((x - centre) ** 2) / 2600)));
     return later({ r: bell(90 + (seed % 60)), g: bell(110 + (seed % 40)), b: bell(140 - (seed % 50)), luma: bell(112) });
