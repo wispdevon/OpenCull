@@ -279,3 +279,32 @@ The final release documentation does not change application code or data.
 GitHub Actions rejects dispatch with “Actions has been disabled for this user.”
 macOS/Windows packages and publication remain pending; no platform checks are
 claimed for those systems.
+
+## Fixed hardware specification ratings — 0.7.0 correction
+
+Primary hardware ratings now use formula v1 and specification catalogue 1.0.0,
+independently of the historical benchmark indices above. The reviewed Ryzen 5
+7500F / RTX 3060 Ti profile has 32,768 MiB installed RAM: local udev hardware
+records identify two 16 GiB modules. The OS-usable 31,616 MiB field does not
+enter the rating. Manufacturer references and the frozen formula are in the
+[specification catalogue](../benchmarks/hardware-specifications.json) and
+[database guide](../benchmarks/README.md).
+
+CPU points are 2220, GPU points 1371.648 and RAM points 3200. Rounding only the
+final outputs gives system rating **2063** and GPU rating **1372**, identically
+for debug/release and CPU/CUDA modes. These capacity points are not measured
+speed, percentiles or values out of 1000. Dataset 1.1.0 retains separate measured
+stage timings and adds the same fixed ratings to both seed rows.
+
+Browser checks verified ratings before starting a benchmark, unchanged ratings
+after altered timings/provider/build/cancellation, legacy exports without a
+recorded hardware identity remaining unknown, and no outgoing remote requests
+or page errors at normal and compact settings sizes. Native discovery rejects
+ambiguous GPU inventories and incomplete DIMM records instead of guessing.
+Hardware discovery is cached and its desktop command runs off the UI thread.
+
+Final source verification passed: 203 frontend tests, 34 launcher/importer tests,
+384 CUDA-feature Rust tests (5 ignored), 382 CPU-only Rust tests (1 ignored),
+frontend build and CUDA desktop debug build. Production code is at
+`6791f17` (the following documentation changes do not alter application code).
+macOS and Windows were not tested locally.

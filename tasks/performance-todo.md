@@ -62,5 +62,6 @@ See [measurements](performance-measurements.md) and the [feature guide](../docs/
 - [x] Use reviewed manufacturer physical core counts, base clocks and GPU shader counts; never local timings, boost clocks, usable/free RAM, available threads, app build or AI provider as rating inputs.
 - [x] Detect installed memory and GPU identity independently of benchmark/provider settings. Missing/ambiguous specifications remain explicitly unknown.
 - [x] Show ratings before running a benchmark, preserve measured milliseconds and historical benchmark indices separately, and export schema-v4 ratings with provenance.
-- [ ] Publish formula/specification sources and matching fixed ratings for both existing hardware rows; benchmark ingestion cannot move those ratings.
-- [ ] Verify deterministic math, aliases/unknowns, privacy/consent, native discovery, report compatibility and UI; refresh the unpublished 0.7.0 draft after verification.
+- [x] Publish formula/specification sources and matching fixed ratings for both existing hardware rows; benchmark ingestion cannot move those ratings.
+- [x] Verify deterministic math, aliases/unknowns, privacy/consent, native discovery, report compatibility and UI. Final checks: 203 frontend tests, 34 launcher/importer tests, 384 CUDA-feature Rust tests (5 ignored), 382 CPU-only Rust tests (1 ignored), frontend build, CUDA desktop build and responsive browser checks.
+- [ ] Refresh the unpublished 0.7.0 draft installers and verify the packaged CUDA runtime; retain the existing macOS/Windows and publication blockers.

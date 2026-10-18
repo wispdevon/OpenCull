@@ -12,31 +12,42 @@ These fixed specification ratings are identical for both builds. The timing-base
 
 No compiler or test process was intentionally active during timed runs, but the desktop session remained active and spot-checked GPU use varied from 11% to 30%; treat these as one machine's reference measurements, not a fully idle-device baseline. Each run used unique XDG cache, config, data, and state directories. “Cold” means an app-cache miss; OS filesystem cache was not controlled. Release timings came from the Ubuntu 24 release binary run on the Linux host after its provider libraries were copied byte-identically out of the isolated build root. Two earlier release attempts with no completed CUDA inference were excluded. The workload does not measure physical-card throughput, camera sensor decoding, or all hardware. The seed's `method` and hardware/build fields describe what was actually measured; later additions must be explicitly reviewed and must not silently move the frozen reference anchors. Published system rows report each stage's mean per-run average, median, minimum, maximum, and run count. These are measurements from the listed systems, not claims about the wider Culltivate user population.
 
-| Build profile | Runs | Historical system-speed index¹ | Historical GPU-workflow-speed index¹ | Basic warm average² | Advanced warm average² |
-|---|---:|---:|---:|---:|---:|
-| Debug · turbo JPEG · CUDA | 3 | 1002 | 998 | 4.835 ms | 8.852 ms |
-| Release · turbo JPEG · CUDA | 3 | 1063 | 986 | 6.064 ms | 10.278 ms |
+| Build profile | Runs | Basic warm average¹ | Advanced warm average¹ |
+|---|---:|---:|---:|
+| Debug · turbo JPEG · CUDA | 3 | 4.835 ms | 8.852 ms |
+| Release · turbo JPEG · CUDA | 3 | 6.064 ms | 10.278 ms |
 
-¹ These are the existing timing-based comparison fields (`systemScore` and
-`gpuScore`), not hardware ratings. They are the median of the three run
-indices. Each build has its own frozen reference; compare only matching
-build, platform and fixture cohorts.
-² Median across the three per-run arithmetic averages. Each run samples the
-same face photo five times for basic AI and three times for advanced AI.
+¹ Median across three per-run arithmetic averages. Each run samples the same
+face photo five times for basic AI and three times for advanced AI. These
+milliseconds describe measured app speed; they never enter the hardware rating.
 
-## What is compared
+Public rows retain aggregate stage averages, ranges, run counts and build
+metadata. Run identifiers, installation aliases, timestamps, file paths,
+filenames, image metadata, raw samples, stage details and errors are not published.
+
+<details>
+<summary>Historical timing-index fields retained for compatibility</summary>
+
+The older `systemScore` and `gpuScore` fields are measured timing indices, not
+hardware ratings. New interfaces use the independent `hardwareRatings` object.
+The historical debug indices are 1002 / 998; release indices are 1063 / 986.
 
 The cohort key is the exact operating system, architecture, build string, and fixture version. App version and hardware are public descriptive fields, not part of the cohort key. A reference is created from the median of each scored stage's per-run arithmetic mean across at least three completed Thorough runs. For each score, the dimensionless index is `1000 × exp(Σ weight × ln(referenceMeanMs / measuredMeanMs))`; higher is faster, and 1000 is the frozen reference. The system index weights are `preview-thumbnail-cold` 0.15, `preview-fit-cold` 0.25, `image-decode` 0.20, `portrait-orientation` 0.20, `scan-pairing` 0.10, and `ingest-copy` 0.10. The CUDA-assisted AI index weights `face-analysis-warm` and `advanced-face-warm` equally at 0.5 each. It measures the full AI workflow, including CPU setup and pre/post-processing, and may include CPU operators inside YOLO graphs. A GPU score requires typed evidence for all four model stages, CUDA calls in both weighted warm stages, and zero whole-model CPU or fallback calls across the report. Missing or mixed inference evidence leaves that score unavailable.
 
-Public hardware-row scores are medians of individual run indices. Because the frozen reference combines component medians, its source system’s median run score need not equal exactly 1000.
+Historical speed indices are medians of individual run indices. Because the frozen reference combines component medians, its source system’s median run score need not equal exactly 1000.
 
 Public system rows retain aggregate stage means, spread, run count, installation count, app/build descriptors, and the recomputed historical speed indices. These measurements describe observed app performance on that specific setup; they do not produce the hardware ratings below. Run identifiers, installation aliases, timestamps, file paths, filenames, image metadata, raw samples, stage details, errors, and submitted score values are not written.
+
+
+</details>
 
 ## Hardware specification ratings
 
 Hardware ratings are fixed capacity heuristics from published specifications. They do not use benchmark timings, app version/build, current or boost clocks, thread availability, provider, or workload settings, and they do not claim to predict application speed or architecture efficiency. Unknown or ambiguous model names leave the relevant rating unavailable. The app reports installed memory from hardware metadata separately from the OS-usable memory field; do not substitute `memoryMb` for `installedMemoryMb`.
 
 The formula uses catalogued reference specifications in [`hardware-specifications.json`](./hardware-specifications.json): CPU points = physical cores × reference base MHz ÷ 10; GPU points = shader cores × reference base MHz × 2 ÷ 10,000; RAM points = installed GiB × 100. The system rating is `round(0.6 × CPU points + 0.3 × GPU points + 0.1 × RAM points)`. The GPU rating is `round(GPU points)`. Component points remain unrounded until the final displayed rating. The catalogue links the [AMD Ryzen 5 7500F specifications](https://www.amd.com/en/products/processors/desktops/ryzen/7000-series/amd-ryzen-5-7500F.html) and [NVIDIA RTX 30 Series reference specifications](https://www.nvidia.com/en-us/geforce/graphics-cards/compare/).
+
+Formula v1 weights and existing model mappings are frozen. Catalogue updates may add reviewed models; changing existing specifications or weights requires a new formula version. Compare ratings under the same formula version. Benchmark submissions cannot change the catalogue.
 
 The seed hardware profile is an AMD Ryzen 5 7500F (6 cores, 3,700 MHz reference base), NVIDIA GeForce RTX 3060 Ti (4,864 shaders, 1,410 MHz reference base, 8 GiB VRAM), and 32 GiB installed RAM. Its system hardware rating is 2063 and GPU capacity rating is 1372. Debug and release rows have the same ratings because their hardware is identical; their historical speed indices differ because they are measured app timings. The source catalogue and formula are versioned independently from the timing reference data.
 
