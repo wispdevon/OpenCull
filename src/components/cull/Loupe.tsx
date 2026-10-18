@@ -1,5 +1,5 @@
 import { PhotoTransition } from "./InterfaceMotion";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { Flag, Loader2, X } from "lucide-react";
 
 import { api, bucket, FIT_SIZES } from "@/lib/api";
@@ -9,7 +9,7 @@ import { faceZoomTarget, firstVisibleFace, highestScoringFace } from "@/lib/face
 import { hold, holdFull, isHeld } from "@/lib/held";
 import { load, save } from "@/lib/prefs";
 import { isMac } from "@/lib/shortcuts";
-import { useStore } from "@/lib/store";
+import { useStore, type ZoomCommand } from "@/lib/store";
 import { cn } from "@/lib/utils";
 import { COLORS, type Photo } from "@/lib/types";
 import { useStripThumbSize } from "./Filmstrip";
@@ -18,6 +18,8 @@ import { isVideo } from "@/lib/media";
 import { VideoPlayer } from "./VideoPlayer";
 import { PhotoMenu } from "./PhotoMenu";
 import { FaceOverlays } from "./FaceOverlays";
+import { useComparisonZoom, type ComparisonMove } from "./ComparisonZoom";
+import { shareZoom, receiveZoom } from "@/lib/comparison-zoom";
 
 /** Zoom and pan: how many times larger than fit, and how far off centre. */
 interface Zoom {
@@ -114,7 +116,7 @@ const WORTH_FULL = 1.15;
  * So moving to a photo never shows nothing, however fast the keys are held,
  * and never shows a blur for longer than it takes to read a file.
  */
-export function Loupe() {
+export function Loupe({ compact = false }: { compact?: boolean }) {
   const photo = useStore((s) => (s.current >= 0 ? s.photos[s.current] : undefined));
   const loading = useStore((s) => s.loading);
   const folder = useStore((s) => s.session?.name ?? "folder");
@@ -141,7 +143,7 @@ export function Loupe() {
         </div>
       )}
       {photo && showInfo && !cropping && <InfoOverlay photo={photo} />}
-      {photo && showRatingBar && !cropping && <RatingBar photo={photo} />}
+      {photo && showRatingBar && !cropping && <RatingBar photo={photo} compact={compact} />}
     </div>
   );
 }
@@ -150,7 +152,10 @@ function Canvas({ photo }: { photo: Photo }) {
   return isVideo(photo.path) ? <VideoPlayer key={photo.path} path={photo.path} /> : <StillCanvas photo={photo} />;
 }
 
-function StillCanvas({ photo }: { photo: Photo }) {
+export function StillCanvas({ photo, reference = false, zoomRequest }: { photo: Photo; reference?: boolean; zoomRequest?: ZoomCommand }) {
+  const linked = useComparisonZoom();
+  const source = useId();
+  const receiving = useRef(false);
   const frame = useRef<HTMLDivElement>(null);
   const sheet = useRef<HTMLDivElement>(null);
   const [box, setBox] = useState({ w: 0, h: 0 });
@@ -171,7 +176,8 @@ function StillCanvas({ photo }: { photo: Photo }) {
   const [moving, setMoving] = useState(false);
   const rest = useRef<number | undefined>(undefined);
   const stripHeight = useStore((s) => s.filmstripHeight);
-  const command = useStore((s) => s.zoom);
+  const sharedCommand = useStore((s) => s.zoom);
+  const command = zoomRequest ?? sharedCommand;
   const keepZoom = useStore((s) => s.keepZoom);
 
   useLayoutEffect(() => {
@@ -289,7 +295,21 @@ function StillCanvas({ photo }: { photo: Photo }) {
    */
   const loose = (z: Zoom) => within(z, box.w / 2, box.h / 2);
   const level = (scale: number) => Math.max(1, Math.min(MAX_ZOOM, scale));
-  const settled = (z: Zoom): Zoom => (z.scale <= 1.001 ? FIT : z);
+  const settled = (z: Zoom): Zoom => {
+    if (z.scale <= 1.001) return FIT;
+    if (!linked) return z;
+    // Keep the centre over the photo so linked positions remain reachable
+    // even when one image is much narrower than the other.
+    return { scale: z.scale,
+      x: Math.max(-shown.w * z.scale / 2, Math.min(shown.w * z.scale / 2, z.x)),
+      y: Math.max(-shown.h * z.scale / 2, Math.min(shown.h * z.scale / 2, z.y)) };
+  };
+
+  const publish = (z: Zoom, motion: ComparisonMove["motion"], ms = 0) => {
+    if (!linked || receiving.current) return;
+    const viewport = shareZoom(settled(z), shown);
+    if (viewport) linked.publish({ viewport, source, motion, ms });
+  };
 
   /** Redraws the picture at the size it has reached, once `ms` have passed. */
   const sharpenAfter = (ms: number) => {
@@ -306,6 +326,7 @@ function StillCanvas({ photo }: { photo: Photo }) {
     setGlide(ms);
     setZoom(settled(z));
     sharpenAfter(ms + 40);
+    publish(z, "glide", ms);
   };
   /**
    * Glides out to a smaller size.
@@ -327,6 +348,7 @@ function StillCanvas({ photo }: { photo: Photo }) {
     setGlide(0);
     setDrawnAt(to.scale);
     setLeaving({ to, ms });
+    publish(to, "glide", ms);
   };
   // The second half of that, before anything is painted: the view is made to
   // take in where the stretched picture starts from, which is what it then
@@ -350,6 +372,7 @@ function StillCanvas({ photo }: { photo: Photo }) {
     setGlide(0);
     setZoom(settled(z));
     sharpenAfter(SHARPEN_MS);
+    publish(z, "stretch");
   };
   /**
    * Slides the picture without changing its size. `held` while a button is
@@ -359,10 +382,42 @@ function StillCanvas({ photo }: { photo: Photo }) {
   const panTo = (z: Zoom, held: boolean) => {
     setGlide(0);
     setMoving(true);
-    setZoom(z);
+    setZoom(settled(z));
     if (held) window.clearTimeout(rest.current);
     else sharpenAfter(SHARPEN_MS);
+    publish(z, "pan");
   };
+
+  // Replay user moves, never echo them. A new photo or resized pane adopts
+  // the shared enlargement and relative centre without animating from fit.
+  const geometry = `${photo.display}:${photo.version}:${framed}:${shown.w}:${shown.h}:${actual}`;
+  const applied = useRef<{ geometry: string; move: ComparisonMove | null } | null>(null);
+  useLayoutEffect(() => {
+    const move = linked?.move ?? null;
+    const previous = applied.current;
+    applied.current = { geometry, move };
+    if (!move || shown.w <= 0 || shown.h <= 0) return;
+    const changed = previous?.geometry !== geometry;
+    if (!changed && (move.source === source || previous?.move === move)) return;
+    const z = loose(receiveZoom(move.viewport, shown));
+    receiving.current = true;
+    try {
+      if (changed) {
+        window.clearTimeout(rest.current);
+        setZoom(z);
+        setGlide(0);
+        setDrawnAt(null);
+        setLeaving(null);
+        setMoving(false);
+      } else if (move.motion === "glide") {
+        if (z.scale < now.current.scale) shrinkTo(z, move.ms);
+        else glideTo(z, move.ms);
+      } else if (move.motion === "stretch") stretchTo(z);
+      else panTo(z, false);
+    } finally {
+      receiving.current = false;
+    }
+  }, [linked?.move, geometry]);
 
   /** The spot of the photo under the middle of the frame, as a fraction of its size. */
   const spotOf = (z: Zoom) => ({ x: 0.5 - z.x / (shown.w * z.scale), y: 0.5 - z.y / (shown.h * z.scale) });
@@ -404,6 +459,7 @@ function StillCanvas({ photo }: { photo: Photo }) {
   useEffect(() => {
     if (command.nonce === seen.current) return;
     seen.current = command.nonce;
+    if (reference && !zoomRequest) return;
     const z = now.current;
     if (command.kind === "centre" || command.kind === "face") {
       // Separate centre and face commands; preserve saved shortcut bindings.
@@ -446,6 +502,7 @@ function StillCanvas({ photo }: { photo: Photo }) {
   useEffect(() => {
     if (!faceZoom || faceZoom.nonce === seenFace.current) return;
     seenFace.current = faceZoom.nonce;
+    if (reference) return;
     // A face is found on the upright picture; it is zoomed to where the
     // photo's framing has put it, or to the nearest edge if cropped away.
     const at = uprightToShown(photo, faceZoom);
@@ -592,8 +649,8 @@ function StillCanvas({ photo }: { photo: Photo }) {
 
   // Whatever prepares previews ahead needs to prepare them at this size.
   useEffect(() => {
-    if (box.w > 0) useStore.getState().set("fitSize", fitSize);
-  }, [fitSize, box.w]);
+    if (!reference && box.w > 0) useStore.getState().set("fitSize", fitSize);
+  }, [fitSize, box.w, reference]);
   const fullUrl = api.url("full", photo);
   // A tight crop fills the frame from a small part of the picture, further
   // than the window-sized rendering was made to go. The full-size picture is
@@ -607,7 +664,7 @@ function StillCanvas({ photo }: { photo: Photo }) {
   }, [wantFull, fullUrl]);
 
   // A self-test times these pictures arriving cold, so nothing is held for it.
-  const holding = !useStore((s) => s.selfTest);
+  const holding = !useStore((s) => s.selfTest) && !reference;
   const instantZoom = useStore((s) => s.instantZoom);
 
   // The photos about to be stepped onto get their screen-sized picture ready
@@ -648,7 +705,7 @@ function StillCanvas({ photo }: { photo: Photo }) {
   // While this photo is looked at, the ones about to be reached are made
   // ready, nearest first, so that arriving finds them already there.
   useEffect(() => {
-    if (box.w === 0) return;
+    if (reference || box.w === 0) return;
     const handle = requestAnimationFrame(() => {
       const { view, photos } = useStore.getState();
       const at = view.indexOf(photo.index);
@@ -661,11 +718,10 @@ function StillCanvas({ photo }: { photo: Photo }) {
       void api.prefetch(near.filter((i) => !isVideo(photos[i].path)).map((i) => ({ path: photos[i].display, version: photos[i].version })), fitSize);
     });
     return () => cancelAnimationFrame(handle);
-  }, [photo.index, photo.display, photo.version, fitSize, box.w]);
+  }, [photo.index, photo.display, photo.version, fitSize, box.w, reference]);
 
   const layer = cn("absolute inset-0 size-full", !known && !learnt && "object-contain");
-  return (
-    <PhotoMenu index={photo.index}>
+  const canvas = (
       <div ref={frame} onPointerDown={onPointerDown} className={cn("relative size-full touch-none overflow-hidden", zoomed ? "cursor-grab active:cursor-grabbing" : "cursor-zoom-in")}>
         {box.w > 0 && (
           <div
@@ -735,14 +791,16 @@ function StillCanvas({ photo }: { photo: Photo }) {
               />
             )}
             </div>
-            <FaceOverlays photo={photo} />
+            {!reference && <FaceOverlays photo={photo} />}
           </div>
         )}
         {marquee && <MarqueeBox marquee={marquee} frame={box} />}
         <ZoomBadge percent={zoomed ? Math.round((zoom.scale / actual) * 100) : null} sharp={zoomed && fullReady === fullUrl} loading={zoomed && fullReady !== fullUrl} />
       </div>
-    </PhotoMenu>
   );
+  // Reference gestures only inspect pixels; its context menu must not edit
+  // a different photo from the one keyboard shortcuts and panels target.
+  return reference ? canvas : <PhotoMenu index={photo.index}>{canvas}</PhotoMenu>;
 }
 
 /** The box being dragged out, drawn over the photo. */
@@ -789,13 +847,14 @@ function InfoOverlay({ photo }: { photo: Photo }) {
 }
 
 /** Flag, stars and colour for the photo in the loupe, along its bottom edge. */
-function RatingBar({ photo }: { photo: Photo }) {
+function RatingBar({ photo, compact }: { photo: Photo; compact: boolean }) {
   const s = useStore.getState();
   const divider = <span className="h-5 w-px bg-[var(--ui-surface-595959)]" />;
   return (
     <div
       onPointerDown={(e) => e.stopPropagation()}
-      className="absolute bottom-5 left-1/2 flex -translate-x-1/2 items-center gap-3.5 rounded-xl border border-white/10 bg-[var(--ui-surface-2a2a30)]/80 px-4.5 py-2.5 shadow-[0_4px_12px_rgba(0,0,0,.4)] backdrop-blur-md"
+      className={cn("absolute bottom-5 left-1/2 flex -translate-x-1/2 items-center rounded-xl border border-white/10 bg-[var(--ui-surface-2a2a30)]/80 py-2.5 shadow-[0_4px_12px_rgba(0,0,0,.4)] backdrop-blur-md",
+        compact ? "w-max max-w-[calc(100%-1rem)] flex-wrap justify-center gap-2 px-2" : "gap-3.5 px-4.5")}
     >
       <span className="flex items-center gap-2">
         <button type="button" title="Pick (P)" onClick={() => s.setFlag(photo.flag === "pick" ? "none" : "pick", [photo.index])}>

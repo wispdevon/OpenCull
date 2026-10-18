@@ -13,6 +13,7 @@ export type Action =
   | "rate0" | "rate1" | "rate2" | "rate3" | "rate4" | "rate5" | "clearRating"
   | "tagRed" | "tagYellow" | "tagGreen" | "tagBlue" | "tagPurple" | "tagNone"
   | "zoomToggle" | "zoomCentre" | "zoomIn" | "zoomOut"
+  | "toggleReference"
   | "viewGrid" | "toggleFilmstrip" | "toggleFaces" | "toggleHistogram" | "toggleInfo" | "toggleSpeedCull"
   | "ship" | "moveToTrash" | "selectAll" | "undo" | "redo"
   | "crop" | "rotateLeft" | "rotateRight" | "copyCrop" | "pasteCrop";
@@ -75,6 +76,7 @@ export const SECTIONS: { title: string; actions: [Action, string][] }[] = [
       ["zoomIn", "Zoom in"],
       ["zoomOut", "Zoom out"],
       ["viewGrid", "Grid view"],
+      ["toggleReference", "Compare with reference"],
       ["toggleFilmstrip", "Filmstrip"],
       ["toggleFaces", "Face panel"],
       ["toggleHistogram", "Histogram and EXIF"],
@@ -138,6 +140,7 @@ export const DEFAULTS: Record<Action, Combo> = {
   zoomIn: { code: "Equal", mod: true },
   zoomOut: { code: "Minus", mod: true },
   viewGrid: { code: "KeyG" },
+  toggleReference: { code: "KeyR", shift: true },
   toggleFilmstrip: { code: "KeyF" },
   toggleFaces: { code: "Period" },
   toggleHistogram: { code: "KeyH" },
@@ -222,7 +225,8 @@ export function perform(action: Action): void {
     case "zoomCentre": return s.zoomCommand("face");
     case "zoomIn": return s.zoomCommand("in");
     case "zoomOut": return s.zoomCommand("out");
-    case "viewGrid": return s.set("viewMode", s.viewMode === "grid" ? "loupe" : "grid");
+    case "viewGrid": return s.set("viewMode", s.referenceIndex === null && s.viewMode === "grid" ? "loupe" : "grid");
+    case "toggleReference": return s.referenceIndex === null ? s.pinReference() : s.closeComparison();
     case "toggleFilmstrip": return s.toggle("showFilmstrip");
     case "toggleFaces": return s.toggle("showFaces");
     case "toggleHistogram": return s.toggle("showExif");
@@ -297,7 +301,7 @@ export function installShortcuts(bindings: () => Record<Action, Combo>, recordin
     if (e.type !== "keydown" || recording()) return;
     const s = useStore.getState();
     // A dialog is open, or someone is typing: keys belong to that.
-    if (s.overviewOpen || s.shortcutsOpen || s.settingsOpen || s.shipOpen || s.ingestOpen || s.notice || s.trashPending || s.updateOpen) return;
+    if (s.overviewOpen || s.shortcutsOpen || s.settingsOpen || s.shipOpen || s.ingestOpen || s.reviewFinishOpen || s.notice || s.trashPending || s.updateOpen) return;
 
     // Where every program on the system keeps its settings.
     if (e.code === "Comma" && (isMac ? e.metaKey : e.ctrlKey) && !e.altKey && !e.shiftKey) {
@@ -319,6 +323,12 @@ export function installShortcuts(bindings: () => Record<Action, Combo>, recordin
       return;
     }
 
+    if (e.code === "Escape" && s.referenceIndex !== null) {
+      e.preventDefault();
+      s.closeComparison();
+      return;
+    }
+
     const pressed = comboOf(e);
     const table = bindings();
     let action = (Object.keys(table) as Action[]).find((a) => sameCombo(table[a], pressed));
@@ -331,7 +341,7 @@ export function installShortcuts(bindings: () => Record<Action, Combo>, recordin
 
     e.preventDefault();
     // Held down, these would flip between fit and zoomed many times a second.
-    if (e.repeat && (action === "zoomToggle" || action === "zoomCentre")) return;
+    if (e.repeat && (action === "zoomToggle" || action === "zoomCentre" || action === "toggleReference")) return;
     perform(action);
   };
   window.addEventListener("keydown", onKey);

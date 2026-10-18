@@ -61,6 +61,8 @@ interface State {
   view: number[];
   /** The photo in the loupe, as an index into `photos`; -1 for none. */
   current: number;
+  /** Session-only reference; navigation and keyboard edits still target `current`. */
+  referenceIndex: number | null;
   /** Where a shift-click range starts from. */
   anchor: number;
   selected: Set<number>;
@@ -226,6 +228,8 @@ interface Actions {
   previous(): void;
   nextGroup(): void;
   previousGroup(): void;
+  pinReference(): void;
+  closeComparison(): void;
 
   setRating(rating: number, targets?: number[]): void;
   setFlag(flag: Flag, targets?: number[]): void;
@@ -659,6 +663,7 @@ export const useStore = create<Store>((set, get) => {
       order: now.order.filter((i) => !gone.has(i)),
       view: survivors,
       current,
+      referenceIndex: now.referenceIndex !== null && gone.has(now.referenceIndex) ? null : now.referenceIndex,
       anchor: Math.max(0, current),
       selected: new Set([...now.selected].filter((i) => !gone.has(i))),
       // Undoing a rating on a photo that has gone would recreate its sidecar
@@ -839,6 +844,7 @@ export const useStore = create<Store>((set, get) => {
     notice: null,
     trashPending: null,
     zoom: { kind: "toggle", nonce: 0 },
+    referenceIndex: null,
 
     recents: load<string[]>("recents", []),
     undoStack: [],
@@ -879,6 +885,7 @@ export const useStore = create<Store>((set, get) => {
         order: [],
         view: [],
         current: -1,
+        referenceIndex: null,
         selected: new Set(),
         metaProgress: 0,
         undoStack: [],
@@ -1010,7 +1017,7 @@ export const useStore = create<Store>((set, get) => {
       rememberPosition();
       set({ groupingRevision: get().groupingRevision + 1 });
       if (session.id >= 0) void api.closeFolder(session.id);
-      set({ session: null, review: null, reviewFinishOpen: false, reviewCopying: false, loading: false, photos: [], order: [], view: [], current: -1, selected: new Set(), trashPending: null, cropOpen: false, warmRemaining: 0, aiGroupingBusy: 0, aiGroupingError: null, ai: [], compared: [], ranks: [], poses: [], aiDone: 0, aiCached: 0, aiPending: null, aiRunning: false, faceZoom: null, hoveredFace: null });
+      set({ session: null, review: null, reviewFinishOpen: false, reviewCopying: false, loading: false, photos: [], order: [], view: [], current: -1, referenceIndex: null, selected: new Set(), trashPending: null, cropOpen: false, warmRemaining: 0, aiGroupingBusy: 0, aiGroupingError: null, ai: [], compared: [], ranks: [], poses: [], aiDone: 0, aiCached: 0, aiPending: null, aiRunning: false, faceZoom: null, hoveredFace: null });
     },
 
     reloadForSubfolders() {
@@ -1058,6 +1065,14 @@ export const useStore = create<Store>((set, get) => {
     },
     next: () => get().go(neighbour(1)),
     previous: () => get().go(neighbour(-1)),
+
+    pinReference() {
+      const s = get();
+      const photo = s.photos[s.current];
+      if (!s.session || s.loading || s.cropOpen || !photo || !s.order.includes(s.current) || isVideo(photo.path)) return;
+      set({ referenceIndex: s.current });
+    },
+    closeComparison: () => set({ referenceIndex: null }),
 
     nextGroup() {
       const s = get();
@@ -1214,7 +1229,7 @@ export const useStore = create<Store>((set, get) => {
       set({ sort, sortAscending, order, view: filtered(order, s.photos, s) });
     },
 
-    set: (key, value) => set({ [key]: value } as Pick<State, typeof key>),
+    set: (key, value) => set({ [key]: value, ...(key === "viewMode" ? { referenceIndex: null } : {}) } as Pick<State, typeof key>),
     toggle: (key) => set((s) => ({ [key]: !s[key] }) as Pick<State, typeof key>),
     zoomCommand: (kind) => set((s) => ({ zoom: { kind, nonce: s.zoom.nonce + 1 } })),
 
@@ -1300,7 +1315,7 @@ export const useStore = create<Store>((set, get) => {
         return;
       }
       // Cropping is done on the big photo, so that is where it goes.
-      set({ cropOpen: true, ...(s.viewMode === "grid" ? { viewMode: "loupe" as ViewMode } : {}), ...(at !== s.current ? { current: at, anchor: at, selected: new Set<number>() } : {}) });
+      set({ cropOpen: true, referenceIndex: null, ...(s.viewMode === "grid" ? { viewMode: "loupe" as ViewMode } : {}), ...(at !== s.current ? { current: at, anchor: at, selected: new Set<number>() } : {}) });
     },
 
     acceptCrop() {

@@ -16,6 +16,7 @@ import {
   PanelLeft,
   PanelRight,
   RectangleHorizontal,
+  Columns2,
   Send,
   Settings,
   Zap,
@@ -36,9 +37,10 @@ import { hasActiveFilter, useStore, speedCulling } from "@/lib/store";
 import { cn } from "@/lib/utils";
 import type { SortKey, ViewMode } from "@/lib/types";
 import { FilterBar } from "./FilterBar";
+import { isVideo } from "@/lib/media";
 
 /** A toolbar button with its name on hover. */
-function Tool({ label, active, onClick, children, className }: { label: string; active?: boolean; onClick?: () => void; children: ReactNode; className?: string }) {
+function Tool({ label, active, disabled, onClick, children, className }: { label: string; active?: boolean; disabled?: boolean; onClick?: () => void; children: ReactNode; className?: string }) {
   return (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -46,9 +48,10 @@ function Tool({ label, active, onClick, children, className }: { label: string; 
           type="button"
           aria-label={label}
           aria-pressed={active}
+          disabled={disabled}
           onClick={onClick}
           className={cn(
-            "flex size-8 shrink-0 items-center justify-center rounded-md transition-colors [&_svg]:size-[15px]",
+            "flex size-8 shrink-0 items-center justify-center rounded-md transition-colors disabled:opacity-40 focus-visible:outline-2 focus-visible:outline-ring [&_svg]:size-[15px]",
             active ? "bg-brand/15 text-brand" : "text-[var(--ui-text-737373)] hover:text-[var(--ui-text-b3b3b3)]",
             className,
           )}
@@ -88,6 +91,8 @@ export function Toolbar() {
   const kinds = useStore((s) => s.session?.fileKinds ?? "both");
   const platform = useStore((s) => s.platform);
   const viewMode = useStore((s) => s.viewMode);
+  const comparing = useStore((s) => s.referenceIndex !== null);
+  const photo = useStore((s) => s.photos[s.current]);
   const gridColumns = useStore((s) => s.gridColumns);
   const showFilterBar = useStore((s) => s.showFilterBar);
   const filtering = useStore(hasActiveFilter);
@@ -139,18 +144,24 @@ export function Toolbar() {
       )}
 
       <div className="flex shrink-0 overflow-hidden rounded-md bg-foreground/[0.07]">
-        <Mode mode="loupe" label="Loupe View" current={viewMode}>
+        <Mode mode="loupe" label="Loupe View" current={comparing ? null : viewMode}>
           <RectangleHorizontal className="fill-current" />
         </Mode>
-        <Mode mode="scene" label="Scene View — bursts and poses grouped" current={viewMode}>
+        <Mode mode="scene" label="Scene View — bursts and poses grouped" current={comparing ? null : viewMode}>
           <Layers />
         </Mode>
-        <Mode mode="grid" label="Grid View (G)" current={viewMode}>
+        <Mode mode="grid" label="Grid View (G)" current={comparing ? null : viewMode}>
           <LayoutGrid />
         </Mode>
       </div>
 
-      {viewMode === "grid" && (
+      <Tool label="Compare with reference (Shift+R)" active={comparing}
+        disabled={!comparing && (loading || cropOpen || !photo || isVideo(photo.path))}
+        onClick={() => comparing ? s.closeComparison() : s.pinReference()}>
+        <Columns2 />
+      </Tool>
+
+      {viewMode === "grid" && !comparing && (
         <>
           <Divider className="mx-2.5" />
           <Slider className="w-[70px] shrink-0" min={3} max={6} step={1} value={[gridColumns]} onValueChange={([v]) => s.set("gridColumns", v)} />
@@ -221,7 +232,7 @@ export function Toolbar() {
   );
 }
 
-function Mode({ mode, label, current, children }: { mode: ViewMode; label: string; current: ViewMode; children: ReactNode }) {
+function Mode({ mode, label, current, children }: { mode: ViewMode; label: string; current: ViewMode | null; children: ReactNode }) {
   return (
     <Tooltip>
       <TooltipTrigger asChild>
