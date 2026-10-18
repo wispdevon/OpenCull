@@ -449,7 +449,7 @@ export async function runSelfTest(folder: string): Promise<void> {
         s().closeComparison();
         await until(() => !pane(), "comparison to close");
         if (s().viewMode !== "grid" || s().current !== stills[1]) throw new Error("comparison did not restore the workspace");
-        say("reference comparison: native previews, pinned navigation, independent zoom and workspace restore ok; no marks written");
+        say("reference comparison: native previews, pinned navigation, reference zoom and workspace restore ok; no marks written");
       } finally {
         s().closeComparison();
         s().set("viewMode", previous.mode);

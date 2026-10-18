@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { isVideo } from "@/lib/media";
 import { useStore, type ZoomCommand } from "@/lib/store";
 import { Loupe, StillCanvas } from "./Loupe";
+import { ComparisonZoom } from "./ComparisonZoom";
 
 /** A fixed reference beside the normal current-photo loupe. */
 export function ReferenceView() {
@@ -14,9 +15,9 @@ export function ReferenceView() {
   if (!reference) return <Loupe />;
 
   return (
-    <div className="flex size-full flex-col bg-canvas">
+    <ComparisonZoom><div className="flex size-full flex-col bg-canvas">
       <div className="flex shrink-0 flex-wrap items-center justify-between gap-1 border-b border-border bg-panel px-2 py-1">
-        <span className="text-xs text-muted-foreground">Browse and mark the current photo. Zoom each photo independently.</span>
+        <span className="text-xs text-muted-foreground">Browse and mark the current photo. Zoom and pan are linked.</span>
         <Button type="button" variant="ghost" size="sm" onClick={() => useStore.getState().closeComparison()}>
           <X aria-hidden="true" /> Close comparison
         </Button>
@@ -51,6 +52,6 @@ export function ReferenceView() {
           </div>
         </section>
       </div>
-    </div>
+    </div></ComparisonZoom>
   );
 }

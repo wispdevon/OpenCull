@@ -1,5 +1,5 @@
 import { PhotoTransition } from "./InterfaceMotion";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { Flag, Loader2, X } from "lucide-react";
 
 import { api, bucket, FIT_SIZES } from "@/lib/api";
@@ -18,6 +18,8 @@ import { isVideo } from "@/lib/media";
 import { VideoPlayer } from "./VideoPlayer";
 import { PhotoMenu } from "./PhotoMenu";
 import { FaceOverlays } from "./FaceOverlays";
+import { useComparisonZoom, type ComparisonMove } from "./ComparisonZoom";
+import { shareZoom, receiveZoom } from "@/lib/comparison-zoom";
 
 /** Zoom and pan: how many times larger than fit, and how far off centre. */
 interface Zoom {
@@ -151,6 +153,9 @@ function Canvas({ photo }: { photo: Photo }) {
 }
 
 export function StillCanvas({ photo, reference = false, zoomRequest }: { photo: Photo; reference?: boolean; zoomRequest?: ZoomCommand }) {
+  const linked = useComparisonZoom();
+  const source = useId();
+  const receiving = useRef(false);
   const frame = useRef<HTMLDivElement>(null);
   const sheet = useRef<HTMLDivElement>(null);
   const [box, setBox] = useState({ w: 0, h: 0 });
@@ -290,7 +295,21 @@ export function StillCanvas({ photo, reference = false, zoomRequest }: { photo: 
    */
   const loose = (z: Zoom) => within(z, box.w / 2, box.h / 2);
   const level = (scale: number) => Math.max(1, Math.min(MAX_ZOOM, scale));
-  const settled = (z: Zoom): Zoom => (z.scale <= 1.001 ? FIT : z);
+  const settled = (z: Zoom): Zoom => {
+    if (z.scale <= 1.001) return FIT;
+    if (!linked) return z;
+    // Keep the centre over the photo so linked positions remain reachable
+    // even when one image is much narrower than the other.
+    return { scale: z.scale,
+      x: Math.max(-shown.w * z.scale / 2, Math.min(shown.w * z.scale / 2, z.x)),
+      y: Math.max(-shown.h * z.scale / 2, Math.min(shown.h * z.scale / 2, z.y)) };
+  };
+
+  const publish = (z: Zoom, motion: ComparisonMove["motion"], ms = 0) => {
+    if (!linked || receiving.current) return;
+    const viewport = shareZoom(settled(z), shown);
+    if (viewport) linked.publish({ viewport, source, motion, ms });
+  };
 
   /** Redraws the picture at the size it has reached, once `ms` have passed. */
   const sharpenAfter = (ms: number) => {
@@ -307,6 +326,7 @@ export function StillCanvas({ photo, reference = false, zoomRequest }: { photo: 
     setGlide(ms);
     setZoom(settled(z));
     sharpenAfter(ms + 40);
+    publish(z, "glide", ms);
   };
   /**
    * Glides out to a smaller size.
@@ -328,6 +348,7 @@ export function StillCanvas({ photo, reference = false, zoomRequest }: { photo: 
     setGlide(0);
     setDrawnAt(to.scale);
     setLeaving({ to, ms });
+    publish(to, "glide", ms);
   };
   // The second half of that, before anything is painted: the view is made to
   // take in where the stretched picture starts from, which is what it then
@@ -351,6 +372,7 @@ export function StillCanvas({ photo, reference = false, zoomRequest }: { photo: 
     setGlide(0);
     setZoom(settled(z));
     sharpenAfter(SHARPEN_MS);
+    publish(z, "stretch");
   };
   /**
    * Slides the picture without changing its size. `held` while a button is
@@ -360,10 +382,42 @@ export function StillCanvas({ photo, reference = false, zoomRequest }: { photo: 
   const panTo = (z: Zoom, held: boolean) => {
     setGlide(0);
     setMoving(true);
-    setZoom(z);
+    setZoom(settled(z));
     if (held) window.clearTimeout(rest.current);
     else sharpenAfter(SHARPEN_MS);
+    publish(z, "pan");
   };
+
+  // Replay user moves, never echo them. A new photo or resized pane adopts
+  // the shared enlargement and relative centre without animating from fit.
+  const geometry = `${photo.display}:${photo.version}:${framed}:${shown.w}:${shown.h}:${actual}`;
+  const applied = useRef<{ geometry: string; move: ComparisonMove | null } | null>(null);
+  useLayoutEffect(() => {
+    const move = linked?.move ?? null;
+    const previous = applied.current;
+    applied.current = { geometry, move };
+    if (!move || shown.w <= 0 || shown.h <= 0) return;
+    const changed = previous?.geometry !== geometry;
+    if (!changed && (move.source === source || previous?.move === move)) return;
+    const z = loose(receiveZoom(move.viewport, shown));
+    receiving.current = true;
+    try {
+      if (changed) {
+        window.clearTimeout(rest.current);
+        setZoom(z);
+        setGlide(0);
+        setDrawnAt(null);
+        setLeaving(null);
+        setMoving(false);
+      } else if (move.motion === "glide") {
+        if (z.scale < now.current.scale) shrinkTo(z, move.ms);
+        else glideTo(z, move.ms);
+      } else if (move.motion === "stretch") stretchTo(z);
+      else panTo(z, false);
+    } finally {
+      receiving.current = false;
+    }
+  }, [linked?.move, geometry]);
 
   /** The spot of the photo under the middle of the frame, as a fraction of its size. */
   const spotOf = (z: Zoom) => ({ x: 0.5 - z.x / (shown.w * z.scale), y: 0.5 - z.y / (shown.h * z.scale) });
