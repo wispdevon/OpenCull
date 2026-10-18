@@ -10,6 +10,7 @@
 import { api, bucket, FIT_SIZES, THUMB_SIZES } from "./api";
 import { hold, isHeld } from "./held";
 import { groupOf, useStore } from "./store";
+import { isVideo } from "./media";
 import type { AiResult } from "./types";
 
 const say = (line: string) => api.report(`selftest: ${line}`);
@@ -424,6 +425,37 @@ export async function runSelfTest(folder: string): Promise<void> {
     }
     say(`navigation ${moved ? "moves" : "DOES NOT MOVE"}; histogram ok`);
     if (!moved) throw new Error("the arrow keys' action did not change the photo");
+
+    // Exercise both mounted canvases in the native webview without marking
+    // anything or writing into the shoot used by the self-test.
+    const stills = s().view.filter((i) => !isVideo(s().photos[i].path)).slice(0, 2);
+    if (stills.length === 2) {
+      const previous = { current: s().current, mode: s().viewMode };
+      try {
+        s().set("viewMode", "grid");
+        s().go(stills[0]);
+        s().pinReference();
+        s().go(stills[1]);
+        const pane = () => document.querySelector('[aria-label="Reference photo"]');
+        await until(() => !!pane() && !!document.querySelector('[aria-label="Current photo"]'), "comparison panes");
+        // The self-test window is one pixel wide, so canvases may round down
+        // to zero width. Decode both native previews directly in this view.
+        await Promise.all(stills.map((i) => load(api.url("fit", s().photos[i], size))));
+        if (s().referenceIndex !== stills[0] || s().current !== stills[1]) throw new Error("comparison navigation moved the reference");
+        const zoom = pane()!.querySelector<HTMLButtonElement>('[aria-label="Toggle reference zoom"]');
+        if (!zoom) throw new Error("reference zoom control is missing");
+        zoom.click();
+        await until(() => /\d+%/.test(pane()?.textContent ?? ""), "reference zoom");
+        s().closeComparison();
+        await until(() => !pane(), "comparison to close");
+        if (s().viewMode !== "grid" || s().current !== stills[1]) throw new Error("comparison did not restore the workspace");
+        say("reference comparison: native previews, pinned navigation, independent zoom and workspace restore ok; no marks written");
+      } finally {
+        s().closeComparison();
+        s().set("viewMode", previous.mode);
+        s().go(previous.current);
+      }
+    }
 
     await (await import("./linux-features.selftest")).checkLinuxFeatures(folder, scratch);
     say("PASSED");

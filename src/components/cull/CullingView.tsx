@@ -14,6 +14,7 @@ import { Loupe } from "./Loupe";
 import { SceneOverview, SceneView } from "./SceneView";
 import { Toolbar } from "./Toolbar";
 import { AiAccelerationError } from "./AiAccelerationError";
+import { ReferenceView } from "./ReferenceView";
 
 /** How narrow and how wide each side panel may be, as a share of the workspace. */
 const PANEL_LIMITS = {
@@ -38,6 +39,7 @@ const held = (panel: PanelWidth, width: number) => `clamp(${PANEL_LIMITS[panel].
 /** The main workspace: toolbar, photo, filmstrip. */
 export function CullingView() {
   const viewMode = useStore((s) => s.viewMode);
+  const comparing = useStore((s) => s.referenceIndex !== null);
   const showExif = useStore((s) => s.showExif);
   const showFilmstrip = useStore(filmstripVisible);
   const showFaces = useStore((s) => s.showFaces);
@@ -55,7 +57,7 @@ export function CullingView() {
       <div className="flex min-h-0 flex-1">
         {empty ? (
           <EmptyFolder />
-        ) : viewMode === "grid" ? (
+        ) : viewMode === "grid" && !comparing ? (
           <div className="min-w-0 flex-1">
             <Grid />
           </div>
@@ -70,7 +72,7 @@ export function CullingView() {
             )}
             {showExif && <PanelHandle panel="exifPanelWidth" direction={1} />}
             <div className="min-w-0 flex-1 overflow-hidden">
-              {viewMode === "scene" ? <SceneView /> : <Loupe />}
+              {comparing ? <ReferenceView /> : viewMode === "scene" ? <SceneView /> : <Loupe />}
             </div>
             {showFaces && <PanelHandle panel="facePanelWidth" direction={-1} />}
             {(
@@ -83,9 +85,9 @@ export function CullingView() {
           </>
         )}
       </div>
-      {(viewMode === "loupe" || viewMode === "scene") && !empty && (
+      {(comparing || viewMode === "loupe" || viewMode === "scene") && !empty && (
         <MotionRegion open={showFilmstrip}><div className="border-t border-[var(--ui-line-333333)]">
-          {viewMode === "scene" ? <SceneOverview /> : <Filmstrip />}
+          {viewMode === "scene" && !comparing ? <SceneOverview /> : <Filmstrip />}
         </div></MotionRegion>
       )}
     </div>
