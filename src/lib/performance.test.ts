@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { diagnosticReport, ntfySummary, rankedStages, recommendations, summarizeStage, type BenchmarkReport, type StageMeasurement } from "./performance";
+import { diagnosticReport, ntfySummary, rankedStages, recommendations, stageScoreMs, summarizeStage, type BenchmarkReport, type StageMeasurement } from "./performance";
 
 const stage = (values: number[], extra: Partial<StageMeasurement> = {}): StageMeasurement => ({
   id: "preview.fit.cold", label: "Fit preview", category: "preview", cache: "cold", samplesMs: values,
@@ -12,6 +12,16 @@ export const exampleReport = (stages: StageMeasurement[] = []): BenchmarkReport 
 });
 
 describe("performance reports", () => {
+  it("scores average milliseconds per run, independently of median and repeat count", () => {
+    const summary = summarizeStage(stage([10, 10, 100, NaN, -1]));
+    expect(stageScoreMs(summary)).toBe(40);
+    expect(summary.medianMs).toBe(10);
+    expect(stageScoreMs(summarizeStage(stage([10, 10, 100, 10, 10, 100])))).toBe(40);
+    expect(stageScoreMs(summarizeStage(stage([])))).toBeNull();
+    const report = exampleReport([stage([10, 10, 100]), stage([30, 30, 30], { id: "steady" })]);
+    expect(rankedStages(report, "score")[0].id).toBe("preview.fit.cold");
+    expect(rankedStages(report, "latency")[0].id).toBe("steady");
+  });
   it("keeps notification previews to three stages and one short suggestion", () => {
     const report = diagnosticReport(exampleReport(Array.from({ length: 5 }, (_, i) => stage([100 + i], { id: `test-${i}`, label: `Stage ${i}` }))));
     report.environment.cpu = "CPU should stay out of the short message";

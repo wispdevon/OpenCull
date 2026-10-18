@@ -30,7 +30,7 @@ macOS automatically uses the Homebrew libjpeg-turbo configuration. Do not set Li
 - Settings → Design: choose colour mode, font and interface scale (80–200%).
 - Settings → Layout: default/remembered view and panel visibility. Stack view puts groups in the full-width bottom row and active stack frames above. Drag each strip's top edge to resize; F hides both stack strips. Resize edges support arrow keys as well.
 - Settings → Culling → Experimental Features: native-aspect strips, including the stack overview; decoded JPEG dimensions allow early sizing before complete metadata.
-- Settings → Zoom → Experimental Features: eased click zoom. This affects motion curves, not the speed of CPU image decoding.
+- Settings → Layout → Zoom → Experimental Features: eased click zoom. This affects motion curves, not the speed of CPU image decoding.
 - Select one recent item to reveal bulk controls. Deleting a session removes saved review history, never source photos.
 
 Use a copy of a small shoot for an initial trial. `npm run check` runs frontend tests/build and Rust tests. Update with `git pull --ff-only`, `npm ci`, then `npm run desktop`.

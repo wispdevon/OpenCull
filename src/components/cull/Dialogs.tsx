@@ -10,7 +10,7 @@ import { ThemeSettings } from "@/components/ThemeSettings";
 import { ViewModeSettings } from "@/components/ViewModeSettings";
 import { Activity, ChartColumn, Funnel, Info, Palette, PanelBottom, PanelLeft, PanelRight, PanelsTopLeft } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { HardDrive, Keyboard, ScanFace, Star, ZoomIn, type LucideIcon } from "lucide-react";
+import { HardDrive, Keyboard, ScanFace, Star, type LucideIcon } from "lucide-react";
 import { GraphicsSettings } from "@/components/GraphicsSettings";
 import { PerformanceSettings } from "@/components/PerformanceSettings";
 
@@ -207,12 +207,11 @@ export function SettingsDialog(props: ShortcutEditorProps) {
 /** How long the cache limit is left alone before it is acted on. */
 const LIMIT_SETTLE_MS = 800;
 
-type SettingsTab = "design" | "layout" | "culling" | "zoom" | "ai" | "performance" | "storage" | "keyboard";
+type SettingsTab = "design" | "layout" | "culling" | "ai" | "performance" | "storage" | "keyboard";
 const SETTINGS_TABS: [SettingsTab, string, LucideIcon][] = [
   ["culling", "Culling", Star],
   ["design", "Design", Palette],
   ["layout", "Layout", PanelsTopLeft],
-  ["zoom", "Zoom", ZoomIn],
   ["ai", "AI", ScanFace],
   ["performance", "Performance", Activity],
   ["storage", "Storage", HardDrive],
@@ -287,6 +286,17 @@ function SettingsBody({ tab, onTab, ...shortcutProps }: { tab: SettingsTab; onTa
   );
   const boxKey = isMac ? "⌘ Command" : "Ctrl";
 
+  useEffect(() => {
+    if (tab !== "layout") return;
+    const normalize = (key: "filmstripHeight" | "exifPanelWidth" | "facePanelWidth", value: number, min: number, max: number) => {
+      const rounded = Math.min(max, Math.max(min, Math.round(value / 10) * 10));
+      if (rounded !== value) set(key, rounded);
+    };
+    normalize("filmstripHeight", s.filmstripHeight, 80, 300);
+    normalize("exifPanelWidth", s.exifPanelWidth, 160, 640);
+    normalize("facePanelWidth", s.facePanelWidth, 160, 800);
+  }, [tab, s.filmstripHeight, s.exifPanelWidth, s.facePanelWidth]);
+
   return (
     <Tabs className="settings-panel min-h-0" value={tab} onValueChange={(to) => onTab(to as SettingsTab)}>
       <TabsList className="shrink-0 flex-wrap">
@@ -299,7 +309,7 @@ function SettingsBody({ tab, onTab, ...shortcutProps }: { tab: SettingsTab; onTa
       </TabsList>
       {/* One height for every tab, so the window does not jump about as
           they are stepped through; a tab with more than fits scrolls. */}
-      <div className="h-[min(560px,calc(100dvh-12rem))] min-h-0 overflow-x-hidden overflow-y-auto pr-1">
+      <div className="h-[min(560px,calc(100dvh-12rem))] settings-scroll min-h-0 overflow-x-hidden overflow-y-auto">
         <TabsContent value="design" className="flex flex-col gap-4">
           <InterfaceMotionSettings />
           <HomeLayoutSettings />
@@ -326,16 +336,55 @@ function SettingsBody({ tab, onTab, ...shortcutProps }: { tab: SettingsTab; onTa
               ))}
             </div>
           </fieldset>
-          {([
-            ["filmstripHeight", "Filmstrip height", 80, 300],
-            ["exifPanelWidth", "EXIF panel width", 160, 640],
-            ["facePanelWidth", "Face panel width", 160, 800],
-          ] as const).map(([key, title, min, max]) => (
-            <Setting key={key} title={title} detail="Pixels; side panels are constrained to fit the window. Dragging a panel updates this setting too."
-              control={<label className="flex items-center gap-2"><input aria-label={title} type="range" min={min} max={max} step={1}
-                value={s[key]} onChange={(e) => set(key, Number(e.target.value))} className="w-24 accent-primary" />
-                <output className="w-8 text-right text-xs">{s[key]}</output></label>} />
-          ))}
+          <fieldset className="rounded-md border border-border p-3">
+            <legend className="px-1">Panel size</legend>
+            <div className="divide-y divide-border">
+              {([
+                ["filmstripHeight", "Filmstrip height", 80, 300, PanelBottom],
+                ["exifPanelWidth", "EXIF panel width", 160, 640, PanelLeft],
+                ["facePanelWidth", "Face panel width", 160, 800, PanelRight],
+              ] as const).map(([key, title, min, max, Icon]) => {
+                const id = `panel-size-${key}`;
+                return (
+                  <div key={key} className="grid min-h-11 grid-cols-[minmax(0,1fr)_auto] items-center gap-4 py-2">
+                    <label htmlFor={id} className="flex items-center gap-2 text-sm">
+                      <Icon aria-hidden="true" className="size-4 shrink-0" />
+                      {title}
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <input id={id} aria-label={title} type="range" min={min} max={max} step={10}
+                        value={s[key]} onChange={(e) => set(key, Number(e.target.value))} className="w-24 accent-primary" />
+                      <output htmlFor={id} className="w-8 text-right text-xs">{s[key]}</output>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </fieldset>
+          <section className="space-y-4" aria-labelledby="layout-zoom-heading">
+            <h3 id="layout-zoom-heading" className="text-sm font-semibold">Zoom</h3>
+            <ExperimentalZoomSettings />
+            <Setting
+              title="Prefer highest-scoring face"
+              detail="Face zoom targets the sharpest scored main subject when enabled; otherwise it uses the first visible main subject. With no detected face, it uses the centre. Press again to return to fit. Follows Zoom to face if you rebind Space."
+              control={toggle("spaceZoomToFace", "Prefer highest-scoring face")}
+            />
+            <Setting
+              title="Keep zoom between photos"
+              detail="Holds the zoom and the spot you are looking at as you move through a folder, so focus can be checked on the same face across a burst. Turn off to return to the whole frame on every photo."
+              control={toggle("keepZoom")}
+            />
+            <Setting
+              title="Instant 100% zoom"
+              detail="Fetches the full-size picture as soon as you stop on a photo, so zooming in is sharp at once and not a moment later. Moving between photos is unaffected."
+              control={toggle("instantZoom")}
+            />
+            <Setting
+              title="Zoom to a box"
+              detail={`Hold ${boxKey} and drag a box over the photo to zoom into just that part.`}
+              control={<span className="text-xs text-[var(--ui-text-808080)]">{isMac ? "⌘ drag" : "Ctrl + drag"}</span>}
+            />
+          </section>
         </TabsContent>
         <TabsContent value="culling" className="space-y-4">
           <ExperimentalFilmstripSettings />
@@ -442,29 +491,6 @@ function SettingsBody({ tab, onTab, ...shortcutProps }: { tab: SettingsTab; onTa
                 {toggle("checkForUpdates")}
               </div>
             }
-          />
-        </TabsContent>
-        <TabsContent value="zoom" className="space-y-4">
-          <ExperimentalZoomSettings />
-          <Setting
-            title="Prefer highest-scoring face"
-            detail="Face zoom targets the sharpest scored main subject when enabled; otherwise it uses the first visible main subject. With no detected face, it uses the centre. Press again to return to fit. Follows Zoom to face if you rebind Space."
-            control={toggle("spaceZoomToFace", "Prefer highest-scoring face")}
-          />
-          <Setting
-            title="Keep zoom between photos"
-            detail="Holds the zoom and the spot you are looking at as you move through a folder, so focus can be checked on the same face across a burst. Turn off to return to the whole frame on every photo."
-            control={toggle("keepZoom")}
-          />
-          <Setting
-            title="Instant 100% zoom"
-            detail="Fetches the full-size picture as soon as you stop on a photo, so zooming in is sharp at once and not a moment later. Moving between photos is unaffected."
-            control={toggle("instantZoom")}
-          />
-          <Setting
-            title="Zoom to a box"
-            detail={`Hold ${boxKey} and drag a box over the photo to zoom into just that part.`}
-            control={<span className="text-xs text-[var(--ui-text-808080)]">{isMac ? "⌘ drag" : "Ctrl + drag"}</span>}
           />
         </TabsContent>
         <TabsContent value="ai" className="space-y-4">

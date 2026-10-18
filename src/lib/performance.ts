@@ -52,9 +52,14 @@ export function summarizeStage(stage: StageMeasurement): StageSummary {
   };
 }
 
-export function rankedStages(report: BenchmarkReport, by: "total" | "latency"): StageSummary[] {
+/** Arithmetic mean in milliseconds per sampled run. */
+export function stageScoreMs(stage: Pick<StageSummary, "totalMs" | "count">): number | null {
+  return stage.count > 0 && Number.isFinite(stage.count) && Number.isFinite(stage.totalMs) ? stage.totalMs / stage.count : null;
+}
+
+export function rankedStages(report: BenchmarkReport, by: "total" | "latency" | "score"): StageSummary[] {
   return report.stages.map(summarizeStage).filter((s) => s.count > 0 && s.status !== "skipped")
-    .sort((a, b) => (by === "total" ? b.totalMs - a.totalMs : b.medianMs - a.medianMs) || a.id.localeCompare(b.id));
+    .sort((a, b) => (by === "total" ? b.totalMs - a.totalMs : by === "score" ? stageScoreMs(b)! - stageScoreMs(a)! : b.medianMs - a.medianMs) || a.id.localeCompare(b.id));
 }
 
 export function recommendations(report: BenchmarkReport): Recommendation[] {

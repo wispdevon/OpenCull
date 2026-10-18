@@ -41,12 +41,18 @@ describe("benchmark interpretation", () => {
     expect(interpretStage(stage("ai-result-cache-load"), report)).toMatchObject({ throughputUnit: "records", workload: expect.stringContaining("no image decode or inference") });
     expect(interpretStage(stage("session-history"), report).workload).toContain("no photos processed");
   });
-  it("rates median latency rather than cumulative time and handles budget boundaries", () => {
+  it("rates average latency rather than cumulative time and handles budget boundaries", () => {
     expect(interpretStage(stage("image-decode", 150), report).assessment).toBe("good");
     expect(interpretStage(stage("image-decode", 151), report).assessment).toBe("watch");
     expect(interpretStage(stage("image-decode", 750), report).assessment).toBe("alarming");
     expect(interpretStage(stage("preview-fit-warm", 50), report).assessment).toBe("alarming");
     expect(interpretStage(stage("advanced-face-cold", 50), report).assessment).toBe("good");
+  });
+  it("includes slow outliers in the score rating even when the typical run is fast", () => {
+    const samples = summarizeStage({ id: "portrait-orientation", label: "Portrait", category: "decode", cache: "none",
+      samplesMs: [100, 100, 3_000], units: 3, bytes: 0, failures: 0, status: "passed", detail: null });
+    expect(samples.medianMs).toBe(100);
+    expect(interpretStage(samples, report).assessment).toBe("alarming");
   });
   it("flags reliability independently and explains tentative and tail-latency readings", () => {
     expect(interpretStage({ ...stage("image-decode"), failures: 1 }, report).assessment).toBe("failed");

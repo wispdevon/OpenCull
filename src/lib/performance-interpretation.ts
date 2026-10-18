@@ -1,4 +1,5 @@
 import type { BenchmarkReport, StageSummary } from "./performance";
+import { stageScoreMs } from "./performance";
 
 export interface StageInterpretation {
   workload: string;
@@ -96,16 +97,17 @@ export function interpretStage(stage: StageSummary, report: BenchmarkReport): St
       basis = `per ${task}`;
     }
     const budget = BUDGETS[stage.id];
-    if (budget && stage.count > 0 && stage.status !== "skipped") {
+    const score = stageScoreMs(stage);
+    if (budget && score !== null && stage.status !== "skipped") {
       result.guidance = { goodMs: budget[0], alarmingMs: budget[1], basis };
-      result.assessment = stage.medianMs >= budget[1] ? "alarming" : stage.medianMs <= budget[0] ? "good" : "watch";
+      result.assessment = score >= budget[1] ? "alarming" : score <= budget[0] ? "good" : "watch";
       result.explanation = result.assessment === "alarming"
-        ? "Typical latency exceeds this rough investigation budget. Repeat while idle, then profile this stage."
-        : result.assessment === "good" ? "Typical latency is within this rough fixture budget."
+        ? "The average exceeds this rough investigation budget. Repeat while idle, then profile this stage."
+        : result.assessment === "good" ? "The average is within this rough fixture budget."
         : "Between the rough targets; compare idle repeat runs before treating this as a problem.";
       if (stage.count < 5) result.explanation += " Fewer than 5 samples: tentative reading.";
       if (stage.p95Ms !== null && stage.p95Ms >= budget[1] && result.assessment !== "alarming") {
-        result.explanation += " P95 reaches the investigation threshold even though the median does not; check occasional stalls.";
+        result.explanation += " P95 reaches the investigation threshold even though the average does not; check occasional stalls.";
       }
     }
   }

@@ -14,6 +14,7 @@ import {
 import {
   diagnosticReport,
   rankedStages,
+  stageScoreMs,
   recommendations,
   type BenchmarkMode,
   type BenchmarkReport,
@@ -48,7 +49,7 @@ export function PerformanceSettings() {
   const statusRef = useRef(status);
   const refreshInFlight = useRef(false);
   const [report, setReport] = useState<BenchmarkReport | null>(() => getLatestReport());
-  const [rankBy, setRankBy] = useState<"total" | "latency">("total");
+  const [rankBy, setRankBy] = useState<"score" | "latency">("score");
   const [recording, setRecording] = useState(() => performanceApi.isRecording());
   const [reporting, setReporting] = useState(() => performanceApi.reportingState());
   const [systemId] = useState(() => getSystemId());
@@ -491,9 +492,9 @@ function ReportResults({
   report: BenchmarkReport;
   ranked: StageSummary[];
   totalRanked: StageSummary[];
-  rankBy: "total" | "latency";
+  rankBy: "score" | "latency";
   suggestions: Recommendation[];
-  onRankBy: (by: "total" | "latency") => void;
+  onRankBy: (by: "score" | "latency") => void;
   onExport: () => void;
 }) {
   const durationMs = Math.max(0, report.finishedAtMs - report.startedAtMs);
@@ -521,10 +522,10 @@ function ReportResults({
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h3 className="text-xs font-semibold">Measured stages</h3>
-            <p className="mt-0.5 text-[11px] text-muted-foreground">Typical is the median per run. Total includes all repeats.</p>
+            <p className="mt-0.5 text-[11px] text-muted-foreground">Typical: median · Score: average per run. Lower is faster.</p>
           </div>
           <div className="flex gap-1" role="group" aria-label="Rank stages by">
-            <Button size="sm" variant={rankBy === "total" ? "secondary" : "ghost"} aria-pressed={rankBy === "total"} onClick={() => onRankBy("total")}>Total cost</Button>
+            <Button size="sm" variant={rankBy === "score" ? "secondary" : "ghost"} aria-pressed={rankBy === "score"} onClick={() => onRankBy("score")}>Score</Button>
             <Button size="sm" variant={rankBy === "latency" ? "secondary" : "ghost"} aria-pressed={rankBy === "latency"} onClick={() => onRankBy("latency")}>Typical latency</Button>
           </div>
         </div>
@@ -579,7 +580,7 @@ function StageTableHead() {
       <tr className="border-b border-border">
         <th scope="col" className="py-2 pr-3 font-medium">Stage</th>
         <th scope="col" className="px-2 py-2 text-right font-medium" title="Median time for one run">Typical</th>
-        <th scope="col" className="pl-2 py-2 text-right font-medium">Total</th>
+        <th scope="col" className="pl-2 py-2 text-right font-medium" title="Average milliseconds per run: sum of sample times divided by sample count">Score</th>
       </tr>
     </thead>
   );
@@ -685,8 +686,14 @@ function InterpretationGuide({ report }: { report: BenchmarkReport }) {
 function StageRow({ stage, report, detail, rank }: { stage: StageSummary; report: BenchmarkReport; detail: string | null; rank: number }) {
   const interpretation = interpretStage(stage, report);
   const assessmentLabels = { good: "Good", watch: "Watch", alarming: "Alarming", failed: "Failed", unrated: "Unrated" };
-  const failed = interpretation.assessment === "failed";
-  const concern = failed || interpretation.assessment === "alarming";
+  const ratingStyles = {
+    good: "bg-performance-good/10 text-performance-good",
+    watch: "bg-performance-watch/10 text-performance-watch",
+    alarming: "bg-performance-bad/10 text-performance-bad",
+    failed: "bg-performance-bad/10 text-performance-bad",
+    unrated: "bg-muted text-muted-foreground",
+  };
+  const score = stageScoreMs(stage);
   return (
     <tr id={`performance-stage-${stage.id}`} className="border-b border-border/60 align-top last:border-0">
       <th scope="row" className="w-full py-3 pr-3 font-medium">
@@ -695,7 +702,7 @@ function StageRow({ stage, report, detail, rank }: { stage: StageSummary; report
         {stage.label}
         <span className="mt-1 block font-normal text-muted-foreground">{compactWorkload(stage, report)}</span>
         <span className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] font-normal">
-          <span className={`rounded px-1.5 py-0.5 font-medium ${concern ? "bg-destructive/10 text-destructive" : "bg-muted text-muted-foreground"}`}>{assessmentLabels[interpretation.assessment]}</span>
+          <span className={`rounded px-1.5 py-0.5 font-medium ${ratingStyles[interpretation.assessment]}`}>{assessmentLabels[interpretation.assessment]}</span>
           {interpretation.guidance && <span className="text-muted-foreground">Target ≤ {formatDuration(interpretation.guidance.goodMs)} · investigate ≥ {formatDuration(interpretation.guidance.alarmingMs)}</span>}
           {stage.failures > 0 && <span className="text-destructive">{stage.failures} failed</span>}
         </span>
@@ -718,8 +725,8 @@ function StageRow({ stage, report, detail, rank }: { stage: StageSummary; report
           </div>
         </details>
       </th>
-      <td className="whitespace-nowrap px-2 py-3 text-right tabular-nums">{formatDuration(stage.medianMs)}</td>
-      <td className="whitespace-nowrap pl-2 py-3 text-right tabular-nums">{formatDuration(stage.totalMs)}</td>
+      <td className="whitespace-nowrap px-2 py-3 text-right tabular-nums">{formatMs(stage.medianMs)}</td>
+      <td className="whitespace-nowrap pl-2 py-3 text-right tabular-nums">{score === null ? "—" : formatMs(score)}</td>
     </tr>
   );
 }

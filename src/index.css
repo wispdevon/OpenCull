@@ -13,6 +13,9 @@
     --color-input: var(--input);
     --color-border: var(--border);
     --color-destructive: var(--destructive);
+    --color-performance-good: var(--performance-good);
+    --color-performance-watch: var(--performance-watch);
+    --color-performance-bad: var(--performance-bad);
     --color-accent-foreground: var(--accent-foreground);
     --color-accent: var(--accent);
     --color-muted-foreground: var(--muted-foreground);
@@ -55,6 +58,10 @@
     --accent: #2a2a36;
     --accent-foreground: #f2f2f2;
     --destructive: #f27373;
+    /* Lospec500 status colors, independent of function identity swatches. */
+    --performance-good: #9de64e;
+    --performance-watch: #f3a833;
+    --performance-bad: #fa6e79;
     --border: #2e2e2e;
     --input: #3a3a44;
     --ring: #59a6ff;
@@ -76,6 +83,12 @@
     --opencull-green: #33cc59;
     --opencull-blue: #338cf2;
     --opencull-purple: #a64df2;
+}
+
+[data-theme="light"] {
+    --performance-good: #006554;
+    --performance-watch: #6e4c30;
+    --performance-bad: #ac2847;
 }
 
 @theme inline {
@@ -135,6 +148,13 @@
 /* Settings use reading sizes, rather than the compact photo-overlay type scale.
    Keep native font rasterization: forced grayscale smoothing can thin small type. */
 .settings-panel.settings-panel { font-size: 0.875rem; line-height: 1.5; }
+/* Padding also protects controls when the platform uses overlay scrollbars. */
+.settings-scroll {
+    padding: 1rem 1rem 1rem 0.25rem;
+    scrollbar-gutter: stable;
+    overscroll-behavior: contain;
+    scroll-padding-block: 1rem;
+}
 .settings-panel.settings-panel fieldset,
 .settings-panel.settings-panel .setting-row { padding: 1.25rem; }
 .settings-panel.settings-panel fieldset { padding-top: 0.75rem; }

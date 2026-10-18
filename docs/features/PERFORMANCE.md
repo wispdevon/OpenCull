@@ -24,13 +24,14 @@ crop sidecars; ingest and Ship copying; cache trimming; saved-session storage;
 saved-analysis cache writes/hits, foreground previews during observed background
 work, and selected frontend logic. Each stage explains its workload and limits.
 
-**Total cost** ranks cumulative time across samples; **Typical latency** ranks
-the median sample. These are separate from elapsed run time, which includes
+**Score** is the arithmetic mean per run: total sample time divided by the
+number of samples. **Typical** is the median. Both columns use milliseconds;
+lower is faster. Results can be ranked by either value. These are separate from elapsed run time, which includes
 fixture preparation and cleanup. Throughput uses all successfully measured work.
 P95 is shown only for 20 or more samples. Expensive model stages use fewer
 samples. Failures have counts; raw exception messages are omitted.
 
-Stage rows show a short workload, rating, typical time and total time. **Details**
+Stage rows show a short workload, rating, typical time and score. **Details**
 contains sample count, cache state, maximum, P95, throughput and failure counts.
 Coverage uses one list; expand an item for its reason.
 
@@ -80,13 +81,13 @@ Frontend logic collects 5/20 samples.
 | Cache trimming / session history | Eight cache entries / one empty-session round trip; no photo decode. |
 | Frontend logic | 1,000/10,000 records per run, or eight crop/orientation iterations; no DOM rendering or photo decode. |
 
-**Good**, **Watch** and **Alarming** compare the median sample to broad,
+**Good**, **Watch** and **Alarming** compare the average score to broad,
 stage-specific product investigation budgets. These are heuristic targets, not
 measurements of a population of computers, pass/fail requirements or claims
 about camera-file throughput. Values between the two limits are **Watch**.
 Examples for these generated local fixtures:
 
-| Stage | Potentially good median | Investigate at or above |
+| Stage | Potentially good average | Investigate at or above |
 |---|---:|---:|
 | Warm preview cache hit, per request | 5 ms | 50 ms |
 | Cold fit preview, per image | 150 ms | 500 ms |
@@ -99,7 +100,7 @@ Examples for these generated local fixtures:
 
 Limits for every recognized stage appear beside its actual numbers. Fewer than
 five samples are marked tentative. A P95 beyond the investigation limit calls
-out occasional stalls even when the median is good. Failures take precedence
+out occasional stalls even when the average is good. Failures take precedence
 over speed ratings. Recordings and unknown fixture versions remain unrated
 because request counts do not establish photo counts or comparable workloads.
 Storage, thermal throttling, background load, build features and model setup can
