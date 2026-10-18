@@ -14,6 +14,11 @@
   Escape to restore the previous loupe, scene or grid workspace. Comparison
   leaves source files and existing marking defaults unchanged.
 
+### Fixed
+
+- Keep filmstrip thumbnails mounted at the scroll position during rapid wheel,
+  touchpad and scrollbar movement, including after using reference comparison.
+
 ## 0.7.0 — The Performance
 
 ### Added
