@@ -5,6 +5,7 @@ See [measurements](performance-measurements.md) and the [feature guide](../docs/
 
 ## Implemented and verified
 
+- [x] Compact results — Two timing columns, concise workload labels, one-column coverage with expandable reasons, and a rendered message preview with optional raw JSON. Discord/ntfy share a summary capped at three stages and one short suggestion. Portrait decoding and AI cache suggestions no longer get misclassified as inference.
 - [x] Benchmark interpretation — Per-stage photo/record/pair workloads and repeated-input counts, explicit throughput units, fixture-specific median investigation budgets and tentative/tail/failure explanations. Locally bundled Lospec500 function colors with distinct swatches for the known benchmark and recording catalogs. Reporting endpoints are read-only and enforced by the native boundary.
 - [x] Timing overview follow-up — Horizontal function colors, cumulative duration/share legend and expandable **etc** for functions below one second each. Separate benchmark/log ntfy topics, random readable installation ID, locally encoded webhook preferences and Discord-compatible delivery. Threshold, identity/storage, routing, preview and local mock delivery regressions cover the change.
 - [x] P0 — Typed stage measurements, aggregate reports, rankings and evidence-linked suggestions. Owner: coordinator. Privacy tests exclude unknown fields, samples and raw stage details from delivery.
@@ -34,7 +35,7 @@ See [measurements](performance-measurements.md) and the [feature guide](../docs/
 
 ## Final gates
 
-- [x] Frontend tests: 153 passed, plus 11 launcher tests. Full Rust suite: 365 passed, one existing optional-model test ignored.
+- [x] Frontend tests: 156 passed, plus 11 launcher tests. Full Rust suite: 366 passed, one existing optional-model test ignored.
 - [x] Frontend production build and native debug no-bundle build pass. No lint script exists and none was claimed.
 - [x] Linux native self-test passes with a disposable photo set and isolated XDG profile; browser flow passes at 1440×1000 and 960×600 with no page errors or outbound non-local requests.
 - [x] Report privacy/consent, disabled networking, credentials and synthetic-fixture limits reviewed. Documentation links and fixture checksum verified.

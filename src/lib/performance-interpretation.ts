@@ -26,6 +26,25 @@ const BUDGETS: Record<string, [number, number]> = {
   "frontend.review": [8, 50], "frontend.scene": [8, 50], "frontend.resume": [8, 50], "frontend.crop": [2, 16],
 };
 
+export function compactWorkload(stage: StageSummary, report: BenchmarkReport): string {
+  const interpretation = interpretStage(stage, report);
+  if (!interpretation.guidance) return `${stage.count} ${report.kind === "recording" ? "requests" : "runs"} · photo count unknown`;
+  const perRun = stage.count ? stage.units / stage.count : 0;
+  const repeats = `${stage.count} ${stage.count === 1 ? "run" : "runs"}`;
+  if (["scan-pairing", "ingest-scan"].includes(stage.id)) return `${perRun} photo entries × ${repeats}`;
+  if (stage.id === "burst-grouping") return `${perRun} photo records × ${repeats}`;
+  if (["ingest-copy", "ship-copy-conflicts"].includes(stage.id)) return `${perRun} RAW/JPEG ${perRun === 1 ? "pair" : "pairs"} × ${repeats}`;
+  if (stage.id === "cache-trim") return `${perRun} cache entries × ${repeats}`;
+  if (stage.id === "session-history") return `1 empty session × ${repeats}`;
+  if (stage.id === "frontend.crop") return `8 geometry steps × ${repeats}`;
+  if (stage.id.startsWith("frontend.")) return `${report.mode === "thorough" ? "10,000" : "1,000"} records × ${repeats}`;
+  if (stage.id.startsWith("ai-result-cache-")) return `1 result record × ${repeats}`;
+  if (stage.id.includes("sidecar")) return `1 sidecar × ${repeats}`;
+  if (stage.id === "histogram") return `1 thumbnail × ${repeats}`;
+  const size = /^(preview-|image-decode$|portrait-orientation$)/.test(stage.id) ? "24 MP" : "512 × 512";
+  return `1 reused photo · ${size} · ${repeats}`;
+}
+
 export function interpretStage(stage: StageSummary, report: BenchmarkReport): StageInterpretation {
   const result: StageInterpretation = {
     workload: `${stage.count} completed ${report.kind === "recording" ? "request timings" : "timed runs"}; photo count was not recorded.`,

@@ -30,6 +30,10 @@ fixture preparation and cleanup. Throughput uses all successfully measured work.
 P95 is shown only for 20 or more samples. Expensive model stages use fewer
 samples. Failures have counts; raw exception messages are omitted.
 
+Stage rows show a short workload, rating, typical time and total time. **Details**
+contains sample count, cache state, maximum, P95, throughput and failure counts.
+Coverage uses one list; expand an item for its reason.
+
 The horizontal timing breakdown shows each function's share of cumulative
 measured time. Functions totaling less than one second each are combined into
 **etc**; expand that group to inspect them. Colors stay tied to function IDs,
@@ -123,10 +127,10 @@ before recording stops are omitted. An empty recording stays local.
 
 Diagnostic reporting is disabled until approved. Destinations are installed and
 read-only: the app has no webhook URL, ntfy URL or bearer-token configuration
-controls. Choose **Preview and approve**. The preview shows the outgoing webhook JSON
-and ntfy message. It includes app/build and anonymous hardware context, aggregate
-results, coverage and evidence-linked recommendations; sample arrays and stage
-details are not sent. The app never uploads photos.
+controls. Choose **Preview and approve**. The preview renders the message as
+bullet points; exact webhook JSON is available under **Raw JSON**. Notifications
+include system ID, duration, failures, the three slowest stages and at most one
+short suggestion. The app never uploads photos.
 
 Benchmark summaries use the fixed `https://ntfy.sh/culltivate-perf` topic;
 sanitized work-session operation logs use `https://ntfy.sh/culltivate-logs`.
@@ -139,10 +143,10 @@ recordings for the current app session. Payload-version changes require a new
 preview. Restarting the app requires approval again.
 The most recent report remains available for local export or manual retry.
 
-Generic webhooks receive aggregate JSON. Discord execute-webhook destinations
-receive a supported compact message payload with mentions disabled. The preview
-shows the exact payload for the configured destination. The ntfy endpoint receives a compact
-summary, bounded to 3,500 UTF-8 bytes. Both use HTTP POST. Remote destinations
+Generic webhooks receive aggregate JSON, including hardware context and coverage.
+Discord and ntfy receive the same short message, bounded to 1,000 UTF-8 bytes;
+Discord mentions are disabled. The preview uses the exact outgoing message.
+Both use HTTP POST. Remote destinations
 require HTTPS; private test helpers support loopback HTTP for local tests.
 The desktop commands resolve destinations themselves and do not accept URL or
 bearer-token overrides from the frontend. Preference writes and imports cannot

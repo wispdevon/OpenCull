@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { interpretStage } from "./performance-interpretation";
+import { compactWorkload, interpretStage } from "./performance-interpretation";
 import { summarizeStage, type BenchmarkReport, type StageSummary } from "./performance";
 
 const report: BenchmarkReport = {
@@ -13,6 +13,12 @@ function stage(id: string, ms = 10, count = 24, perRun = 1): StageSummary {
 }
 
 describe("benchmark interpretation", () => {
+  it("keeps compact workloads accurate for reused photos, batches and recordings", () => {
+    expect(compactWorkload(stage("portrait-orientation"), report)).toBe("1 reused photo · 24 MP · 24 runs");
+    expect(compactWorkload(stage("scan-pairing", 10, 24, 50), report)).toBe("50 photo entries × 24 runs");
+    expect(compactWorkload(stage("ingest-copy", 10, 3, 4), report)).toBe("4 RAW/JPEG pairs × 3 runs");
+    expect(compactWorkload(stage("openFolder", 10, 3), { ...report, kind: "recording" })).toBe("3 requests · photo count unknown");
+  });
   it("counts completed photo entry visits separately from unique scenes and repeated runs", () => {
     const scan = interpretStage(stage("scan-pairing", 10, 24, 50), report);
     expect(scan.workload).toContain("50 photo entries");

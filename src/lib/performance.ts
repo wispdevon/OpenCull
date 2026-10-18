@@ -70,7 +70,8 @@ export function recommendations(report: BenchmarkReport): Recommendation[] {
       result.push({ stageId: stage.id, priority: "medium", evidence: `${evidence} Cold median ${cold.medianMs.toFixed(1)} ms.`, action: "Cache reuse is materially faster on these fixtures. Investigate missed cache hits and foreground prefetch behavior before changing cache limits." });
     }
     if (stage.medianMs >= 50) {
-      const action = /ai|face|group|motion/.test(stage.category + stage.id)
+      const isAnalysis = stage.category === "ai" || stage.category === "grouping" || stage.id === "aiScan" || stage.id === "aiCompare";
+      const action = isAnalysis
         ? "Profile model initialization, inference and provider fallback separately; compare bounded concurrency while preserving analysis results."
         : /preview|decode|histogram/.test(stage.category + stage.id)
           ? "Profile reading, decoding and resizing separately; compare cache reuse and available JPEG acceleration while checking identical orientation and dimensions."
@@ -107,10 +108,10 @@ export function ntfySummary(report: DiagnosticReport): string {
   const failures = report.stages.reduce((n, s) => n + s.failures, 0);
   const slow = [...report.stages].filter((s) => s.count).sort((a, b) => b.totalMs - a.totalMs).slice(0, 3);
   return [
-    `Culltivate ${report.kind}: ${failures ? `${failures} failures` : "completed"}`,
-    `System: ${report.systemId}`,
-    `${report.environment.os}/${report.environment.arch}, ${report.environment.logicalCores} cores; ${Math.round((report.finishedAtMs - report.startedAtMs) / 1000)} s`,
-    ...slow.map((s) => `${s.label}: median ${s.medianMs.toFixed(1)} ms, total ${s.totalMs.toFixed(1)} ms`),
-    ...report.recommendations.slice(0, 2).map((r) => r.action),
+    `Culltivate ${report.kind}${report.mode ? ` (${report.mode})` : ""}`,
+    `- System: ${report.systemId}`,
+    `- Duration: ${Math.max(0, (report.finishedAtMs - report.startedAtMs) / 1000).toFixed(1)} s · ${failures} failures`,
+    ...slow.map((s) => `- ${s.label}: ${(s.totalMs / 1000).toFixed(1)} s total · ${s.medianMs.toFixed(1)} ms/run`),
+    ...report.recommendations.slice(0, 1).map((r) => `- Suggestion: ${Array.from(r.action).slice(0, 160).join("")}${Array.from(r.action).length > 160 ? "…" : ""}`),
   ].join("\n");
 }

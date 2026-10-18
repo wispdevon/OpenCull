@@ -31,7 +31,7 @@ import {
   type ReportingConfiguration,
 } from "@/lib/performance-api";
 import { colorForStage, ETC_THRESHOLD_MS, timingBreakdown } from "@/lib/performance-breakdown";
-import { interpretStage } from "@/lib/performance-interpretation";
+import { compactWorkload, interpretStage } from "@/lib/performance-interpretation";
 
 const EMPTY_STATUS: BenchmarkStatus = {
   runId: null,
@@ -237,7 +237,6 @@ export function PerformanceSettings() {
   const activeReport = report ?? status.report;
   const ranked = activeReport ? rankedStages(activeReport, rankBy) : [];
   const totalRanked = activeReport ? rankedStages(activeReport, "total") : [];
-  const showP95 = ranked.some((stage) => stage.p95Ms !== null);
   const suggestions = activeReport ? recommendations(activeReport) : [];
   const isRunning = status.state === "running";
   const canStartBenchmark = !isRunning && !recording && !busy;
@@ -344,7 +343,6 @@ export function PerformanceSettings() {
           ranked={ranked}
           totalRanked={totalRanked}
           rankBy={rankBy}
-          showP95={showP95}
           suggestions={suggestions}
           onRankBy={setRankBy}
           onExport={exportReport}
@@ -359,27 +357,16 @@ export function PerformanceSettings() {
           <DialogHeader className="shrink-0">
             <DialogTitle>Review diagnostic reporting</DialogTitle>
             <DialogDescription>
-              This preview shows the fields sent after a benchmark completes or you stop a recording. Approval enables the fixed reporting destinations for this app session.
+              Share short benchmark and session summaries for this app session.
             </DialogDescription>
           </DialogHeader>
           <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1 text-xs">
-            <p className="rounded-md border border-border bg-muted/30 p-3 leading-relaxed">
-              Included: system ID, app/build, OS and hardware availability, aggregate stage timings and failure counts, coverage, and measured recommendations. No photos, filenames, photo paths, EXIF, raw error text, endpoints, or bearer credentials are included in the report payload. Benchmarks go to {topicName(reportingConfiguration?.ntfyUrl, DEFAULT_PERF_NTFY_URL)}; work-session recordings go to {topicName(reportingConfiguration?.logsUrl, DEFAULT_LOGS_NTFY_URL)}. A webhook receives either report only when one is already configured.
-            </p>
-            {previewDiagnostic && previewPayload && previewWebhookConfigured && (
-              <PreviewBlock title="Webhook payload preview" value={previewPayload.webhookJson} />
-            )}
-            {previewDiagnostic && previewPayload && (
-              <PreviewBlock
-                title={`ntfy message preview · ${topicName(previewReport?.kind === "recording" ? reportingConfiguration?.logsUrl : reportingConfiguration?.ntfyUrl, previewReport?.kind === "recording" ? DEFAULT_LOGS_NTFY_URL : DEFAULT_PERF_NTFY_URL)}`}
-                value={previewPayload.ntfyMessage}
-              />
-            )}
-            {previewDiagnostic && previewPayload && !previewWebhookConfigured && (
-              <p className="rounded-md border border-border bg-muted/30 p-3 leading-relaxed">
-                No webhook is configured. The previewed summary will use its fixed ntfy topic.
-              </p>
-            )}
+            <ul className="list-disc space-y-1 pl-4 text-muted-foreground">
+              <li>System ID, timings, failures and a short suggestion.</li>
+              <li>Photos and filenames stay on this device.</li>
+              <li>Benchmarks → culltivate-perf · session logs → culltivate-logs{previewWebhookConfigured ? " · webhook included" : ""}.</li>
+            </ul>
+            {previewDiagnostic && previewPayload && <ReportPreview webhookJson={previewWebhookConfigured ? previewPayload.webhookJson : null} message={previewPayload.ntfyMessage} />}
           </div>
           <DialogFooter className="shrink-0">
             <Button variant="outline" disabled={busy} onClick={() => { previewRevision.current++; setPreviewOpen(false); }}>Cancel</Button>
@@ -497,7 +484,6 @@ function ReportResults({
   ranked,
   totalRanked,
   rankBy,
-  showP95,
   suggestions,
   onRankBy,
   onExport,
@@ -506,7 +492,6 @@ function ReportResults({
   ranked: StageSummary[];
   totalRanked: StageSummary[];
   rankBy: "total" | "latency";
-  showP95: boolean;
   suggestions: Recommendation[];
   onRankBy: (by: "total" | "latency") => void;
   onExport: () => void;
@@ -536,7 +521,7 @@ function ReportResults({
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h3 className="text-xs font-semibold">Measured stages</h3>
-            <p className="mt-0.5 text-[11px] text-muted-foreground">Total cost ranks cumulative time; typical latency ranks median sample time. Expand “etc” for sample and P95 details on functions under one second. Nested workflow totals are separate from stages.</p>
+            <p className="mt-0.5 text-[11px] text-muted-foreground">Typical is the median per run. Total includes all repeats.</p>
           </div>
           <div className="flex gap-1" role="group" aria-label="Rank stages by">
             <Button size="sm" variant={rankBy === "total" ? "secondary" : "ghost"} aria-pressed={rankBy === "total"} onClick={() => onRankBy("total")}>Total cost</Button>
@@ -546,14 +531,14 @@ function ReportResults({
         <InterpretationGuide report={report} />
         {ranked.length ? (
           <div className="mt-3 overflow-x-auto">
-            <table className="w-full min-w-[720px] border-collapse text-left text-xs">
+            <table className="w-full min-w-[360px] border-collapse text-left text-xs">
               <caption className="sr-only">Measured function stages and their timing and reliability data</caption>
-              <StageTableHead showP95={showP95} />
+              <StageTableHead />
               <tbody>
-                {majorStages.map((stage) => <StageRow key={stage.id} stage={stage} report={report} detail={report.stages.find((entry) => entry.id === stage.id)?.detail ?? null} rank={ranked.indexOf(stage) + 1} showP95={showP95} />)}
+                {majorStages.map((stage) => <StageRow key={stage.id} stage={stage} report={report} detail={report.stages.find((entry) => entry.id === stage.id)?.detail ?? null} rank={ranked.indexOf(stage) + 1} />)}
                 {minorStages.length > 0 && (
                   <tr>
-                    <td colSpan={showP95 ? 9 : 8} className="py-2">
+                    <td colSpan={3} className="py-2">
                       <details className="group rounded-md border border-border/70 bg-muted/20 px-2 py-1.5">
                         <summary className="flex cursor-pointer list-none flex-wrap items-center gap-2 [&::-webkit-details-marker]:hidden">
                           <span className="font-medium">etc</span>
@@ -562,11 +547,11 @@ function ReportResults({
                           <ChevronDown aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />
                         </summary>
                         <div className="mt-2 overflow-x-auto border-t border-border/70 pt-1">
-                          <table className="w-full min-w-[720px] border-collapse text-left text-xs">
+                          <table className="w-full min-w-[360px] border-collapse text-left text-xs">
                             <caption className="sr-only">Individual stages grouped under etc, each below one second</caption>
-                            <StageTableHead showP95={showP95} />
+                            <StageTableHead />
                             <tbody>
-                              {minorStages.map((stage) => <StageRow key={stage.id} stage={stage} report={report} detail={report.stages.find((entry) => entry.id === stage.id)?.detail ?? null} rank={ranked.indexOf(stage) + 1} showP95={showP95} />)}
+                              {minorStages.map((stage) => <StageRow key={stage.id} stage={stage} report={report} detail={report.stages.find((entry) => entry.id === stage.id)?.detail ?? null} rank={ranked.indexOf(stage) + 1} />)}
                             </tbody>
                           </table>
                         </div>
@@ -588,19 +573,13 @@ function ReportResults({
   );
 }
 
-function StageTableHead({ showP95 }: { showP95: boolean }) {
+function StageTableHead() {
   return (
     <thead className="text-[11px] text-muted-foreground">
       <tr className="border-b border-border">
         <th scope="col" className="py-2 pr-3 font-medium">Stage</th>
-        <th scope="col" className="px-2 py-2 font-medium">Cache</th>
-        <th scope="col" className="px-2 py-2 text-right font-medium">Timed samples</th>
-        <th scope="col" className="px-2 py-2 text-right font-medium">Total time</th>
-        <th scope="col" className="px-2 py-2 text-right font-medium">Median / sample</th>
-        <th scope="col" className="px-2 py-2 text-right font-medium">Max / sample</th>
-        {showP95 && <th scope="col" className="px-2 py-2 text-right font-medium" title="Shown only when there are at least 20 samples">P95 / sample</th>}
-        <th scope="col" className="px-2 py-2 text-right font-medium">Throughput</th>
-        <th scope="col" className="pl-2 py-2 text-right font-medium">Failures</th>
+        <th scope="col" className="px-2 py-2 text-right font-medium" title="Median time for one run">Typical</th>
+        <th scope="col" className="pl-2 py-2 text-right font-medium">Total</th>
       </tr>
     </thead>
   );
@@ -626,7 +605,7 @@ function TimingOverview({ reportId, stages, elapsedMs }: { reportId: string; sta
         <div>
           <h3 id="performance-timing-heading" className="text-xs font-semibold">Where measured time went</h3>
           <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
-            Each color is one measured function, sized by cumulative time. Functions with a cumulative total below one second are grouped as “etc.” Stage time can overlap, so the measured sum may differ from elapsed time.
+            Share of measured time. Functions under 1 second total are grouped as “etc.”
           </p>
         </div>
         <dl className="flex gap-4 text-xs tabular-nums">
@@ -694,83 +673,53 @@ function TimingOverview({ reportId, stages, elapsedMs }: { reportId: string; sta
 
 function InterpretationGuide({ report }: { report: BenchmarkReport }) {
   const hasNativeFixture = report.kind === "benchmark" && ["2-6000x4000-texture", "3-6000x4000-texture-ai-cache"].includes(report.environment.fixtureVersion);
-  const folderWorkload = report.mode === "thorough"
-    ? "Thorough scans use 50 logical photo entries represented by 98 generated image files."
-    : "Quick scans use 14 logical photo entries represented by 26 generated image files.";
   return (
-    <aside className="mt-3 rounded-md border border-border/70 bg-muted/20 p-2.5 text-[11px] leading-relaxed" aria-labelledby="performance-interpretation-heading">
-      <h4 id="performance-interpretation-heading" className="font-semibold text-foreground">How to read these numbers</h4>
-      <ul className="mt-1 grid gap-x-4 gap-y-1 text-muted-foreground sm:grid-cols-2">
-        <li>Timed samples are measured calls; one sample may process a batch or repeat a fixture. Use each row’s workload to see whether its count means photos, files, records or API calls.</li>
-        <li>Total adds all samples. Median is typical time for one sample; P95 shows the slower tail when at least 20 samples are available.</li>
-        <li>Good and alarming limits are rough per-sample guides, not fleet percentiles. Hardware, system load, heat, storage and build type change timings.</li>
-        <li>Work-session recordings and unknown fixtures are unrated; their sample counts do not reveal unique photos.</li>
-      </ul>
-      {hasNativeFixture && (
-        <details className="group mt-2 border-t border-border/70 pt-2">
-          <summary className="flex cursor-pointer list-none items-center gap-1.5 font-medium text-foreground [&::-webkit-details-marker]:hidden">
-            Fixture workload for this run
-            <ChevronDown aria-hidden="true" className="size-3.5 text-muted-foreground transition-transform group-open:rotate-180" />
-          </summary>
-          <ul className="mt-1.5 list-disc space-y-1 pl-4 text-muted-foreground">
-            <li>{folderWorkload} Each RAW/JPEG pair is one logical entry; repeated samples reuse the same set.</li>
-            <li>Preview and decode stages reuse one textured 24 MP image. Folder-scan and copy fixtures, plus face-analysis stages, reuse copies of the same 512 × 512 astronaut image; grouping and AI cache stages use records rather than image pixels.</li>
-            <li>AI inference in this isolated benchmark runs on CPU; its timings do not measure GPU performance.</li>
-          </ul>
-        </details>
-      )}
-    </aside>
+    <details className="mt-2 text-[11px] text-muted-foreground">
+      <summary className="w-fit cursor-pointer">About these numbers</summary>
+      <p className="mt-1 leading-relaxed">Runs reuse the same inputs. Targets are rough guides for this workload; hardware and system load affect results.</p>
+      {hasNativeFixture && <p className="mt-1 leading-relaxed">Scans: {report.mode === "thorough" ? "50 photo entries / 98 files" : "14 photo entries / 26 files"}. Previews: one 24 MP texture. Face analysis: one 512 × 512 photo, CPU only.</p>}
+    </details>
   );
 }
 
-function StageRow({ stage, report, detail, rank, showP95 }: { stage: StageSummary; report: BenchmarkReport; detail: string | null; rank: number; showP95: boolean }) {
+function StageRow({ stage, report, detail, rank }: { stage: StageSummary; report: BenchmarkReport; detail: string | null; rank: number }) {
   const interpretation = interpretStage(stage, report);
   const assessmentLabels = { good: "Good", watch: "Watch", alarming: "Alarming", failed: "Failed", unrated: "Unrated" };
-  const assessmentStyles = {
-    good: "bg-secondary text-secondary-foreground",
-    watch: "bg-accent text-accent-foreground",
-    alarming: "bg-destructive/10 text-destructive",
-    failed: "bg-destructive/10 text-destructive",
-    unrated: "bg-muted text-muted-foreground",
-  };
-  const assessment = interpretation.assessment;
-  const failed = assessment === "failed";
+  const failed = interpretation.assessment === "failed";
+  const concern = failed || interpretation.assessment === "alarming";
   return (
-    <tr id={`performance-stage-${stage.id}`} className="border-b border-border/60 last:border-0">
-      <th scope="row" className="max-w-[20rem] py-2 pr-3 font-medium">
+    <tr id={`performance-stage-${stage.id}`} className="border-b border-border/60 align-top last:border-0">
+      <th scope="row" className="w-full py-3 pr-3 font-medium">
         <span className="mr-2 text-muted-foreground">{rank}.</span>
         <span className="mr-1.5 inline-block size-2.5 rounded-sm border border-foreground/15 align-middle" style={{ backgroundColor: colorForStage(stage.id) }} aria-hidden="true" />
         {stage.label}
-        <span className="mt-0.5 block font-normal text-muted-foreground">{stage.category} · {stage.status}</span>
-        <span className="mt-1 block font-normal text-muted-foreground">Workload: {interpretation.workload}</span>
-        <span className="mt-1.5 block font-normal leading-relaxed text-foreground/90">
-          <span className={`mr-1.5 inline-flex rounded px-1.5 py-0.5 text-[10px] font-medium ${assessmentStyles[assessment]}`}>{assessmentLabels[assessment]}</span>
-          {failed && interpretation.explanation}
+        <span className="mt-1 block font-normal text-muted-foreground">{compactWorkload(stage, report)}</span>
+        <span className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] font-normal">
+          <span className={`rounded px-1.5 py-0.5 font-medium ${concern ? "bg-destructive/10 text-destructive" : "bg-muted text-muted-foreground"}`}>{assessmentLabels[interpretation.assessment]}</span>
+          {interpretation.guidance && <span className="text-muted-foreground">Target ≤ {formatDuration(interpretation.guidance.goodMs)} · investigate ≥ {formatDuration(interpretation.guidance.alarmingMs)}</span>}
+          {stage.failures > 0 && <span className="text-destructive">{stage.failures} failed</span>}
         </span>
-        {interpretation.guidance && (
-          <span className="mt-1 block font-normal leading-relaxed text-muted-foreground">
-            Rough guide for the median sample: Good ≤ {formatMs(interpretation.guidance.goodMs)}; Alarming ≥ {formatMs(interpretation.guidance.alarmingMs)}. {interpretation.guidance.basis}
-          </span>
-        )}
-        <details className="group mt-1 font-normal text-muted-foreground">
+        <details className="group/stage mt-1.5 text-[11px] font-normal text-muted-foreground">
           <summary className="flex w-fit cursor-pointer list-none items-center gap-1 [&::-webkit-details-marker]:hidden">
-            <span>Measurement details</span>
-            <ChevronDown aria-hidden="true" className="size-3.5 transition-transform group-open:rotate-180" />
+            Details<ChevronDown aria-hidden="true" className="size-3 transition-transform group-open/stage:rotate-180" />
           </summary>
-          <div className="mt-1 space-y-1 pl-1 leading-relaxed">
+          <div className="mt-2 space-y-2 leading-relaxed">
+            <dl className="grid grid-cols-2 gap-x-3 gap-y-1 sm:grid-cols-3">
+              <div><dt>Samples</dt><dd>{stage.count}</dd></div>
+              <div><dt>Cache</dt><dd>{stage.cache}</dd></div>
+              <div><dt>Slowest</dt><dd>{formatDuration(stage.maxMs)}</dd></div>
+              {stage.p95Ms !== null && <div><dt>P95</dt><dd>{formatDuration(stage.p95Ms)}</dd></div>}
+              {stage.throughputPerSecond !== null && <div><dt>Throughput</dt><dd>{stage.throughputPerSecond.toFixed(1)} {interpretation.throughputUnit}/s</dd></div>}
+              <div><dt>Failures</dt><dd>{stage.failures}</dd></div>
+            </dl>
+            <p>{interpretation.workload}</p>
+            <p>{interpretation.explanation}</p>
             {detail && <p>{detail}</p>}
-            {!failed && <p>{interpretation.explanation}</p>}
           </div>
         </details>
       </th>
-      <td className="px-2 py-2 text-muted-foreground">{stage.cache}</td>
-      <td className="px-2 py-2 text-right tabular-nums">{stage.count}</td>
-      <td className="px-2 py-2 text-right tabular-nums">{formatMs(stage.totalMs)}</td>
-      <td className="px-2 py-2 text-right tabular-nums">{formatMs(stage.medianMs)}</td>
-      <td className="px-2 py-2 text-right tabular-nums">{formatMs(stage.maxMs)}</td>
-      {showP95 && <td className="px-2 py-2 text-right tabular-nums">{stage.p95Ms === null ? "—" : formatMs(stage.p95Ms)}</td>}
-      <td className="px-2 py-2 text-right tabular-nums">{stage.throughputPerSecond === null || !interpretation.throughputUnit ? "—" : `${stage.throughputPerSecond.toFixed(1)} ${interpretation.throughputUnit}/s`}</td>
-      <td className={`pl-2 py-2 text-right tabular-nums ${stage.failures ? "text-destructive" : "text-muted-foreground"}`}>{stage.failures}</td>
+      <td className="whitespace-nowrap px-2 py-3 text-right tabular-nums">{formatDuration(stage.medianMs)}</td>
+      <td className="whitespace-nowrap pl-2 py-3 text-right tabular-nums">{formatDuration(stage.totalMs)}</td>
     </tr>
   );
 }
@@ -799,32 +748,20 @@ function EnvironmentSummary({ report }: { report: BenchmarkReport }) {
 }
 
 function CoverageResults({ coverage }: { coverage: CoverageEntry[] }) {
-  const measured = coverage.filter((entry) => entry.status === "measured");
-  const skipped = coverage.filter((entry) => entry.status === "skipped");
-  const manual = coverage.filter((entry) => entry.status === "manual");
+  const labels = { measured: "Measured", skipped: "Skipped", manual: "Manual" };
   return (
-    <div className="grid gap-3 sm:grid-cols-3">
-      <CoverageGroup title="Measured" entries={measured} tone="text-foreground" />
-      <CoverageGroup title="Skipped" entries={skipped} tone="text-muted-foreground" />
-      <CoverageGroup title="Manual checks" entries={manual} tone="text-muted-foreground" />
-    </div>
-  );
-}
-
-function CoverageGroup({ title, entries, tone }: { title: string; entries: CoverageEntry[]; tone: string }) {
-  return (
-    <section className="rounded-lg border border-border p-3">
-      <h3 className="text-xs font-semibold">{title} <span className="font-normal text-muted-foreground">({entries.length})</span></h3>
-      {entries.length ? (
-        <ul className="mt-2 space-y-2 text-xs">
-          {entries.map((entry) => (
-            <li key={entry.id} className={tone}>
-              <span className="font-medium">{entry.label}</span>
-              {entry.reason && <span className="mt-0.5 block leading-relaxed text-muted-foreground">{entry.reason}</span>}
-            </li>
-          ))}
-        </ul>
-      ) : <p className="mt-2 text-xs text-muted-foreground">None reported.</p>}
+    <section className="rounded-lg border border-border p-3" aria-labelledby="performance-coverage-heading">
+      <h3 id="performance-coverage-heading" className="text-xs font-semibold">Coverage <span className="font-normal text-muted-foreground">· {coverage.filter((entry) => entry.status === "measured").length} measured · {coverage.filter((entry) => entry.status === "skipped").length} skipped · {coverage.filter((entry) => entry.status === "manual").length} manual</span></h3>
+      {coverage.length ? <ul className="mt-2 divide-y divide-border/60 text-xs">
+        {coverage.map((entry) => <li key={entry.id} className="py-1.5">
+          {entry.reason ? <details>
+            <summary className="flex cursor-pointer list-none items-baseline justify-between gap-3 [&::-webkit-details-marker]:hidden">
+              <span>{entry.label}</span><span className="flex shrink-0 items-center gap-1 text-[11px] text-muted-foreground">{labels[entry.status]}<ChevronDown aria-hidden="true" className="size-3" /></span>
+            </summary>
+            <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">{entry.reason}</p>
+          </details> : <div className="flex items-baseline justify-between gap-3"><span>{entry.label}</span><span className="shrink-0 text-[11px] text-muted-foreground">{labels[entry.status]}</span></div>}
+        </li>)}
+      </ul> : <p className="mt-2 text-xs text-muted-foreground">No coverage reported.</p>}
     </section>
   );
 }
@@ -867,11 +804,27 @@ function DeliveryStatus({ status }: { status: DeliveryResult["webhook"]["status"
   return <span className={tone}>{status}</span>;
 }
 
-function PreviewBlock({ title, value }: { title: string; value: string }) {
+function ReportPreview({ webhookJson, message }: { webhookJson: string | null; message: string }) {
+  let formattedJson = webhookJson;
+  let readableMessage = message;
+  if (webhookJson) {
+    try {
+      const payload: unknown = JSON.parse(webhookJson);
+      formattedJson = JSON.stringify(payload, null, 2);
+      if (payload && typeof payload === "object" && "content" in payload && typeof payload.content === "string") readableMessage = payload.content;
+    } catch { /* The notification text remains available if JSON is malformed. */ }
+  }
+  const [title, ...lines] = readableMessage.split("\n").filter((line) => line.trim());
   return (
-    <section>
-      <h3 className="mb-1 font-semibold">{title}</h3>
-      <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-md border border-border bg-muted/30 p-3 font-mono text-[11px] leading-relaxed">{value}</pre>
+    <section className="rounded-md border border-border bg-muted/20 p-3" aria-label="Message preview">
+      <h3 className="text-sm font-medium">{title || "Report summary"}</h3>
+      <ul className="mt-2 list-disc space-y-1.5 pl-4 text-xs text-muted-foreground">
+        {lines.map((line, index) => <li key={index}>{line.replace(/^[-•]\s*/, "")}</li>)}
+      </ul>
+      {formattedJson && <details className="mt-3 border-t border-border/70 pt-2 text-[11px] text-muted-foreground">
+        <summary className="w-fit cursor-pointer">Raw JSON</summary>
+        <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap break-words font-mono">{formattedJson}</pre>
+      </details>}
     </section>
   );
 }

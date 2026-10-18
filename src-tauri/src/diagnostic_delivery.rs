@@ -15,7 +15,8 @@ const CURRENT_FIELDS_VERSION: u32 = 2;
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
 const MAX_URL_BYTES: usize = 2_048;
 const MAX_REPORT_BYTES: usize = 128 * 1024;
-const MAX_NTFY_BYTES: usize = 3_500;
+const MAX_DIAGNOSTIC_SUMMARY_BYTES: usize = 1_000;
+const MAX_SUMMARY_RECOMMENDATION_CHARS: usize = 160;
 const MAX_TOKEN_BYTES: usize = 2_048;
 const MAX_STAGES: usize = 100;
 const MAX_COVERAGE: usize = 100;
@@ -272,7 +273,7 @@ pub(crate) fn preview_report(
     let webhook_json = String::from_utf8(webhook).map_err(|_| "invalid_report".to_owned())?;
     Ok(DiagnosticPreview {
         webhook_json,
-        ntfy_message: build_ntfy_message(&report),
+        ntfy_message: build_diagnostic_summary(&report),
     })
 }
 
@@ -564,64 +565,59 @@ fn webhook_payload_for_destination(
 
 fn discord_webhook_payload(report: &DiagnosticReport) -> serde_json::Value {
     serde_json::json!({
-        "content": build_discord_message(report),
+        "content": build_diagnostic_summary(report),
         "allowed_mentions": { "parse": [] },
     })
 }
 
-fn build_discord_message(report: &DiagnosticReport) -> String {
+fn build_diagnostic_summary(report: &DiagnosticReport) -> String {
     let duration = report.finished_at_ms.saturating_sub(report.started_at_ms);
-    let mode = report
-        .mode
-        .map(|mode| match mode {
-            BenchmarkMode::Quick => "quick",
-            BenchmarkMode::Thorough => "thorough",
-        })
-        .unwrap_or("recording");
+    let heading = match report.kind {
+        ReportKind::Benchmark => {
+            let mode = match report.mode {
+                Some(BenchmarkMode::Quick) => "quick",
+                Some(BenchmarkMode::Thorough) => "thorough",
+                None => "unknown",
+            };
+            format!("Culltivate benchmark ({mode})")
+        }
+        ReportKind::Recording => "Culltivate recording".to_owned(),
+    };
     let failures: u64 = report
         .stages
         .iter()
         .map(|stage| stage.failures as u64)
         .sum();
     let mut lines = vec![
+        heading,
+        format!("- System: {}", report.system_id),
         format!(
-            "Culltivate {} ({mode}) · system {}",
-            report.kind.as_str(),
-            report.system_id
-        ),
-        format!(
-            "Run {} · {} {} · {} cores · {} · {} failures",
-            report.id,
-            report.environment.os,
-            report.environment.arch,
-            report.environment.logical_cores,
-            format_duration(duration),
-            failures
+            "- Duration: {} · {failures} failures",
+            format_duration(duration)
         ),
     ];
 
     let mut slowest: Vec<&StageSummary> = report
         .stages
         .iter()
-        .filter(|stage| stage.status != StageStatus::Skipped)
+        .filter(|stage| stage.status != StageStatus::Skipped && stage.count > 0)
         .collect();
     slowest.sort_by(|left, right| right.total_ms.total_cmp(&left.total_ms));
-    for stage in slowest.into_iter().take(5) {
+    for stage in slowest.into_iter().take(3) {
         lines.push(format!(
-            "{}: {} total, {} median ({})",
+            "- {}: {} total · {}/run",
             stage.label,
             format_duration(stage.total_ms as u64),
-            format_duration(stage.median_ms as u64),
-            stage.status.as_str()
+            format_duration(stage.median_ms as u64)
         ));
     }
-    for recommendation in report.recommendations.iter().take(3) {
+    if let Some(recommendation) = report.recommendations.first() {
         lines.push(format!(
-            "Suggestion: {} ({})",
-            recommendation.action, recommendation.evidence
+            "- Suggestion: {}",
+            truncate_chars(&recommendation.action, MAX_SUMMARY_RECOMMENDATION_CHARS)
         ));
     }
-    truncate_chars(&lines.join("\n"), 2_000)
+    truncate_utf8(&lines.join("\n"), MAX_DIAGNOSTIC_SUMMARY_BYTES)
 }
 
 fn truncate_chars(value: &str, max_chars: usize) -> String {
@@ -686,7 +682,7 @@ async fn send_ntfy(
         Ok(token) => token,
         Err(()) => return failed("invalid_token"),
     };
-    let body = build_ntfy_message(report);
+    let body = build_diagnostic_summary(report);
     send_request(
         client,
         destination,
@@ -981,110 +977,6 @@ fn looks_like_exif_timestamp(value: &str) -> bool {
             && window[7] == b':'
             && window[8..10].iter().all(|byte| byte.is_ascii_digit())
     })
-}
-
-fn build_ntfy_message(report: &DiagnosticReport) -> String {
-    let duration = report.finished_at_ms.saturating_sub(report.started_at_ms);
-    let mode = report
-        .mode
-        .map(|mode| match mode {
-            BenchmarkMode::Quick => "quick",
-            BenchmarkMode::Thorough => "thorough",
-        })
-        .unwrap_or("recording");
-    let failures: u64 = report
-        .stages
-        .iter()
-        .map(|stage| stage.failures as u64)
-        .sum();
-    let status = if failures == 0 {
-        "completed".to_owned()
-    } else {
-        format!("{failures} failures")
-    };
-    let mut lines = vec![
-        format!(
-            "Culltivate {} ({mode}): {status} · system {}",
-            report.kind.as_str(),
-            report.system_id
-        ),
-        format!(
-            "{} {} · {} cores · {} measured stages · {} failures",
-            report.environment.os,
-            report.environment.arch,
-            report.environment.logical_cores,
-            report
-                .stages
-                .iter()
-                .filter(|stage| stage.status != StageStatus::Skipped)
-                .count(),
-            failures
-        ),
-        format!(
-            "Run time: {} · {} coverage items",
-            format_duration(duration),
-            report.coverage.len()
-        ),
-    ];
-    if let Some(cpu) = &report.environment.cpu {
-        lines.push(format!("CPU: {cpu}"));
-    }
-    if let Some(gpu) = &report.environment.gpu {
-        lines.push(format!("GPU: {gpu}"));
-    }
-    if let Some(provider) = &report.environment.ai_provider {
-        lines.push(format!("AI provider: {provider}"));
-    }
-
-    let mut slowest: Vec<&StageSummary> = report
-        .stages
-        .iter()
-        .filter(|stage| stage.status != StageStatus::Skipped)
-        .collect();
-    slowest.sort_by(|left, right| right.total_ms.total_cmp(&left.total_ms));
-    if !slowest.is_empty() {
-        lines.push("Slowest stages:".to_owned());
-        for stage in slowest.into_iter().take(5) {
-            lines.push(format!(
-                "- {}: {} total, {} median over {} samples",
-                stage.label,
-                format_duration(stage.total_ms as u64),
-                format_duration(stage.median_ms as u64),
-                stage.count
-            ));
-        }
-    }
-
-    if !report.recommendations.is_empty() {
-        lines.push("Suggestions:".to_owned());
-        for recommendation in report.recommendations.iter().take(8) {
-            lines.push(format!(
-                "- {} ({})",
-                recommendation.action, recommendation.evidence
-            ));
-        }
-    }
-
-    truncate_utf8(&lines.join("\n"), MAX_NTFY_BYTES)
-}
-
-impl ReportKind {
-    fn as_str(self) -> &'static str {
-        match self {
-            Self::Benchmark => "benchmark",
-            Self::Recording => "recording",
-        }
-    }
-}
-
-impl StageStatus {
-    fn as_str(self) -> &'static str {
-        match self {
-            Self::Passed => "passed",
-            Self::Failed => "failed",
-            Self::Skipped => "skipped",
-        }
-    }
 }
 
 fn format_duration(milliseconds: u64) -> String {
@@ -1439,6 +1331,7 @@ mod tests {
             endpoint(ntfy_address, "/topic"),
         );
         let report = test_report();
+        let preview = preview_report(report.clone(), None).unwrap();
 
         let result = tauri::async_runtime::block_on(send_diagnostics(
             &state,
@@ -1463,11 +1356,12 @@ mod tests {
         let ntfy_headers = ntfy_request.headers.to_ascii_lowercase();
         assert!(ntfy_headers.contains("authorization: bearer ntfy-secret"));
         assert!(ntfy_headers.contains("content-type: text/plain; charset=utf-8"));
-        assert!(ntfy_request.body.len() <= MAX_NTFY_BYTES);
+        assert!(ntfy_request.body.len() <= MAX_DIAGNOSTIC_SUMMARY_BYTES);
         let message = String::from_utf8(ntfy_request.body).unwrap();
+        assert_eq!(message, preview.ntfy_message);
         assert!(message.contains("Fit preview"));
-        assert!(message.contains("Reuse cached previews"));
-        assert!(message.contains("system Fern-482731"));
+        assert!(message.contains("- Suggestion: Reuse cached previews"));
+        assert!(message.contains("- System: Fern-482731"));
         assert!(!message.contains("webhook-secret"));
         assert!(!message.contains("ntfy-secret"));
     }
@@ -1490,10 +1384,74 @@ mod tests {
             serde_json::json!([])
         );
         let content = preview_value["content"].as_str().unwrap();
-        assert!(content.contains("system Fern-482731"));
+        assert!(content.contains("- System: Fern-482731"));
         assert!(content.contains("Fit preview"));
         assert!(content.chars().count() <= 2_000);
+        assert_eq!(content, preview.ntfy_message);
         assert!(!preview.webhook_json.contains("test-token"));
+    }
+
+    #[test]
+    fn shared_summary_shows_only_three_stages_one_tip_and_no_hardware_details() {
+        let mut report = test_report();
+        report.environment.gpu = Some("Private GPU model".to_owned());
+        let mut stages = Vec::new();
+        for (id, label, total_ms, median_ms, max_ms) in [
+            ("stage-one", "Slow one", 100.0, 30.0, 50.0),
+            ("stage-two", "Slow two", 90.0, 25.0, 45.0),
+            ("stage-three", "Slow three", 80.0, 20.0, 40.0),
+            ("stage-four", "Hidden fourth", 70.0, 15.0, 35.0),
+        ] {
+            let mut stage = report.stages[0].clone();
+            stage.id = id.to_owned();
+            stage.label = label.to_owned();
+            stage.count = 3;
+            stage.total_ms = total_ms;
+            stage.median_ms = median_ms;
+            stage.max_ms = max_ms;
+            stages.push(stage);
+        }
+        report.stages = stages;
+        report.recommendations = vec![
+            Recommendation {
+                stage_id: "stage-one".to_owned(),
+                priority: Priority::High,
+                evidence: "Verbose evidence should stay private from this summary".to_owned(),
+                action: "Investigate slow preview reuse".to_owned(),
+            },
+            Recommendation {
+                stage_id: "stage-two".to_owned(),
+                priority: Priority::Low,
+                evidence: "Second recommendation evidence".to_owned(),
+                action: "Second recommendation should be omitted".to_owned(),
+            },
+        ];
+
+        let message = build_diagnostic_summary(&report);
+        let lines: Vec<&str> = message.lines().collect();
+        assert_eq!(lines[0], "Culltivate benchmark (quick)");
+        assert_eq!(lines[1], "- System: Fern-482731");
+        assert_eq!(lines[2], "- Duration: 1.5 s · 0 failures");
+        assert_eq!(lines[3], "- Slow one: 100 ms total · 30 ms/run");
+        assert_eq!(lines[4], "- Slow two: 90 ms total · 25 ms/run");
+        assert_eq!(lines[5], "- Slow three: 80 ms total · 20 ms/run");
+        assert_eq!(lines[6], "- Suggestion: Investigate slow preview reuse");
+        assert_eq!(lines.len(), 7);
+        for omitted in [
+            "Hidden fourth",
+            "Private GPU model",
+            "Intel(R) Core",
+            "ONNX CPU",
+            "Verbose evidence",
+            "Second recommendation",
+            "coverage",
+        ] {
+            assert!(
+                !message.contains(omitted),
+                "unexpected summary field: {omitted}"
+            );
+        }
+        assert!(message.len() <= 1_000);
     }
 
     #[test]
@@ -1557,7 +1515,7 @@ mod tests {
             .starts_with("POST /culltivate-logs HTTP/1.1"));
         assert!(String::from_utf8(performance_request.body)
             .unwrap()
-            .contains("system Fern-482731"));
+            .contains("- System: Fern-482731"));
         assert!(String::from_utf8(logs_request.body)
             .unwrap()
             .contains("Culltivate recording"));
@@ -1678,8 +1636,8 @@ mod tests {
             preview.webhook_json,
             String::from_utf8(serde_json::to_vec(&report).unwrap()).unwrap()
         );
-        assert!(preview.ntfy_message.contains("Suggestions:"));
-        assert!(preview.ntfy_message.len() <= MAX_NTFY_BYTES);
+        assert!(preview.ntfy_message.contains("- Suggestion:"));
+        assert!(preview.ntfy_message.len() <= MAX_DIAGNOSTIC_SUMMARY_BYTES);
     }
 
     #[test]
@@ -1700,7 +1658,7 @@ mod tests {
     }
 
     #[test]
-    fn ntfy_message_is_safely_truncated_to_3500_utf8_bytes() {
+    fn shared_summary_caps_one_suggestion_and_stays_within_1000_utf8_bytes() {
         let mut report = test_report();
         report.recommendations = (0..MAX_RECOMMENDATIONS)
             .map(|index| Recommendation {
@@ -1710,8 +1668,9 @@ mod tests {
                 action: "é".repeat(200),
             })
             .collect();
-        let message = build_ntfy_message(&report);
-        assert!(message.len() <= MAX_NTFY_BYTES);
+        let message = build_diagnostic_summary(&report);
+        assert!(message.len() <= MAX_DIAGNOSTIC_SUMMARY_BYTES);
         assert!(message.ends_with('…'));
+        assert_eq!(message.matches("- Suggestion:").count(), 1);
     }
 }

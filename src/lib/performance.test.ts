@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { diagnosticReport, rankedStages, recommendations, summarizeStage, type BenchmarkReport, type StageMeasurement } from "./performance";
+import { diagnosticReport, ntfySummary, rankedStages, recommendations, summarizeStage, type BenchmarkReport, type StageMeasurement } from "./performance";
 
 const stage = (values: number[], extra: Partial<StageMeasurement> = {}): StageMeasurement => ({
   id: "preview.fit.cold", label: "Fit preview", category: "preview", cache: "cold", samplesMs: values,
@@ -12,6 +12,17 @@ export const exampleReport = (stages: StageMeasurement[] = []): BenchmarkReport 
 });
 
 describe("performance reports", () => {
+  it("keeps notification previews to three stages and one short suggestion", () => {
+    const report = diagnosticReport(exampleReport(Array.from({ length: 5 }, (_, i) => stage([100 + i], { id: `test-${i}`, label: `Stage ${i}` }))));
+    report.environment.cpu = "CPU should stay out of the short message";
+    report.recommendations = Array.from({ length: 3 }, () => ({ stageId: "test-0", priority: "high" as const, action: "a".repeat(300), evidence: "Verbose evidence should stay out" }));
+    const summary = ntfySummary(report);
+    expect(summary.match(/^- Stage /gm)).toHaveLength(3);
+    expect(summary.match(/^- Suggestion:/gm)).toHaveLength(1);
+    expect(summary).toContain(report.systemId);
+    expect(summary).not.toMatch(/Verbose evidence|CPU should/);
+    expect(summary.length).toBeLessThan(1_000);
+  });
   it("uses finite samples, an even median, and hides unreliable p95", () => {
     const summary = summarizeStage(stage([8, 2, NaN, Infinity, -2]));
     expect(summary).toMatchObject({ count: 2, totalMs: 10, medianMs: 5, maxMs: 8, p95Ms: null });
@@ -41,5 +52,12 @@ describe("performance reports", () => {
     const suggestions = recommendations(exampleReport([stage([100]), stage([1], { id: "preview.fit.warm", cache: "warm" })]));
     expect(suggestions.some((s) => /Cache reuse/.test(s.action))).toBe(true);
     expect(suggestions.every((s) => s.evidence.length > 0)).toBe(true);
+  });
+  it("keeps portrait decoding suggestions separate from AI inference", () => {
+    const portrait = recommendations(exampleReport([stage([160], { id: "portrait-orientation", category: "decode" })]));
+    expect(portrait[0].action).toContain("decoding");
+    expect(portrait[0].action).not.toContain("model");
+    expect(recommendations(exampleReport([stage([160], { id: "face-analysis-warm", category: "ai" })]))[0].action).toContain("model");
+    expect(recommendations(exampleReport([stage([160], { id: "ai-result-cache-load", category: "ai-cache" })]))[0].action).not.toContain("model");
   });
 });
