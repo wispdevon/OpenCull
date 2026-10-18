@@ -233,7 +233,8 @@ fn runner() -> &'static Mutex<RunnerState> {
 }
 
 /// Returns anonymous hardware and build details for local reporting previews.
-#[tauri::command]
+// Hardware discovery can wait for bounded OS commands; keep it off the UI thread.
+#[tauri::command(async)]
 pub fn benchmark_environment() -> Environment {
     let cores = std::thread::available_parallelism()
         .map(|n| n.get())
