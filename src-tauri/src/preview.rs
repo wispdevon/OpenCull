@@ -402,6 +402,9 @@ fn orient(p: Pixels, orientation: u8) -> Pixels {
     if !(2..=8).contains(&orientation) {
         return p;
     }
+    if orientation == 6 {
+        return orient_clockwise(p);
+    }
     let (w, h) = (p.width as usize, p.height as usize);
     let swaps = orientation >= 5;
     let (ow, oh) = if swaps { (h, w) } else { (w, h) };
@@ -430,6 +433,31 @@ fn orient(p: Pixels, orientation: u8) -> Pixels {
                     };
                     let s = (sy * w + sx) * 3;
                     row[ox * 3..ox * 3 + 3].copy_from_slice(&p.data[s..s + 3]);
+                }
+            }
+        }
+    }
+    Pixels { data: out, width: ow as u32, height: oh as u32, icc: p.icc }
+}
+
+/// Turns orientation 6's transposed frame while reading each source tile in
+/// contiguous runs. The general path above writes output rows contiguously;
+/// for this quarter turn that makes source reads jump between rows. Reversing
+/// the two inner tile loops keeps both 64×64 tiles cache-local.
+fn orient_clockwise(p: Pixels) -> Pixels {
+    let (w, h) = (p.width as usize, p.height as usize);
+    let (ow, oh) = (h, w);
+    let mut out = vec![0u8; p.data.len()];
+
+    const TILE: usize = 64;
+    for by in (0..oh).step_by(TILE) {
+        for bx in (0..ow).step_by(TILE) {
+            for ox in bx..(bx + TILE).min(ow) {
+                let sy = h - 1 - ox;
+                for oy in by..(by + TILE).min(oh) {
+                    let s = (sy * w + oy) * 3;
+                    let d = (oy * ow + ox) * 3;
+                    out[d..d + 3].copy_from_slice(&p.data[s..s + 3]);
                 }
             }
         }
@@ -543,6 +571,72 @@ mod tests {
         assert_eq!(layout(&orient(numbered(), 7)), vec![vec![5, 2], vec![4, 1], vec![3, 0]]);
         // 8: a quarter turn anticlockwise.
         assert_eq!(layout(&orient(numbered(), 8)), vec![vec![2, 5], vec![1, 4], vec![0, 3]]);
+    }
+
+    #[test]
+    fn all_exif_orientations_preserve_rgb_pixels_on_odd_dimensions() {
+        let expected = [
+            (1, 5, 3, vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]),
+            (2, 5, 3, vec![4, 3, 2, 1, 0, 9, 8, 7, 6, 5, 14, 13, 12, 11, 10]),
+            (3, 5, 3, vec![14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0]),
+            (4, 5, 3, vec![10, 11, 12, 13, 14, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4]),
+            (5, 3, 5, vec![0, 5, 10, 1, 6, 11, 2, 7, 12, 3, 8, 13, 4, 9, 14]),
+            (6, 3, 5, vec![10, 5, 0, 11, 6, 1, 12, 7, 2, 13, 8, 3, 14, 9, 4]),
+            (7, 3, 5, vec![14, 9, 4, 13, 8, 3, 12, 7, 2, 11, 6, 1, 10, 5, 0]),
+            (8, 3, 5, vec![4, 9, 14, 3, 8, 13, 2, 7, 12, 1, 6, 11, 0, 5, 10]),
+        ];
+
+        for (orientation, width, height, pixel_order) in expected {
+            let input = Pixels {
+                data: (0u8..15).flat_map(|pixel| [pixel * 3, pixel * 3 + 1, pixel * 3 + 2]).collect(),
+                width: 5,
+                height: 3,
+                icc: Some(b"test-profile".to_vec()),
+            };
+            let output = orient(input, orientation);
+            let expected_rgb: Vec<_> = pixel_order
+                .into_iter()
+                .flat_map(|pixel| [pixel * 3, pixel * 3 + 1, pixel * 3 + 2])
+                .collect();
+
+            assert_eq!((output.width, output.height), (width, height), "orientation {orientation}");
+            assert_eq!(output.data, expected_rgb, "orientation {orientation}");
+            assert_eq!(output.icc.as_deref(), Some(&b"test-profile"[..]), "orientation {orientation}");
+        }
+    }
+
+    #[test]
+    fn clockwise_orientation_preserves_rgb_pixels_across_partial_tiles() {
+        for (width, height) in [(65usize, 67usize), (67, 131)] {
+            let source: Vec<u8> = (0..width * height)
+                .flat_map(|pixel| {
+                    [
+                        pixel as u8,
+                        (pixel >> 8) as u8,
+                        pixel.wrapping_mul(37) as u8,
+                    ]
+                })
+                .collect();
+            let mut expected = vec![0; source.len()];
+            for out_y in 0..width {
+                for out_x in 0..height {
+                    let source_x = out_y;
+                    let source_y = height - 1 - out_x;
+                    let source_start = (source_y * width + source_x) * 3;
+                    let output_start = (out_y * height + out_x) * 3;
+                    expected[output_start..output_start + 3]
+                        .copy_from_slice(&source[source_start..source_start + 3]);
+                }
+            }
+
+            let output = orient(
+                Pixels { data: source, width: width as u32, height: height as u32, icc: None },
+                6,
+            );
+
+            assert_eq!((output.width, output.height), (height as u32, width as u32));
+            assert_eq!(output.data, expected, "source dimensions {width}×{height}");
+        }
     }
 
     /// A JPEG file of the given size, such as a camera set to JPEG writes:
